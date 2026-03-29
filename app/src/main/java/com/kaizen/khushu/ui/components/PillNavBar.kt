@@ -1,0 +1,183 @@
+package com.kaizen.khushu.ui.components
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import com.kaizen.khushu.ui.navigation.AppDestinations
+import kotlin.math.roundToInt
+
+private val PillShape = RoundedCornerShape(50)
+
+@Composable
+fun PillNavBar(
+    currentDestination: AppDestinations,
+    onDestinationSelected: (AppDestinations) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tabPositions = remember { mutableStateMapOf<AppDestinations, Float>() }
+    var rowCoords: LayoutCoordinates? by remember { mutableStateOf(null) }
+
+    val indicatorTargetX by animateFloatAsState(
+        targetValue = tabPositions[currentDestination] ?: 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow,
+        ),
+        label = "indicatorX",
+    )
+
+    Box(
+        modifier = modifier
+            .clip(PillShape)
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f),
+            )
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.12f),
+                shape = PillShape,
+            )
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+    ) {
+        // Tab row — wraps content, no fill
+        Row(
+            modifier = Modifier.onGloballyPositioned { rowCoords = it },
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppDestinations.entries.forEach { destination ->
+                PillNavItem(
+                    destination = destination,
+                    isSelected = destination == currentDestination,
+                    onClick = { onDestinationSelected(destination) },
+                    onPositioned = { coords ->
+                        val row = rowCoords ?: return@PillNavItem
+                        val centerX = row.localPositionOf(
+                            sourceCoordinates = coords,
+                            relativeToSource = Offset(x = coords.size.width / 2f, y = 0f),
+                        ).x
+                        tabPositions[destination] = centerX
+                    },
+                )
+            }
+        }
+
+        // Sliding indicator — anchored bottom-start so offset is from left edge
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .offset {
+                    IntOffset(
+                        x = (indicatorTargetX - 12.5.dp.toPx()).roundToInt(),
+                        y = 0,
+                    )
+                }
+                .padding(bottom = 4.dp)
+                .width(25.dp)
+                .height(3.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+        )
+    }
+}
+
+@Composable
+private fun PillNavItem(
+    destination: AppDestinations,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onPositioned: (LayoutCoordinates) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val horizontalPadding by animateDpAsState(
+        targetValue = if (isSelected) 20.dp else 14.dp,
+        label = "navItemPadding",
+    )
+
+    Box(
+        modifier = modifier
+            .onGloballyPositioned(onPositioned)
+            .clip(PillShape)
+            .background(
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                else Color.Transparent,
+            )
+            .clickable(
+                onClick = onClick,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+            )
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        AnimatedContent(
+            targetState = isSelected,
+            transitionSpec = {
+                if (targetState) {
+                    (slideInVertically { it } + fadeIn()) togetherWith
+                            (slideOutVertically { -it } + fadeOut())
+                } else {
+                    (slideInVertically { -it } + fadeIn()) togetherWith
+                            (slideOutVertically { it } + fadeOut())
+                }
+            },
+            label = "navItemContent",
+        ) { selected ->
+            if (selected) {
+                Text(
+                    text = destination.label,
+                    style = MaterialTheme.typography.labelLarge, // 14sp, Medium
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                Icon(
+                    painter = painterResource(id = destination.icon),
+                    contentDescription = destination.label,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
+            }
+        }
+    }
+}
