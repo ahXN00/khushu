@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -39,9 +40,9 @@ fun KhushuAppBar(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Title + centered pill underline
+        // Title + centered pill underline — column wraps to title width
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.wrapContentWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -53,13 +54,13 @@ fun KhushuAppBar(
             Box(
                 modifier = Modifier
                     .width(30.dp)
-                    .height(3.dp)
+                    .height(4.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.5f)),
             )
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.weight(1f))
 
         // Settings button — rounded square
         Box(
