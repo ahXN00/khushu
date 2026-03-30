@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.ui.components.KhushuAppBar
 import com.kaizen.khushu.ui.components.PillNavBar
 import com.kaizen.khushu.ui.navigation.AppDestinations
+import com.kaizen.khushu.ui.screens.salah.SalahImmersiveScreen
+import com.kaizen.khushu.ui.screens.salah.SalahPickerScreen
+import com.kaizen.khushu.ui.screens.salah.SalahPreset
 import com.kaizen.khushu.ui.theme.KhushuTheme
 
 class MainActivity : ComponentActivity() {
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun KhushuApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.SALAH) }
+    var immersiveRakats by rememberSaveable { mutableStateOf<Int?>(null) }
 
     Box(
         modifier = Modifier
@@ -49,7 +52,9 @@ private fun KhushuApp() {
         // Screen content — full size, behind app bar and nav bar
         Box(modifier = Modifier.fillMaxSize()) {
             when (currentDestination) {
-                AppDestinations.SALAH -> SalahScreen()
+                AppDestinations.SALAH -> SalahPickerScreen(
+                    onStartPrayer = { immersiveRakats = it },
+                )
                 AppDestinations.TASBEEH -> TasbeehScreen()
                 AppDestinations.LEARN -> LearnScreen()
             }
@@ -73,15 +78,20 @@ private fun KhushuApp() {
                 .navigationBarsPadding()
                 .padding(bottom = 30.dp),
         )
+
+        // Immersive counter — full-screen overlay, covers app bar + nav bar
+        immersiveRakats?.let { rakats ->
+            SalahImmersiveScreen(
+                targetRakats = rakats,
+                preset = SalahPreset.Minimal,
+                onComplete = { immersiveRakats = null },
+                onExit = { immersiveRakats = null },
+            )
+        }
     }
 }
 
 // --- Placeholder screens ---
-
-@Composable
-private fun SalahScreen() {
-    Box(modifier = Modifier.fillMaxSize())
-}
 
 @Composable
 private fun TasbeehScreen() {
