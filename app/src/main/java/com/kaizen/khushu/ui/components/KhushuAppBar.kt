@@ -78,7 +78,7 @@ fun KhushuAppBar(
             Icon(
                 painter = painterResource(id = R.drawable.ic_menu),
                 contentDescription = "Settings",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(20.dp),
             )
         }

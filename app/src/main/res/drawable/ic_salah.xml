@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Crescent moon — placeholder, replace with custom icon -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M11.1,12.08C8.77,7.57 10.6,3.6 11.63,2C6.27,2.2 2,6.54 2,12c0,5.52 4.48,10 10,10 4.75,0 8.73,-3.32 9.8,-7.77C17.01,15.3 13.34,14.2 11.1,12.08z" />
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M4 21V10C4 5.58172 7.58172 2 12 2C16.4183 2 20 5.58172 20 10V21"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M12 21V13C12 11.3431 10.6569 10 9 10C7.34315 10 6 11.3431 6 13V21"/>
 </vector>

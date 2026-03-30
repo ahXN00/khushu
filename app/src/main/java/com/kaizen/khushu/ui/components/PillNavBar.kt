@@ -177,7 +177,7 @@ private fun PillNavItem(
                 Text(
                     text = destination.label,
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = Color.White,
                 )
             } else {
                 Icon(
