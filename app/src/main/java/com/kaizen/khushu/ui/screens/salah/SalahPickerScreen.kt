@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SalahPickerScreen(
     onStartPrayer: (rakats: Int) -> Unit,
+    navBarClearance: Dp = 88.dp,
     modifier: Modifier = Modifier,
 ) {
     var selectedRakat by rememberSaveable { mutableIntStateOf(2) }
@@ -38,7 +40,7 @@ fun SalahPickerScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(bottom = 88.dp) // clear the floating nav bar pill (56dp) + 30dp spacing + 2dp buffer
+            .padding(bottom = navBarClearance)
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },

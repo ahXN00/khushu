@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.kaizen.khushu.ui.theme.Antonio
 import kotlinx.coroutines.delay
 
 private val SWIPE_THRESHOLD = 80.dp
@@ -171,6 +172,7 @@ private fun MinimalPresetLayout(
                         text = count.toString(),
                         style = MaterialTheme.typography.displayMedium,
                         color = Color.White.copy(alpha = 0.75f),
+                        fontFamily = Antonio, // Explicitly set Antonio font
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
@@ -193,6 +195,7 @@ private fun MinimalPresetLayout(
                         text = displayCount.toString(),
                         style = MaterialTheme.typography.displayMedium,
                         color = Color.White.copy(alpha = 0.75f),
+                        fontFamily = Antonio, // Explicitly set Antonio font
                     )
                 }
             }

@@ -44,6 +44,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.ui.navigation.AppDestinations
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeChild
 import kotlin.math.roundToInt
 
 private val PillShape = RoundedCornerShape(50)
@@ -52,6 +55,7 @@ private val PillShape = RoundedCornerShape(50)
 fun PillNavBar(
     currentDestination: AppDestinations,
     onDestinationSelected: (AppDestinations) -> Unit,
+    hazeState: HazeState,
     modifier: Modifier = Modifier,
 ) {
     val tabPositions = remember { mutableStateMapOf<AppDestinations, Float>() }
@@ -69,8 +73,13 @@ fun PillNavBar(
     Box(
         modifier = modifier
             .clip(PillShape)
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f),
+            .hazeChild(
+                state = hazeState,
+                shape = PillShape,
+                style = HazeStyle(
+                    blurRadius = 20.dp,
+                    tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
+                ),
             )
             .border(
                 width = 1.dp,
@@ -116,7 +125,7 @@ fun PillNavBar(
                 .width(25.dp)
                 .height(3.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
+                .background(MaterialTheme.colorScheme.secondary),
         )
     }
 }
@@ -140,7 +149,7 @@ private fun PillNavItem(
             .clip(PillShape)
             .background(
                 color = if (isSelected)
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
                 else Color.Transparent,
             )
             .clickable(
@@ -167,15 +176,15 @@ private fun PillNavItem(
             if (selected) {
                 Text(
                     text = destination.label,
-                    style = MaterialTheme.typography.labelLarge, // 14sp, Medium
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primaryContainer,
                 )
             } else {
                 Icon(
                     painter = painterResource(id = destination.icon),
                     contentDescription = destination.label,
                     modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    tint = Color.White.copy(alpha = 0.5f),
                 )
             }
         }

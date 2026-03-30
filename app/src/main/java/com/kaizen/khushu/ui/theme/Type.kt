@@ -31,21 +31,24 @@ val Antonio = FontFamily(
     Font(resId = R.font.antonio_regular, weight = FontWeight.Normal),
 )
 
+// Fallback font in case Antonio doesn't load properly
+val DisplayFontFallback = FontFamily.Default
+
 val Typography = Typography(
     // Large display numbers — Salah picker, immersive counter
     displayLarge = TextStyle(
         fontFamily = Antonio,
         fontWeight = FontWeight.Normal,
-        fontSize = 96.sp,
-        lineHeight = 96.sp,
-        letterSpacing = (-1.5).sp,
+        fontSize = 220.sp, // Restored to original Figma value
+        lineHeight = 220.sp, // Restored to match font size
+        letterSpacing = (-0.5).sp, // Slight negative spacing for tight look
     ),
     displayMedium = TextStyle(
         fontFamily = Antonio,
         fontWeight = FontWeight.Normal,
-        fontSize = 60.sp,
-        lineHeight = 60.sp,
-        letterSpacing = (-0.5).sp,
+        fontSize = 100.sp, // Restored to original Figma value
+        lineHeight = 100.sp, // Restored to match font size
+        letterSpacing = 0.sp, // No letter spacing
     ),
     displaySmall = TextStyle(
         fontFamily = Antonio,
