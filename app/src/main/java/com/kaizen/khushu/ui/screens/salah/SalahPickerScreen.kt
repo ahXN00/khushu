@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +36,9 @@ fun SalahPickerScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(bottom = 88.dp) // clear the floating nav bar pill (56dp) + 30dp spacing + 2dp buffer
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
@@ -49,7 +55,7 @@ fun SalahPickerScreen(
                 onRakatSelected = { selectedRakat = it },
             )
 
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
                 text = "Tap on the screen to Start",
