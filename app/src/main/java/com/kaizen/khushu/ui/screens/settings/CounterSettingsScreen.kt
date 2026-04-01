@@ -52,7 +52,7 @@ fun CounterSettingsScreen(
         ) {
             Spacer(Modifier.height(16.dp))
             SectionHeader("Sensory")
-            ToggleItem(
+            SettingsToggle(
                 title = "Haptic Feedback",
                 subtitle = "Vibrate on count increment",
                 checked = settings.hapticsEnabled,
@@ -61,7 +61,7 @@ fun CounterSettingsScreen(
             
             Spacer(Modifier.height(16.dp))
             SectionHeader("Hardware")
-            ToggleItem(
+            SettingsToggle(
                 title = "Volume Key Counting",
                 subtitle = "Use volume buttons to count",
                 checked = settings.volumeCounting,

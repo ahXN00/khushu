@@ -52,7 +52,7 @@ fun GeneralSettingsScreen(
         ) {
             Spacer(Modifier.height(16.dp))
             SectionHeader("Screen")
-            ToggleItem(
+            SettingsToggle(
                 title = "Keep Screen Awake",
                 subtitle = "Prevents device sleep during sessions",
                 checked = settings.keepScreenAwake,

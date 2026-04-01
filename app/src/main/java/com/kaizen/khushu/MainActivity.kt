@@ -2,64 +2,37 @@ package com.kaizen.khushu
 
 import android.app.Activity
 import android.os.Bundle
+import android.view.KeyEvent
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-//import androidx.compose.animation.slideIntoContainer
-//import androidx.compose.animation.slideOutOfContainer
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavBackStackEntry
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.compose.*
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import com.kaizen.khushu.data.SettingsRepository
 import com.kaizen.khushu.data.TasbeehDatabase
 import com.kaizen.khushu.ui.components.KhushuAppBar
 import com.kaizen.khushu.ui.components.PillNavBar
@@ -74,12 +47,7 @@ import com.kaizen.khushu.ui.screens.tasbeeh.CreateCollectionSheet
 import com.kaizen.khushu.ui.screens.tasbeeh.TasbeehScreen
 import com.kaizen.khushu.ui.screens.tasbeeh.TasbeehViewModel
 import com.kaizen.khushu.ui.theme.KhushuTheme
-import androidx.compose.ui.platform.LocalContext
-import com.kaizen.khushu.data.SettingsRepository
-import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
-import android.view.KeyEvent
-import android.view.WindowManager
-import androidx.compose.runtime.collectAsState
+import com.kaizen.khushu.ui.theme.ThemeTransitionProvider
 
 class MainActivity : ComponentActivity() {
     private lateinit var settingsRepository: SettingsRepository
@@ -98,6 +66,23 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settings by settingsViewModel.settings.collectAsState()
+            val darkTheme = when (settings.themeMode) {
+                "Light" -> false
+                "Dark" -> true
+                else -> isSystemInDarkTheme()
+            }
+
+            // Handle Status Bar / Insets logic globally here or compute it for KhushuApp
+            val view = LocalView.current
+            if (!view.isInEditMode) {
+                val window = (view.context as Activity).window
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                
+                DisposableEffect(darkTheme) {
+                    insetsController.isAppearanceLightStatusBars = !darkTheme
+                    onDispose {}
+                }
+            }
 
             // Handle Keep Screen Awake
             DisposableEffect(settings.keepScreenAwake) {
@@ -109,14 +94,18 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
 
-            KhushuTheme(
-                dynamicColor = settings.dynamicColor,
-                pureBlack = settings.pureBlack
-            ) {
-                KhushuApp(
-                    settingsViewModel = settingsViewModel,
-                    tasbeehViewModel = tasbeehViewModel
-                )
+            ThemeTransitionProvider {
+                KhushuTheme(
+                    darkTheme = darkTheme,
+                    dynamicColor = settings.dynamicColor,
+                    pureBlack = settings.pureBlack
+                ) {
+                    KhushuApp(
+                        settingsViewModel = settingsViewModel,
+                        tasbeehViewModel = tasbeehViewModel,
+                        darkTheme = darkTheme
+                    )
+                }
             }
         }
     }
@@ -134,24 +123,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun KhushuApp(
     settingsViewModel: SettingsViewModel,
-    tasbeehViewModel: TasbeehViewModel
+    tasbeehViewModel: TasbeehViewModel,
+    darkTheme: Boolean
 ) {
     var immersiveRakats by rememberSaveable { mutableStateOf<Int?>(null) }
     var showCreateSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
     val navController = rememberNavController()
 
-    val darkTheme = isSystemInDarkTheme()
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        val window = (view.context as Activity).window
-        val insetsController = WindowCompat.getInsetsController(window, view)
-        
-        DisposableEffect(darkTheme) {
-            insetsController.isAppearanceLightStatusBars = !darkTheme
-            onDispose {}
-        }
-    }
 
     // ViewModel removed from here as it's passed in from MainActivity
 
@@ -352,6 +331,7 @@ private fun KhushuApp(
                         },
                     ) {
                         SalahCustomizeScreen(
+                            viewModel = settingsViewModel,
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -366,6 +346,7 @@ private fun KhushuApp(
                         },
                     ) {
                         TasbeehCustomizeScreen(
+                            viewModel = settingsViewModel,
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -460,8 +441,12 @@ private fun KhushuApp(
 }
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabEnter(): EnterTransition {
-    val i = AppDestinations.entries.indexOfFirst { it.route == initialState.destination.route }
-    val t = AppDestinations.entries.indexOfFirst { it.route == targetState.destination.route }
+    val initialRoute = initialState.destination.route ?: ""
+    val targetRoute = targetState.destination.route ?: ""
+    
+    val i = AppDestinations.entries.indexOfFirst { it.route == initialRoute }
+    val t = AppDestinations.entries.indexOfFirst { it.route == targetRoute }
+    
     return when {
         i < 0 || t < 0 -> fadeIn(tween(210, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(300))
         t > i -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
@@ -470,8 +455,12 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabEnter(): EnterT
 }
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabExit(): ExitTransition {
-    val i = AppDestinations.entries.indexOfFirst { it.route == initialState.destination.route }
-    val t = AppDestinations.entries.indexOfFirst { it.route == targetState.destination.route }
+    val initialRoute = initialState.destination.route ?: ""
+    val targetRoute = targetState.destination.route ?: ""
+    
+    val i = AppDestinations.entries.indexOfFirst { it.route == initialRoute }
+    val t = AppDestinations.entries.indexOfFirst { it.route == targetRoute }
+    
     return when {
         i < 0 || t < 0 -> fadeOut(tween(90)) + scaleOut(targetScale = 0.92f, animationSpec = tween(300))
         t > i -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))

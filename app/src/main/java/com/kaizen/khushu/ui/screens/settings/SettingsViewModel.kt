@@ -21,7 +21,11 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
             pureBlack = false,
             keepScreenAwake = true,
             volumeCounting = false,
-            themeMode = "System"
+            themeMode = "System",
+            showStepTimer = true,
+            fluidTransitions = true,
+            vibrationOnCount = true,
+            showLapCounter = true
         )
     )
 
@@ -47,6 +51,22 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
 
     fun setThemeMode(mode: String) {
         viewModelScope.launch { repository.updateThemeMode(mode) }
+    }
+
+    fun toggleShowStepTimer(show: Boolean) {
+        viewModelScope.launch { repository.updateShowStepTimer(show) }
+    }
+
+    fun toggleFluidTransitions(enabled: Boolean) {
+        viewModelScope.launch { repository.updateFluidTransitions(enabled) }
+    }
+
+    fun toggleVibrationOnCount(enabled: Boolean) {
+        viewModelScope.launch { repository.updateVibrationOnCount(enabled) }
+    }
+
+    fun toggleShowLapCounter(show: Boolean) {
+        viewModelScope.launch { repository.updateShowLapCounter(show) }
     }
 
     companion object {

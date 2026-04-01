@@ -34,7 +34,7 @@ fun SectionHeader(title: String) {
 }
 
 @Composable
-fun ToggleItem(
+fun SettingsToggle(
     title: String,
     subtitle: String,
     checked: Boolean,

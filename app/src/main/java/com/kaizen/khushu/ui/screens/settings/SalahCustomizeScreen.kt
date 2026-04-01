@@ -7,6 +7,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -15,8 +17,10 @@ import com.kaizen.khushu.ui.theme.BeVietnamPro
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SalahCustomizeScreen(
+    viewModel: SettingsViewModel,
     onBack: () -> Unit
 ) {
+    val settings by viewModel.settings.collectAsState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -49,13 +53,28 @@ fun SalahCustomizeScreen(
             Spacer(Modifier.height(16.dp))
             SectionHeader("Interface")
             Text(
-                "Customize transitions, timer visibility, and immersive layout options for the Salah tracker.",
+                "Customize transitions and timer visibility for the Salah tracker to match your preferred focus level.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
+
+            Spacer(Modifier.height(24.dp))
+
+            SettingsToggle(
+                title = "Show Step Timer",
+                subtitle = "Display the elapsed time for each prayer step.",
+                checked = settings.showStepTimer,
+                onCheckedChange = { viewModel.toggleShowStepTimer(it) }
+            )
+
+            SettingsToggle(
+                title = "Fluid Transitions",
+                subtitle = "Enable premium animations between prayer steps.",
+                checked = settings.fluidTransitions,
+                onCheckedChange = { viewModel.toggleFluidTransitions(it) }
+            )
             
             Spacer(Modifier.height(32.dp))
-            // TODO: Add specific toggles like "Show Step Timer", "Fluid Transitions"
         }
     }
 }
