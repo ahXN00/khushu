@@ -151,10 +151,9 @@ fun LearnScreen(
         KhushuAppBar(
             title = AppDestinations.LEARN.label,
             onSettingsClick = onSettingsClick,
+            hazeState = hazeState,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(start = 20.dp, end = 20.dp),
+                .align(Alignment.TopCenter),
         )
 
         PillNavBar(

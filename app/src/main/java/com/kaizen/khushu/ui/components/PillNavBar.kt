@@ -87,7 +87,7 @@ fun PillNavBar(
                     shape = PillShape,
                     style = HazeStyle(
                         blurRadius = 20.dp,
-                        tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+                        tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f),
                     ),
                 )
         )
@@ -150,7 +150,7 @@ private fun PillNavItem(
             .clip(PillShape)
             .background(
                 color = if (isSelected)
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) // selected pill bar opacity
                 else Color.Transparent,
             )
             .clickable(
