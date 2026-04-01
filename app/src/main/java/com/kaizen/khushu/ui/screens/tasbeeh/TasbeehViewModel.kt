@@ -1,6 +1,7 @@
 package com.kaizen.khushu.ui.screens.tasbeeh
 
 import androidx.compose.ui.graphics.toArgb
+import com.kaizen.khushu.ui.theme.KhushuColors
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -22,7 +23,7 @@ class TasbeehViewModel(private val dao: TasbeehDao) : ViewModel() {
                     dao.insert(
                         TasbeehCollection(
                             title = "Dummy Card $i",
-                            colorInt = TasbeehPastelColors[i % TasbeehPastelColors.size].toArgb(),
+                            colorInt = KhushuColors.Palette[i % KhushuColors.Palette.size].toArgb(),
                             items = listOf(DhikrItem("Test Dhikr", 33))
                         )
                     )
@@ -41,7 +42,7 @@ class TasbeehViewModel(private val dao: TasbeehDao) : ViewModel() {
         val seeds = listOf(
             TasbeehCollection(
                 title = "After Salah",
-                colorInt = TasbeehPastelColors[0].toArgb(),
+                colorInt = KhushuColors.Palette[0].toArgb(),
                 items = listOf(
                     DhikrItem("Subhan Allah", 33),
                     DhikrItem("Alhamdulillah", 33),
@@ -50,7 +51,7 @@ class TasbeehViewModel(private val dao: TasbeehDao) : ViewModel() {
             ),
             TasbeehCollection(
                 title = "Morning Adhkar",
-                colorInt = TasbeehPastelColors[1].toArgb(),
+                colorInt = KhushuColors.Palette[1].toArgb(),
                 items = listOf(
                     DhikrItem("Ayatul Kursi", 1),
                     DhikrItem("Surah Al-Ikhlas", 3),
@@ -60,7 +61,7 @@ class TasbeehViewModel(private val dao: TasbeehDao) : ViewModel() {
             ),
             TasbeehCollection(
                 title = "Evening Adhkar",
-                colorInt = TasbeehPastelColors[2].toArgb(),
+                colorInt = KhushuColors.Palette[2].toArgb(),
                 items = listOf(
                     DhikrItem("Ayatul Kursi", 1),
                     DhikrItem("Surah Al-Ikhlas", 3),
@@ -70,21 +71,21 @@ class TasbeehViewModel(private val dao: TasbeehDao) : ViewModel() {
             ),
             TasbeehCollection(
                 title = "Istighfar",
-                colorInt = TasbeehPastelColors[3].toArgb(),
+                colorInt = KhushuColors.Palette[3].toArgb(),
                 items = listOf(
                     DhikrItem("Astaghfirullah", 100),
                 ),
             ),
             TasbeehCollection(
                 title = "Salawat",
-                colorInt = TasbeehPastelColors[4].toArgb(),
+                colorInt = KhushuColors.Palette[4].toArgb(),
                 items = listOf(
                     DhikrItem("Allahumma Salli 'ala Muhammad", 100),
                 ),
             ),
             TasbeehCollection(
                 title = "La ilaha illallah",
-                colorInt = TasbeehPastelColors[5].toArgb(),
+                colorInt = KhushuColors.Palette[5].toArgb(),
                 items = listOf(
                     DhikrItem("La ilaha illallah", 100),
                 ),

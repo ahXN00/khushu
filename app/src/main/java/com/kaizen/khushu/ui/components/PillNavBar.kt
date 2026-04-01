@@ -2,7 +2,6 @@ package com.kaizen.khushu.ui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -73,60 +72,67 @@ fun PillNavBar(
     Box(
         modifier = modifier
             .clip(PillShape)
-            .hazeChild(
-                state = hazeState,
-                shape = PillShape,
-                style = HazeStyle(
-                    blurRadius = 20.dp,
-                    tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
-                ),
-            )
             .border(
                 width = 1.dp,
-                color = Color.White.copy(alpha = 0.12f),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
                 shape = PillShape,
             )
-            .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
-        // Tab row — wraps content, no fill
-        Row(
-            modifier = Modifier.onGloballyPositioned { rowCoords = it },
-            horizontalArrangement = Arrangement.spacedBy(0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AppDestinations.entries.forEach { destination ->
-                PillNavItem(
-                    destination = destination,
-                    isSelected = destination == currentDestination,
-                    onClick = { onDestinationSelected(destination) },
-                    onPositioned = { coords ->
-                        val row = rowCoords ?: return@PillNavItem
-                        val centerX = row.localPositionOf(
-                            sourceCoordinates = coords,
-                            relativeToSource = Offset(x = coords.size.width / 2f, y = 0f),
-                        ).x
-                        tabPositions[destination] = centerX
-                    },
-                )
-            }
-        }
-
-        // Sliding indicator — anchored bottom-start so offset is from left edge
+        // Background blur layer
         Box(
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset {
-                    IntOffset(
-                        x = (indicatorTargetX - 12.5.dp.toPx()).roundToInt(),
-                        y = 0,
+                .matchParentSize()
+                .hazeChild(
+                    state = hazeState,
+                    shape = PillShape,
+                    style = HazeStyle(
+                        blurRadius = 20.dp,
+                        tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+                    ),
+                )
+        )
+
+        // Contents Layer
+        Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+            Row(
+                modifier = Modifier.onGloballyPositioned { rowCoords = it },
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppDestinations.entries.forEach { destination ->
+                    PillNavItem(
+                        destination = destination,
+                        isSelected = destination == currentDestination,
+                        onClick = { onDestinationSelected(destination) },
+                        onPositioned = { coords ->
+                            val row = rowCoords ?: return@PillNavItem
+                            val centerX = row.localPositionOf(
+                                sourceCoordinates = coords,
+                                relativeToSource = Offset(x = coords.size.width / 2f, y = 0f),
+                            ).x
+                            tabPositions[destination] = centerX
+                        },
                     )
                 }
-                .padding(bottom = 4.dp)
-                .width(25.dp)
-                .height(3.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.secondary),
-        )
+            }
+
+            // Sliding indicator
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset {
+                        IntOffset(
+                            x = (indicatorTargetX - 12.5.dp.toPx()).roundToInt(),
+                            y = 0,
+                        )
+                    }
+                    .padding(bottom = 2.dp)
+                    .width(25.dp)
+                    .height(3.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary),
+            )
+        }
     }
 }
 
@@ -138,18 +144,13 @@ private fun PillNavItem(
     onPositioned: (LayoutCoordinates) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val horizontalPadding by animateDpAsState(
-        targetValue = if (isSelected) 20.dp else 14.dp,
-        label = "navItemPadding",
-    )
-
     Box(
         modifier = modifier
             .onGloballyPositioned(onPositioned)
             .clip(PillShape)
             .background(
                 color = if (isSelected)
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                 else Color.Transparent,
             )
             .clickable(
@@ -157,7 +158,7 @@ private fun PillNavItem(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
             )
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .padding(horizontal = 24.dp, vertical = 14.dp), // Fixed horizontal size as requested
         contentAlignment = Alignment.Center,
     ) {
         AnimatedContent(
@@ -177,14 +178,14 @@ private fun PillNavItem(
                 Text(
                     text = destination.label,
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
             } else {
                 Icon(
                     painter = painterResource(id = destination.icon),
                     contentDescription = destination.label,
                     modifier = Modifier.size(22.dp),
-                    tint = Color.White.copy(alpha = 0.5f),
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
         }

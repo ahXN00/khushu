@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -48,6 +50,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaizen.khushu.data.TasbeehCollection
+import com.kaizen.khushu.ui.components.KhushuAppBar
+import com.kaizen.khushu.ui.components.PillNavBar
+import com.kaizen.khushu.ui.navigation.AppDestinations
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 
 private const val PREFS_NAME = "tasbeeh_prefs"
 private const val KEY_SKIP_CONFIRM = "skip_start_confirm"
@@ -56,6 +63,8 @@ private const val KEY_SKIP_CONFIRM = "skip_start_confirm"
 fun TasbeehScreen(
     viewModel: TasbeehViewModel,
     onCollectionTap: (TasbeehCollection) -> Unit,
+    onSettingsClick: () -> Unit,
+    onNavigateTab: (AppDestinations) -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
 ) {
@@ -77,24 +86,27 @@ fun TasbeehScreen(
         }
     }
 
+    val hazeState = remember { HazeState() }
+
     Box(modifier = modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
+                start = 20.dp,
+                top = contentPadding.calculateTopPadding(),
+                end = 20.dp,
                 bottom = contentPadding.calculateBottomPadding(),
             ),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().haze(state = hazeState),
         ) {
             // Search bar — spans both columns, stays at top of scroll content
             item(key = "search", span = { GridItemSpan(2) }) {
                 SearchBar(
                     query = query,
                     onQueryChange = { query = it },
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(top = 32.dp, bottom = 8.dp),
                 )
             }
 
@@ -116,6 +128,25 @@ fun TasbeehScreen(
                 )
             }
         }
+
+        KhushuAppBar(
+            title = AppDestinations.TASBEEH.label,
+            onSettingsClick = onSettingsClick,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 20.dp),
+        )
+
+        PillNavBar(
+            currentDestination = AppDestinations.TASBEEH,
+            onDestinationSelected = onNavigateTab,
+            hazeState = hazeState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 30.dp),
+        )
     }
 
     // Start confirmation dialog
@@ -224,7 +255,7 @@ private fun SearchBar(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), CircleShape),
     )
 }
 

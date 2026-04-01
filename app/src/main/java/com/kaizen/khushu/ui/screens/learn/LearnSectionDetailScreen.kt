@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,6 +27,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.ui.theme.BeVietnamPro
+import com.kaizen.khushu.ui.theme.prayerCardPalette
+import com.kaizen.khushu.ui.theme.duaCardPalette
+import androidx.compose.foundation.lazy.items
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +43,7 @@ fun LearnSectionDetailScreen(
     Scaffold(
         contentWindowInsets = WindowInsets.systemBars,
         modifier = modifier
+            .clip(RoundedCornerShape(32.dp))
             .nestedScroll(scrollBehavior.nestedScrollConnection), // MUST be on the Scaffold
         topBar = {
             LargeTopAppBar(
@@ -57,14 +63,13 @@ fun LearnSectionDetailScreen(
             )
         }
     ) { paddingValues ->
-        val cards = if (sectionTitle == "Prayers") prayerCards else duaCards
+        val cards = if (sectionTitle == "Prayers") prayerCardPalette else duaCardPalette
 
         LazyColumn(
             contentPadding = paddingValues,
-            modifier = Modifier.fillMaxSize(), // Removed nestedScroll from here
+            modifier = Modifier.fillMaxSize(),
         ) {
-            items(cards.size) { index ->
-                val (cardTitle, color) = cards[index]
+            items(cards) { (cardTitle, color) ->
                 LearnCard(
                     title = cardTitle,
                     color = color,

@@ -42,104 +42,130 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.kaizen.khushu.ui.components.KhushuAppBar
+import com.kaizen.khushu.ui.components.PillNavBar
+import com.kaizen.khushu.ui.navigation.AppDestinations
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 
-internal val prayerCards = listOf(
-    "Salah Basics" to Color(0xFF3B4A6B),
-    "Surah Al-Fatiha" to Color(0xFF4A3B6B),
-    "Prayer Times" to Color(0xFF3B6B4A),
-    "Wudu Guide" to Color(0xFF6B4A3B),
-    "Qibla Direction" to Color(0xFF3B6B6B),
-    "Friday Prayer" to Color(0xFF6B3B4A),
-)
-
-internal val duaCards = listOf(
-    "Morning Adhkar" to Color(0xFF4A6B3B),
-    "Evening Adhkar" to Color(0xFF6B6B3B),
-    "Dua After Salah" to Color(0xFF3B4A6B),
-)
+import com.kaizen.khushu.ui.theme.prayerCardPalette
+import com.kaizen.khushu.ui.theme.duaCardPalette
 
 @Composable
 fun LearnScreen(
-    onSectionTap: (String) -> Unit = {},
+    onSectionTap: (String) -> Unit,
+    onSettingsClick: () -> Unit,
+    onNavigateTab: (AppDestinations) -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
 ) {
     var query by remember { mutableStateOf("") }
+    val hazeState = remember { HazeState() }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
-    ) {
-        item(key = "search") {
-            SearchBar(
-                query = query,
-                onQueryChange = { query = it },
-                modifier = Modifier.padding(
-                    start = 16.dp, end = 16.dp,
-                    top = 16.dp, bottom = 8.dp,
-                ),
-            )
-        }
-
-        item(key = "prayers_header") {
-            SectionRow(
-                title = "Prayers",
-                onArrowClick = { onSectionTap("Prayers") },
-                modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
-            )
-        }
-
-        item(key = "prayers_row") {
-            val pagerState = rememberPagerState(pageCount = { prayerCards.size })
-            HorizontalPager(
-                state = pagerState,
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                pageSpacing = 12.dp,
-                pageSize = object : PageSize {
-                    override fun Density.calculateMainAxisPageSize(availableSpace: Int, pageSpacing: Int): Int {
-                        return (availableSpace * 0.475f).toInt()
-                    }
-                },
-                flingBehavior = PagerDefaults.flingBehavior(
-                    state = pagerState,
-                    pagerSnapDistance = PagerSnapDistance.atMost(2)
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().haze(state = hazeState),
+            contentPadding = PaddingValues(
+                start = 0.dp, end = 0.dp,
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding()
+            ),
+        ) {
+            item(key = "search") {
+                Spacer(modifier = Modifier.height(16.dp))
+                SearchBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    modifier = Modifier.padding(
+                        start = 20.dp, end = 20.dp,
+                        top = 16.dp, bottom = 8.dp,
+                    ),
                 )
-            ) { page ->
-                val (title, color) = prayerCards[page]
-                LearnCard(title = title, color = color, modifier = Modifier.fillMaxWidth())
             }
-        }
 
-        item(key = "spacer") { Spacer(Modifier.height(8.dp)) }
-
-        item(key = "duas_header") {
-            SectionRow(
-                title = "Duas",
-                onArrowClick = { onSectionTap("Duas") },
-                modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
-            )
-        }
-
-        item(key = "duas_row") {
-            val pagerState = rememberPagerState(pageCount = { duaCards.size })
-            HorizontalPager(
-                state = pagerState,
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                pageSpacing = 12.dp,
-                pageSize = object : PageSize {
-                    override fun Density.calculateMainAxisPageSize(availableSpace: Int, pageSpacing: Int): Int {
-                        return (availableSpace * 0.475f).toInt()
-                    }
-                },
-                flingBehavior = PagerDefaults.flingBehavior(
-                    state = pagerState,
-                    pagerSnapDistance = PagerSnapDistance.atMost(2)
+            item(key = "prayers_header") {
+                SectionRow(
+                    title = "Prayers",
+                    onArrowClick = { onSectionTap("Prayers") },
+                    modifier = Modifier.padding(start = 20.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
                 )
-            ) { page ->
-                val (title, color) = duaCards[page]
-                LearnCard(title = title, color = color, modifier = Modifier.fillMaxWidth())
             }
+
+            item(key = "prayers_row") {
+                val pagerState = rememberPagerState(pageCount = { prayerCardPalette.size })
+                HorizontalPager(
+                    state = pagerState,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    pageSpacing = 12.dp,
+                    pageSize = object : PageSize {
+                        override fun Density.calculateMainAxisPageSize(availableSpace: Int, pageSpacing: Int): Int {
+                            return (availableSpace * 0.475f).toInt()
+                        }
+                    },
+                    flingBehavior = PagerDefaults.flingBehavior(
+                        state = pagerState,
+                        pagerSnapDistance = PagerSnapDistance.atMost(2)
+                    )
+                ) { page ->
+                    val (title, color) = prayerCardPalette[page]
+                    LearnCard(title = title, color = color, modifier = Modifier.fillMaxWidth())
+                }
+            }
+
+            item(key = "spacer") { Spacer(Modifier.height(8.dp)) }
+
+            item(key = "duas_header") {
+                SectionRow(
+                    title = "Duas",
+                    onArrowClick = { onSectionTap("Duas") },
+                    modifier = Modifier.padding(start = 20.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
+                )
+            }
+
+            item(key = "duas_row") {
+                val pagerState = rememberPagerState(pageCount = { duaCardPalette.size })
+                HorizontalPager(
+                    state = pagerState,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    pageSpacing = 12.dp,
+                    pageSize = object : PageSize {
+                        override fun Density.calculateMainAxisPageSize(availableSpace: Int, pageSpacing: Int): Int {
+                            return (availableSpace * 0.475f).toInt()
+                        }
+                    },
+                    flingBehavior = PagerDefaults.flingBehavior(
+                        state = pagerState,
+                        pagerSnapDistance = PagerSnapDistance.atMost(2)
+                    )
+                ) { page ->
+                    val (title, color) = duaCardPalette[page]
+                    LearnCard(title = title, color = color, modifier = Modifier.fillMaxWidth())
+                }
+            }
+
+            item(key = "bottom_spacer") { Spacer(Modifier.height(32.dp)) }
         }
+
+        KhushuAppBar(
+            title = AppDestinations.LEARN.label,
+            onSettingsClick = onSettingsClick,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 20.dp),
+        )
+
+        PillNavBar(
+            currentDestination = AppDestinations.LEARN,
+            onDestinationSelected = onNavigateTab,
+            hazeState = hazeState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 30.dp),
+        )
     }
 }
 
@@ -157,7 +183,7 @@ private fun SectionRow(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Box(
             modifier = Modifier

@@ -179,7 +179,7 @@ fun RakatPicker(
                     Text(
                             text = rakat.toString(),
                             style = BASE_TEXT_STYLE,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             softWrap = false,
                             modifier =
                                     Modifier.wrapContentHeight(unbounded = true).graphicsLayer {
@@ -228,7 +228,7 @@ fun RakatPicker(
                                     .clip(CircleShape)
                                     .background(
                                             color =
-                                                    if (atBottom) Color.White.copy(alpha = 0.30f)
+                                                    if (atBottom) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
                                                     else Color.Transparent
                                     ),
             ) {
@@ -251,7 +251,7 @@ fun RakatPicker(
             Text(
                     text = "Scroll up for more",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = hintAlpha),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = hintAlpha),
             )
         }
     }

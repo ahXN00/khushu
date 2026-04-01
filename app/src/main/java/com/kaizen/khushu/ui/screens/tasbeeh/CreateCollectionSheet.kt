@@ -59,6 +59,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.kaizen.khushu.ui.theme.KhushuColors
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -112,7 +113,7 @@ fun CreateCollectionSheet(
     // ID of the row that should steal focus after being added; null when no pending focus.
     var pendingFocusId by remember { mutableStateOf<Int?>(null) }
 
-    val selectedColor = TasbeehPastelColors[selectedColorIndex]
+    val selectedColor = KhushuColors.Palette[selectedColorIndex]
     val canSave = dhikrRows.any { it.name.isNotBlank() && it.count.toIntOrNull() != null }
 
     // ── Hoisted out of the list scope ─────────────────────────────────────────
@@ -177,7 +178,7 @@ fun CreateCollectionSheet(
             )
             Spacer(Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                itemsIndexed(TasbeehPastelColors) { index, color ->
+                itemsIndexed(KhushuColors.Palette) { index, color ->
                     val isSelected = index == selectedColorIndex
                     Box(
                         contentAlignment = Alignment.Center,

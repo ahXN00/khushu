@@ -22,10 +22,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -91,15 +92,16 @@ private fun KhushuApp() {
     var immersiveRakats by rememberSaveable { mutableStateOf<Int?>(null) }
     var showCreateSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
-    val hazeState = remember { HazeState() }
     val navController = rememberNavController()
 
     val darkTheme = isSystemInDarkTheme()
     val view = LocalView.current
     if (!view.isInEditMode) {
+        val window = (view.context as Activity).window
+        val insetsController = WindowCompat.getInsetsController(window, view)
+        
         DisposableEffect(darkTheme) {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            insetsController.isAppearanceLightStatusBars = !darkTheme
             onDispose {}
         }
     }
@@ -114,37 +116,27 @@ private fun KhushuApp() {
     val navBarBottomDp = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
     val pillClearance = navBarBottomDp + 30.dp + 56.dp
     val fabBottomPadding = navBarBottomDp + 30.dp + 56.dp + 20.dp
+    val topClearance = with(density) { WindowInsets.statusBars.getTop(density).toDp() } + 64.dp
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val currentTab = AppDestinations.fromRoute(currentRoute) ?: AppDestinations.SALAH
-    // showShell = false when on detail screens (they manage their own top bar)
-    val showShell = AppDestinations.fromRoute(currentRoute) != null
+
+    val onNavigateTab: (AppDestinations) -> Unit = { dest ->
+        navController.navigate(dest.route) {
+            popUpTo(AppDestinations.SALAH.route) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(MaterialTheme.colorScheme.background),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            AnimatedVisibility(
-                visible = showShell,
-                enter = fadeIn(tween(350, delayMillis = 100)),
-                exit = fadeOut(tween(100))
-            ) {
-                KhushuAppBar(
-                    title = currentTab.label,
-                    onSettingsClick = { showSettingsSheet = true },
-                    modifier = Modifier
-                        .statusBarsPadding()
-                        .padding(start = 20.dp, end = 20.dp),
-                )
-            }
-
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .haze(state = hazeState),
+                modifier = Modifier.fillMaxSize(),
             ) {
                 NavHost(
                     navController = navController,
@@ -160,7 +152,9 @@ private fun KhushuApp() {
                     ) {
                         SalahPickerScreen(
                             onStartPrayer = { immersiveRakats = it },
-                            navBarClearance = pillClearance,
+                            onSettingsClick = { showSettingsSheet = true },
+                            onNavigateTab = onNavigateTab,
+                            navBarClearance = 0.dp, // Center visually on screen, not pushed up
                         )
                     }
 
@@ -174,7 +168,9 @@ private fun KhushuApp() {
                         TasbeehScreen(
                             viewModel = tasbeehViewModel,
                             onCollectionTap = { /* TODO: immersive counter Phase 4 */ },
-                            contentPadding = PaddingValues(bottom = pillClearance),
+                            onSettingsClick = { showSettingsSheet = true },
+                            onNavigateTab = onNavigateTab,
+                            contentPadding = PaddingValues(start = 0.dp, top = topClearance, end = 0.dp, bottom = pillClearance),
                         )
                     }
 
@@ -195,7 +191,9 @@ private fun KhushuApp() {
                             onSectionTap = { title ->
                                 navController.navigate("learn_detail/$title")
                             },
-                            contentPadding = PaddingValues(bottom = pillClearance),
+                            onSettingsClick = { showSettingsSheet = true },
+                            onNavigateTab = onNavigateTab,
+                            contentPadding = PaddingValues(start = 0.dp, top = topClearance, end = 0.dp, bottom = pillClearance),
                         )
                     }
 
@@ -203,6 +201,9 @@ private fun KhushuApp() {
                         route = LEARN_DETAIL_ROUTE,
                         enterTransition = {
                             slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
+                        },
+                        popExitTransition = {
+                            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
                         },
                     ) { backStackEntry ->
                         val sectionTitle = backStackEntry.arguments?.getString("sectionTitle") ?: ""
@@ -213,28 +214,6 @@ private fun KhushuApp() {
                     }
                 }
             }
-        }
-
-        AnimatedVisibility(
-            visible = showShell,
-            enter = fadeIn(tween(350, delayMillis = 100)),
-            exit = fadeOut(tween(100)),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 30.dp),
-        ) {
-            PillNavBar(
-                currentDestination = currentTab,
-                onDestinationSelected = { dest ->
-                    navController.navigate(dest.route) {
-                        popUpTo(AppDestinations.SALAH.route) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                hazeState = hazeState,
-            )
         }
 
         // FAB — visible only on Tasbeeh tab, animates in/out with scale+fade

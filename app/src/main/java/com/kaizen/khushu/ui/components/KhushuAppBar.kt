@@ -1,5 +1,10 @@
 package com.kaizen.khushu.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,18 +50,27 @@ fun KhushuAppBar(
                 horizontalAlignment = Alignment.CenterHorizontally,
 
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White,
-                )
+                AnimatedContent(
+                    targetState = title,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(220, delayMillis = 90)) togetherWith 
+                        fadeOut(animationSpec = tween(90))
+                    },
+                    label = "AppBarTitleTransition"
+                ) { targetTitle ->
+                    Text(
+                        text = targetTitle,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
                 Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier
                         .width(35.dp)
                         .height(4.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.5f)),
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)),
                 )
             }
         },
@@ -65,7 +79,7 @@ fun KhushuAppBar(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primary)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
                     .clickable(
                         onClick = onSettingsClick,
                         indication = null,
@@ -76,17 +90,16 @@ fun KhushuAppBar(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_menu),
                     contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onPrimary,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(20.dp),
                 )
             }
         },
-//        windowInsets = WindowInsets(0),
-        windowInsets = TopAppBarDefaults.windowInsets,
+        windowInsets = WindowInsets(0),
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.Black,
-            titleContentColor = Color.White,
-            actionIconContentColor = Color.White,
+            containerColor = Color.Transparent,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurface,
         ),
         modifier = modifier.padding(top = 12.dp),
     )
