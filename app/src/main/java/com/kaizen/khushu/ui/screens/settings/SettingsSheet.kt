@@ -23,7 +23,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.Surface
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,27 +71,28 @@ fun SettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = MaterialTheme.shapes.extraLarge,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 22.dp, bottom = 0.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(32.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-                )
-            }
-        }
+//        dragHandle = {
+//            Box(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(top = 22.dp, bottom = 0.dp),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                Box(
+//                    modifier = Modifier
+//                        .width(32.dp)
+//                        .height(4.dp)
+//                        .clip(RoundedCornerShape(50))
+//                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+//                )
+//            }
+//        }
+        dragHandle = null
     ) {
         val sheetHeightModifier = if (currentView == SettingsView.History) {
             Modifier.fillMaxHeight(0.92f)
         } else {
-            Modifier.fillMaxHeight(0.65f)
+            Modifier.fillMaxHeight(0.70f)
         }
 
         val contentPadding = if (currentView == SettingsView.History) {
@@ -101,49 +105,58 @@ fun SettingsSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(sheetHeightModifier)
-                .padding(contentPadding)
         ) {
-            AnimatedContent(
-                targetState = currentView,
-                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-                label = "settings_sheet_nav",
-                modifier = Modifier.weight(1f)
-            ) { view ->
-                when (view) {
-                    SettingsView.Main -> MainMenuView(
-                        onSettings = onNavigateSettings,
-                        onCustomize = onNavigateCustomize,
-                        onHistory = { currentView = SettingsView.History }
-                    )
-                    SettingsView.History -> HistoryView(
-                        onBack = { currentView = SettingsView.Main }
-                    )
-                }
-            }
+            SettingsBrandingHeader(onDismiss = onDismiss)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-            // Fixed Footer (Social + Version) — Hidden in History
-            if (currentView == SettingsView.Main) {
-                Spacer(Modifier.height(16.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        SocialCircleButton(R.drawable.ic_github)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        SocialCircleButton(R.drawable.ic_telegram)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        SocialCircleButton(R.drawable.ic_email)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(contentPadding)
+            ) {
+                AnimatedContent(
+                    targetState = currentView,
+                    transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+                    label = "settings_sheet_nav",
+                    modifier = Modifier.weight(1f)
+                ) { view ->
+                    when (view) {
+                        SettingsView.Main -> MainMenuView(
+                            onSettings = onNavigateSettings,
+                            onCustomize = onNavigateCustomize,
+                            onHistory = { currentView = SettingsView.History }
+                        )
+                        SettingsView.History -> HistoryView(
+                            onBack = { currentView = SettingsView.Main }
+                        )
                     }
-                    Text(
-                        text = "v${BuildConfig.VERSION_NAME}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                        modifier = Modifier.padding(bottom = 50.dp, top = 12.dp)
-                    )
+                }
+
+                // Fixed Footer (Social + Version) — Hidden in History
+                if (currentView == SettingsView.Main) {
+                    Spacer(Modifier.height(16.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            SocialCircleButton(R.drawable.ic_github)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            SocialCircleButton(R.drawable.ic_telegram)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            SocialCircleButton(R.drawable.ic_email)
+                        }
+                        Text(
+                            text = "v${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            modifier = Modifier.padding(bottom = 50.dp, top = 12.dp)
+                        )
+                    }
                 }
             }
         }
@@ -228,6 +241,57 @@ private fun HistoryView(onBack: () -> Unit) {
     }
 }
 
+
+@Composable
+private fun SettingsBrandingHeader(onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(18.dp))
+            Text(
+                text = "Khushu",
+//                style = MaterialTheme.typography.titleLarge,
+                fontFamily = Antonio,
+                fontSize = 32.sp,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+//            Text(
+//                "Khushu",
+//                fontFamily = BeVietnamPro,
+//                style = MaterialTheme.typography.displaySmall
+//            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        IconButton(onClick = onDismiss) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 
 @Composable
 private fun SocialCircleButton(iconRes: Int) {
