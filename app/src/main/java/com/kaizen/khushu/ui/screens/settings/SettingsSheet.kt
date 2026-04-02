@@ -92,7 +92,7 @@ fun SettingsSheet(
         val sheetHeightModifier = if (currentView == SettingsView.History) {
             Modifier.fillMaxHeight(0.92f)
         } else {
-            Modifier.fillMaxHeight(0.70f)
+            Modifier.fillMaxHeight(0.73f)
         }
 
         val contentPadding = if (currentView == SettingsView.History) {

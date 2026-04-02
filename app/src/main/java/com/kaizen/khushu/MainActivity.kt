@@ -28,6 +28,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.compose.BackHandler
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.*
 import dev.chrisbanes.haze.HazeState
@@ -244,6 +245,10 @@ private fun KhushuApp(
                             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
                         },
                     ) {
+                        BackHandler {
+                            navController.popBackStack()
+                            showSettingsSheet = true
+                        }
                         SettingsScreen(
                             onNavigateGeneral = { navController.navigate(SETTINGS_GENERAL_ROUTE) },
                             onNavigateCounter = { navController.navigate(SETTINGS_COUNTER_ROUTE) },
@@ -309,6 +314,10 @@ private fun KhushuApp(
                             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
                         },
                     ) {
+                        BackHandler {
+                            navController.popBackStack()
+                            showSettingsSheet = true
+                        }
                         CustomizeScreen(
                             onNavigateBranding = { navController.navigate(CUSTOMIZE_BRANDING_ROUTE) },
                             onNavigatePalette = { navController.navigate(CUSTOMIZE_PALETTE_ROUTE) },

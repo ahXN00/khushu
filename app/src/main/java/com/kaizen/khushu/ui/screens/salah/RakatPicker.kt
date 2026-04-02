@@ -49,9 +49,8 @@ import kotlin.math.abs
 import kotlinx.coroutines.launch
 
 private val ITEM_HEIGHT = 145.dp
-private const val OVERSCROLL_THRESHOLD_DP = 280f
+private const val OVERSCROLL_THRESHOLD_DP = 270f
 
-// Scaling constants for dynamic font sizing
 private const val MAX_SCALE = 0.8f
 private const val MIN_SCALE = 0.40f
 private val BASE_TEXT_STYLE =
@@ -62,7 +61,6 @@ private val BASE_TEXT_STYLE =
                 letterSpacing = 0.sp
         )
 
-/** Linear interpolation between [a] and [b] by fraction [t]. */
 private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
 @Composable
@@ -78,7 +76,6 @@ fun RakatPicker(
     val thresholdPx = with(density) { OVERSCROLL_THRESHOLD_DP.dp.toPx() }
     val halfItemPx = with(density) { ITEM_HEIGHT.toPx() / 2f }
 
-    // State objects — referenced by closure in NestedScrollConnection (stable identity)
     val rakatItemsState = remember { mutableStateOf((1..4).toList()) }
     val isExpandedState = remember { mutableStateOf(false) }
     val overscrollState = remember { mutableFloatStateOf(0f) }
@@ -90,75 +87,77 @@ fun RakatPicker(
     val initialIndex = rakatItems.indexOf(selectedRakat).coerceAtLeast(0)
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
 
-    // Center item: whichever item's center is closest to viewport center
-    val centeredIndex by
-            remember(halfItemPx) {
-                derivedStateOf {
-                    val offset = lazyListState.firstVisibleItemScrollOffset
-                    val first = lazyListState.firstVisibleItemIndex
-                    if (offset > halfItemPx && first < rakatItemsState.value.lastIndex) first + 1
-                    else first
-                }
-            }
+    val centeredIndex by remember(halfItemPx) {
+        derivedStateOf {
+            val offset = lazyListState.firstVisibleItemScrollOffset
+            val first = lazyListState.firstVisibleItemIndex
+            if (offset > halfItemPx && first < rakatItemsState.value.lastIndex) first + 1
+            else first
+        }
+    }
 
-    val atBottom by remember { derivedStateOf { !lazyListState.canScrollForward } }
+    val atBottom by remember { derivedStateOf { centeredIndex == rakatItemsState.value.lastIndex } }
 
-    // Notify parent when selection changes
     LaunchedEffect(centeredIndex, rakatItems) {
         rakatItems.getOrNull(centeredIndex)?.let(onRakatSelected)
     }
 
-    // Overscroll threshold trigger — captures State objects by stable reference
-    val connection =
-            remember(lazyListState) {
-                object : NestedScrollConnection {
-                    override fun onPostScroll(
-                            consumed: Offset,
-                            available: Offset,
-                            source: NestedScrollSource,
-                    ): Offset {
-                        if (source != NestedScrollSource.UserInput) {
-                            overscrollState.floatValue = 0f
-                            return Offset.Zero
-                        }
-                        // available.y < 0 = user dragging up past bottom boundary
-                        if (!lazyListState.canScrollForward &&
-                                        available.y < 0 &&
-                                        !isExpandedState.value
-                        ) {
-                            overscrollState.floatValue =
-                                    (overscrollState.floatValue + (-available.y)).coerceAtMost(
-                                            thresholdPx
-                                    )
+    // onPreScroll intercepts drag BEFORE the list sees it.
+    // This is essential — onPostScroll doesn't work here because contentPadding
+    // causes the list to consume upward drag even when the last item is centered,
+    // leaving nothing in `available` for us to accumulate.
+    val connection = remember(lazyListState) {
+        object : NestedScrollConnection {
 
-                            if (overscrollState.floatValue >= thresholdPx) {
-                                val currentValue =
-                                        rakatItemsState.value.getOrElse(
-                                                lazyListState.firstVisibleItemIndex
-                                        ) { 4 }
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                isExpandedState.value = true
-                                rakatItemsState.value = (1..20).toList()
-                                overscrollState.floatValue = 0f
-                                coroutineScope.launch {
-                                    lazyListState.scrollToItem(currentValue - 1)
-                                }
-                            }
-                        } else {
-                            overscrollState.floatValue = 0f
-                        }
-                        return Offset.Zero
-                    }
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                if (isExpandedState.value) return Offset.Zero
+                // Only intercept upward drag (available.y < 0)
+                if (available.y >= 0f) return Offset.Zero
 
-                    override suspend fun onPostFling(
-                            consumed: Velocity,
-                            available: Velocity
-                    ): Velocity {
+                val lastIndex = rakatItemsState.value.lastIndex
+                val first = lazyListState.firstVisibleItemIndex
+                val offset = lazyListState.firstVisibleItemScrollOffset
+                val centered = if (offset > halfItemPx && first < lastIndex) first + 1 else first
+
+                if (centered == lastIndex) {
+                    // Consume the drag entirely — list stays still, bar fills
+                    overscrollState.floatValue =
+                        (overscrollState.floatValue + (-available.y)).coerceAtMost(thresholdPx)
+
+                    if (overscrollState.floatValue >= thresholdPx) {
+                        val currentValue = rakatItemsState.value.getOrElse(first) { 4 }
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isExpandedState.value = true
+                        rakatItemsState.value = (1..20).toList()
                         overscrollState.floatValue = 0f
-                        return Velocity.Zero
+                        coroutineScope.launch {
+                            lazyListState.scrollToItem(currentValue - 1)
+                        }
                     }
+                    return Offset(0f, available.y) // fully consumed
                 }
+                return Offset.Zero
             }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                // Reset bar if user drags back down
+                if (source == NestedScrollSource.UserInput && available.y > 0f) {
+                    overscrollState.floatValue = 0f
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                overscrollState.floatValue = 0f
+                return Velocity.Zero
+            }
+        }
+    }
 
     Column(
             modifier = modifier,
@@ -181,37 +180,25 @@ fun RakatPicker(
                             style = BASE_TEXT_STYLE,
                             color = MaterialTheme.colorScheme.onSurface,
                             softWrap = false,
-                            modifier =
-                                    Modifier.wrapContentHeight(unbounded = true).graphicsLayer {
-                                        // All layoutInfo reads are deferred to draw phase
-                                        // to avoid recomposition loops.
-                                        val info = lazyListState.layoutInfo
-                                        val viewportCenter =
-                                                (info.viewportStartOffset +
-                                                        info.viewportEndOffset) / 2f
-
-                                        val itemInfo =
-                                                info.visibleItemsInfo.firstOrNull {
-                                                    it.index == index
-                                                }
-
-                                        if (itemInfo != null) {
-                                            val itemCenter = itemInfo.offset + (itemInfo.size / 2f)
-                                            val distance = abs(itemCenter - viewportCenter)
-                                            val normalizedDist =
-                                                    (distance / itemInfo.size.toFloat()).coerceIn(
-                                                            0f,
-                                                            2f
-                                                    )
-                                            val t = normalizedDist.coerceAtMost(1f)
-
-                                            scaleX = lerp(MAX_SCALE, MIN_SCALE, t)
-                                            scaleY = lerp(MAX_SCALE, MIN_SCALE, t)
-                                            alpha = lerp(1f, 0.3f, t)
-                                            rotationX = lerp(0f, 25f, t)
-                                            transformOrigin = TransformOrigin.Center
-                                        }
-                                    },
+                            modifier = Modifier.wrapContentHeight(unbounded = true).graphicsLayer {
+                                val info = lazyListState.layoutInfo
+                                val viewportCenter =
+                                        (info.viewportStartOffset + info.viewportEndOffset) / 2f
+                                val itemInfo =
+                                        info.visibleItemsInfo.firstOrNull { it.index == index }
+                                if (itemInfo != null) {
+                                    val itemCenter = itemInfo.offset + (itemInfo.size / 2f)
+                                    val distance = abs(itemCenter - viewportCenter)
+                                    val t =
+                                            (distance / itemInfo.size.toFloat())
+                                                    .coerceIn(0f, 1f)
+                                    scaleX = lerp(MAX_SCALE, MIN_SCALE, t)
+                                    scaleY = lerp(MAX_SCALE, MIN_SCALE, t)
+                                    alpha = lerp(1f, 0.3f, t)
+                                    rotationX = lerp(0f, 25f, t)
+                                    transformOrigin = TransformOrigin.Center
+                                }
+                            },
                     )
                 }
             }
@@ -219,17 +206,16 @@ fun RakatPicker(
 
         Spacer(Modifier.height(4.dp))
 
-        // Overscroll fill line — visible at bottom when range can expand
         if (!isExpanded) {
             Box(
                     modifier =
-                            Modifier.width(30.dp)
-                                    .height(6.dp)
+                            Modifier.width(37.dp)
+                                    .height(7.dp)
                                     .clip(CircleShape)
                                     .background(
-                                            color =
-                                                    if (atBottom) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
-                                                    else Color.Transparent
+                                            if (atBottom)
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
+                                            else Color.Transparent
                                     ),
             ) {
                 Box(
@@ -240,14 +226,13 @@ fun RakatPicker(
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
 
-            val hintAlpha by
-                    animateFloatAsState(
-                            targetValue = if (atBottom) 0.4f else 0f,
-                            animationSpec = tween(durationMillis = 300),
-                            label = "hintAlpha",
-                    )
+            val hintAlpha by animateFloatAsState(
+                    targetValue = if (atBottom) 0.4f else 0f,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "hintAlpha",
+            )
             Text(
                     text = "Scroll up for more",
                     style = MaterialTheme.typography.bodyMedium,

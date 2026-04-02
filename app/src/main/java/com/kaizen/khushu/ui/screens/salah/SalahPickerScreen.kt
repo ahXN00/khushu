@@ -61,14 +61,14 @@ fun SalahPickerScreen(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
-                modifier = Modifier.offset(y = 6.dp),
+                modifier = Modifier.offset(y = -12.dp),
             ) {
                 RakatPicker(
                     selectedRakat = selectedRakat,
                     onRakatSelected = { selectedRakat = it },
                 )
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(4.dp))
 
                 Text(
                     text = "Tap on the screen to Start",
