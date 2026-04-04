@@ -183,59 +183,58 @@ fun SalahCanvasScreen(
                 .padding(16.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = {
-                    val dump = buildString {
-                        appendLine("val presets = listOf(")
-                        appendLine("    \"Custom\" to listOf(")
-                        workingWidgets.forEach { widget ->
-                            append("        ")
-                            when (widget) {
-                                is CanvasWidget.RakatCount -> {
-                                    append("CanvasWidget.RakatCount(")
-                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                                    append("scale = ${widget.scale}f, color = ${widget.color}, ")
-                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                                    append("fontWeight = ${widget.fontWeight}, isOutline = ${widget.isOutline}, ")
-                                    append("fontName = \"${widget.fontName}\"")
-                                    append(")")
-                                }
-
-                                is CanvasWidget.ClockWidget -> {
-                                    append("CanvasWidget.ClockWidget(")
-                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                                    append("scale = ${widget.scale}f, color = ${widget.color}, ")
-                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                                    append("showSeconds = ${widget.showSeconds}, use24Hour = ${widget.use24Hour}, ")
-                                    append("isOutline = ${widget.isOutline}, ")
-                                    append("fontName = \"${widget.fontName}\"")
-                                    append(")")
-                                }
-
-                                is CanvasWidget.CustomText -> {
-                                    append("CanvasWidget.CustomText(")
-                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                                    append("scale = ${widget.scale}f, text = \"${widget.text}\", color = ${widget.color}, ")
-                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                                    append("fontWeight = ${widget.fontWeight}, italic = ${widget.italic}, ")
-                                    append("textAlign = \"${widget.textAlign}\", verticalAlign = \"${widget.verticalAlign}\", ")
-                                    append("isOutline = ${widget.isOutline}, ")
-                                    append("fontName = \"${widget.fontName}\"")
-                                    append(")")
-                                }
-                            }
-                            appendLine(",")
-                        }
-                        appendLine("    ),")
-                        appendLine(")")
-                    }
-                    Log.d("PRESET_DUMP", dump)
-                }) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Dev Dump",
-                        tint = Color.White.copy(alpha = 0.6f)
-                    )
-                }
+                // Debug dump button - commented out
+                // IconButton(onClick = {
+                //     val dump = buildString {
+                //         appendLine("val presets = listOf(")
+                //         appendLine("    \"Custom\" to listOf(")
+                //         workingWidgets.forEach { widget ->
+                //             append("        ")
+                //             when (widget) {
+                //                 is CanvasWidget.RakatCount -> {
+                //                     append("CanvasWidget.RakatCount(")
+                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                //                     append("scale = ${widget.scale}f, color = ${widget.color}, ")
+                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                //                     append("fontWeight = ${widget.fontWeight}, isOutline = ${widget.isOutline}, ")
+                //                     append("fontName = \"${widget.fontName}\"")
+                //                     append(")")
+                //                 }
+                //                 is CanvasWidget.ClockWidget -> {
+                //                     append("CanvasWidget.ClockWidget(")
+                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                //                     append("scale = ${widget.scale}f, color = ${widget.color}, ")
+                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                //                     append("showSeconds = ${widget.showSeconds}, use24Hour = ${widget.use24Hour}, ")
+                //                     append("isOutline = ${widget.isOutline}, ")
+                //                     append("fontName = \"${widget.fontName}\"")
+                //                     append(")")
+                //                 }
+                //                 is CanvasWidget.CustomText -> {
+                //                     append("CanvasWidget.CustomText(")
+                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                //                     append("scale = ${widget.scale}f, text = \"${widget.text}\", color = ${widget.color}, ")
+                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                //                     append("fontWeight = ${widget.fontWeight}, italic = ${widget.italic}, ")
+                //                     append("textAlign = \"${widget.textAlign}\", verticalAlign = \"${widget.verticalAlign}\", ")
+                //                     append("isOutline = ${widget.isOutline}, ")
+                //                     append("fontName = \"${widget.fontName}\"")
+                //                     append(")")
+                //                 }
+                //             }
+                //             appendLine(",")
+                //         }
+                //         appendLine("    ),")
+                //         appendLine(")")
+                //     }
+                //     Log.d("PRESET_DUMP", dump)
+                // }) {
+                //     Icon(
+                //         Icons.Default.Edit,
+                //         contentDescription = "Dev Dump",
+                //         tint = Color.White.copy(alpha = 0.6f)
+                //     )
+                // }
                 TextButton(
                     onClick = onExit,
                     colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f))
@@ -807,7 +806,7 @@ private fun PresetsSheet(
     val workingWidgets by viewModel.workingWidgets.collectAsStateWithLifecycle()
     val workingBackground by viewModel.workingBackgroundColor.collectAsStateWithLifecycle()
 
-    val customPresets by viewModel.customPresets.collectAsStateWithLifecycle()
+    val allPersistedPresets by viewModel.customPresets.collectAsStateWithLifecycle()
 
     var actionPreset by remember { mutableStateOf<CanvasPreset?>(null) }
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -815,7 +814,11 @@ private fun PresetsSheet(
     var showInterceptedSaveDialog by remember { mutableStateOf(false) }
 
     val currentPreset = CanvasPreset(id = "current", name = "Current", backgroundColor = workingBackground, widgets = workingWidgets, isDeletable = false)
-    val presets = listOf(currentPreset) + customPresets + DefaultPresets.defaults
+
+    val userPresets = allPersistedPresets.filter { it.isDeletable }
+    val defaultPresets = allPersistedPresets.filter { !it.isDeletable }
+    val presets = listOf(currentPreset) + userPresets + defaultPresets
+    val existingPresetNames = allPersistedPresets.map { it.name }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -1115,6 +1118,7 @@ private fun PresetsSheet(
         if (showRenameDialog) {
             SavePresetDialog(
                 initialName = targetPreset.name,
+                existingNames = existingPresetNames,
                 onDismiss = {
                     showRenameDialog = false
                     actionPreset = null
@@ -1192,9 +1196,10 @@ private fun PresetsSheet(
     if (showInterceptedSaveDialog) {
         SavePresetDialog(
             initialName = "",
+            existingNames = existingPresetNames,
             onDismiss = {
                 showInterceptedSaveDialog = false
-                pendingAction = null // Abort everything if they cancel naming
+                pendingAction = null
             },
             onConfirm = { newName ->
                 viewModel.saveCustomPreset(newName, workingWidgets, workingBackground)
@@ -1728,27 +1733,42 @@ private fun ColorPicker(
 @Composable
 private fun SavePresetDialog(
     initialName: String = "",
+    existingNames: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
     var presetName by remember { mutableStateOf(initialName) }
 
+    val isDuplicate = existingNames.any { it.equals(presetName.trim(), ignoreCase = true) } &&
+                      presetName.trim().lowercase() != initialName.lowercase()
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initialName.isEmpty()) "Save Preset" else "Rename Preset") },
         text = {
-            OutlinedTextField(
-                value = presetName,
-                onValueChange = { presetName = it },
-                label = { Text("Preset Name") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column {
+                OutlinedTextField(
+                    value = presetName,
+                    onValueChange = { presetName = it },
+                    label = { Text("Preset Name") },
+                    singleLine = true,
+                    isError = isDuplicate,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (isDuplicate) {
+                    Text(
+                        text = "A preset with this name already exists.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
+            }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(presetName) },
-                enabled = presetName.isNotBlank()
+                onClick = { onConfirm(presetName.trim()) },
+                enabled = presetName.isNotBlank() && !isDuplicate
             ) {
                 Text("Save")
             }
