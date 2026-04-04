@@ -62,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -394,7 +395,12 @@ fun CanvasWidgetItem(
                     fontWeight = FontWeight(widget.fontWeight),
                     style = TextStyle(
                         color = Color(widget.color).copy(alpha = widget.opacity),
-                        drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill
+                        drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                        lineHeight = widget.fontSizeSp.sp,
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both
+                        )
                     )
                 )
             }
@@ -422,7 +428,12 @@ fun CanvasWidgetItem(
                         },
                         style = TextStyle(
                             color = Color(widget.color).copy(alpha = widget.opacity),
-                            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill
+                            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                            lineHeight = widget.fontSizeSp.sp,
+                            lineHeightStyle = LineHeightStyle(
+                                alignment = LineHeightStyle.Alignment.Center,
+                                trim = LineHeightStyle.Trim.Both
+                            )
                         )
                     )
                 }
@@ -452,7 +463,12 @@ private fun LiveClockText(widget: CanvasWidget.ClockWidget, opacity: Float, isOu
         fontSize = widget.fontSizeSp.sp,
         style = TextStyle(
             color = Color(widget.color).copy(alpha = opacity),
-            drawStyle = if (isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill
+            drawStyle = if (isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+            lineHeight = widget.fontSizeSp.sp,
+            lineHeightStyle = LineHeightStyle(
+                alignment = LineHeightStyle.Alignment.Center,
+                trim = LineHeightStyle.Trim.Both
+            )
         )
     )
 }
@@ -466,7 +482,12 @@ private fun LiveClockTextPreview(widget: CanvasWidget.ClockWidget) {
         fontSize = widget.fontSizeSp.sp,
         style = TextStyle(
             color = Color(widget.color).copy(alpha = widget.opacity),
-            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill
+            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+            lineHeight = widget.fontSizeSp.sp,
+            lineHeightStyle = LineHeightStyle(
+                alignment = LineHeightStyle.Alignment.Center,
+                trim = LineHeightStyle.Trim.Both
+            )
         )
     )
 }
@@ -794,7 +815,12 @@ private fun PresetsSheet(
                                                         fontWeight = FontWeight(widget.fontWeight),
                                                         style = TextStyle(
                                                             color = Color(widget.color).copy(alpha = widget.opacity),
-                                                            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill
+                                                            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                                                            lineHeight = widget.fontSizeSp.sp,
+                                                            lineHeightStyle = LineHeightStyle(
+                                                                alignment = LineHeightStyle.Alignment.Center,
+                                                                trim = LineHeightStyle.Trim.Both
+                                                            )
                                                         )
                                                     )
                                                 }
@@ -822,7 +848,12 @@ private fun PresetsSheet(
                                                             },
                                                             style = TextStyle(
                                                                 color = Color(widget.color).copy(alpha = widget.opacity),
-                                                                drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill
+                                                                drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                                                                lineHeight = widget.fontSizeSp.sp,
+                                                                lineHeightStyle = LineHeightStyle(
+                                                                    alignment = LineHeightStyle.Alignment.Center,
+                                                                    trim = LineHeightStyle.Trim.Both
+                                                                )
                                                             )
                                                         )
                                                     }
