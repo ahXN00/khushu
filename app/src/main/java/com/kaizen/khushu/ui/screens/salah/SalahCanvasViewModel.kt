@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.kaizen.khushu.data.CanvasDao
+import com.kaizen.khushu.data.CanvasPreset
 import com.kaizen.khushu.data.CanvasWidget
 import com.kaizen.khushu.data.SalahCanvasLayout
 import kotlinx.coroutines.flow.*
@@ -15,6 +16,9 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
     val layout: StateFlow<SalahCanvasLayout> = dao.getDefault()
         .map { it ?: SalahCanvasLayout() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SalahCanvasLayout())
+
+    private val _customPresets = MutableStateFlow<List<CanvasPreset>>(emptyList())
+    val customPresets = _customPresets.asStateFlow()
 
     private val _selectedWidgetId = MutableStateFlow<String?>(null)
     val selectedWidgetId: StateFlow<String?> = _selectedWidgetId
@@ -159,6 +163,27 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
                 backgroundColorInt = _workingBackgroundColor.value,
                 widgets = _workingWidgets.value,
             ))
+        }
+    }
+
+    fun saveCustomPreset(name: String, widgets: List<CanvasWidget>, background: Int) {
+        val newPreset = CanvasPreset(
+            id = java.util.UUID.randomUUID().toString(),
+            name = name,
+            backgroundColor = background,
+            widgets = widgets.toList(),
+            isDeletable = true
+        )
+        _customPresets.value = _customPresets.value + newPreset
+    }
+
+    fun deletePreset(id: String) {
+        _customPresets.value = _customPresets.value.filter { it.id != id }
+    }
+
+    fun renamePreset(id: String, newName: String) {
+        _customPresets.value = _customPresets.value.map {
+            if (it.id == id) it.copy(name = newName) else it
         }
     }
 

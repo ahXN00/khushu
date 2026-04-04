@@ -80,6 +80,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaizen.khushu.data.CanvasWidget
+import com.kaizen.khushu.data.CanvasPreset
 import com.kaizen.khushu.data.resolveFontFamily
 import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.KhushuColors
@@ -98,15 +99,6 @@ private data class WidgetData(
     val verticalAlign: String
 )
 
-data class CanvasPreset(
-    val id: String,
-    val name: String,
-    val backgroundColor: Int,
-    val widgets: List<CanvasWidget>,
-    val isDeletable: Boolean
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SalahCanvasScreen(
     targetRakats: Int,
@@ -130,13 +122,14 @@ fun SalahCanvasScreen(
     val workingBackground by viewModel.workingBackgroundColor.collectAsStateWithLifecycle()
     val selectedWidgetId by viewModel.selectedWidgetId.collectAsStateWithLifecycle()
     val isUiVisible by viewModel.isUiVisible.collectAsStateWithLifecycle()
-    
+
     val layout by viewModel.layout.collectAsStateWithLifecycle()
 
     val canvasBackgroundColor = Color(workingBackground.toLong())
 
     BoxWithConstraints(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
             .background(canvasBackgroundColor)
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -154,6 +147,8 @@ fun SalahCanvasScreen(
     ) {
         val screenWidth = constraints.maxWidth.toFloat()
         val screenHeight = constraints.maxHeight.toFloat()
+
+        val context = LocalContext.current
 
         // Update canvas size for alignment calculations
         LaunchedEffect(screenWidth, screenHeight) {
@@ -181,7 +176,10 @@ fun SalahCanvasScreen(
             visible = isUiVisible,
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut(),
-            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp)
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(16.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = {
@@ -200,6 +198,7 @@ fun SalahCanvasScreen(
                                     append("fontName = \"${widget.fontName}\"")
                                     append(")")
                                 }
+
                                 is CanvasWidget.ClockWidget -> {
                                     append("CanvasWidget.ClockWidget(")
                                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
@@ -210,6 +209,7 @@ fun SalahCanvasScreen(
                                     append("fontName = \"${widget.fontName}\"")
                                     append(")")
                                 }
+
                                 is CanvasWidget.CustomText -> {
                                     append("CanvasWidget.CustomText(")
                                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
@@ -235,11 +235,24 @@ fun SalahCanvasScreen(
                         tint = Color.White.copy(alpha = 0.6f)
                     )
                 }
-                TextButton(onClick = onExit, colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f))) {
+                TextButton(
+                    onClick = onExit,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f))
+                ) {
                     Text("Exit")
                 }
+//                Button(
+//                    onClick = { viewModel.saveLayout(workingBackground); onSave() },
+//                    shape = RoundedCornerShape(12.dp)
+//                ) {
+//                    Text("Save")
+//                }
                 Button(
-                    onClick = { viewModel.saveLayout(workingBackground); onSave() },
+                    onClick = {
+                        viewModel.saveLayout(workingBackground)
+                        android.widget.Toast.makeText(context, "Salah Screen Saved", android.widget.Toast.LENGTH_SHORT).show()
+                        // Notice we removed onSave() so it doesn't exit the screen anymore
+                    },
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Save")
@@ -250,7 +263,7 @@ fun SalahCanvasScreen(
         // FABs - Add Widget and Presets
         var showAddMenu by remember { mutableStateOf(false) }
         var showPresetsMenu by remember { mutableStateOf(false) }
-        
+
         AnimatedVisibility(
             visible = isUiVisible && selectedWidgetId == null,
             enter = fadeIn() + scaleIn(),
@@ -275,7 +288,7 @@ fun SalahCanvasScreen(
                 ) {
                     Icon(Icons.Default.Layers, contentDescription = "Presets")
                 }
-                
+
                 // Add Widget FAB (right)
                 ExtendedFloatingActionButton(
                     onClick = { showAddMenu = true },
@@ -295,7 +308,7 @@ fun SalahCanvasScreen(
                     viewModel.addWidget(widget)
                     showAddMenu = false
                 },
-                onBackgroundChange = { 
+                onBackgroundChange = {
                     viewModel.updateBackgroundColor(it)
                 },
                 onDismiss = { showAddMenu = false }
@@ -357,7 +370,11 @@ fun CanvasWidgetItem(
                 transformOrigin = TransformOrigin(0f, 0f)
             }
             .then(
-                if (isSelected) Modifier.border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                if (isSelected) Modifier.border(
+                    1.dp,
+                    Color.White.copy(alpha = 0.4f),
+                    RoundedCornerShape(4.dp)
+                )
                 else Modifier
             )
             .pointerInput(widget.id) {
@@ -372,18 +389,36 @@ fun CanvasWidgetItem(
                         val newOffsetX = w.offsetX + pan.x
                         val newOffsetY = w.offsetY + pan.y
                         val newScale = (w.scale * zoom).coerceIn(0.2f, 5f)
-                        
+
                         val updated = when (w) {
-                            is CanvasWidget.RakatCount -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
-                            is CanvasWidget.ClockWidget -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
-                            is CanvasWidget.CustomText -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
+                            is CanvasWidget.RakatCount -> w.copy(
+                                offsetX = newOffsetX,
+                                offsetY = newOffsetY,
+                                scale = newScale
+                            )
+
+                            is CanvasWidget.ClockWidget -> w.copy(
+                                offsetX = newOffsetX,
+                                offsetY = newOffsetY,
+                                scale = newScale
+                            )
+
+                            is CanvasWidget.CustomText -> w.copy(
+                                offsetX = newOffsetX,
+                                offsetY = newOffsetY,
+                                scale = newScale
+                            )
                         }
                         currentOnUpdate(updated)
                     }
                 )
             }
             .onGloballyPositioned { coordinates ->
-                currentOnSizeMeasured(widget.id, coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
+                currentOnSizeMeasured(
+                    widget.id,
+                    coordinates.size.width.toFloat(),
+                    coordinates.size.height.toFloat()
+                )
             }
     ) {
         // Render widgets directly without remember block to avoid recomposition lag
@@ -401,14 +436,19 @@ fun CanvasWidgetItem(
                     fontWeight = FontWeight(widget.fontWeight),
                     style = TextStyle(
                         color = Color(widget.color).copy(alpha = widget.opacity),
-                        drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                        drawStyle = if (widget.isOutline) Stroke(
+                            width = 4f,
+                            join = StrokeJoin.Round
+                        ) else Fill,
                         platformStyle = PlatformTextStyle(includeFontPadding = false)
                     )
                 )
             }
+
             is CanvasWidget.ClockWidget -> {
                 LiveClockText(widget, widget.opacity, widget.isOutline)
             }
+
             is CanvasWidget.CustomText -> {
                 Box(
                     contentAlignment = when (widget.verticalAlign) {
@@ -430,7 +470,10 @@ fun CanvasWidgetItem(
                         },
                         style = TextStyle(
                             color = Color(widget.color).copy(alpha = widget.opacity),
-                            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                            drawStyle = if (widget.isOutline) Stroke(
+                                width = 4f,
+                                join = StrokeJoin.Round
+                            ) else Fill,
                             platformStyle = PlatformTextStyle(includeFontPadding = false)
                         )
                     )
@@ -450,7 +493,7 @@ private fun LiveClockText(widget: CanvasWidget.ClockWidget, opacity: Float, isOu
             val m = now.minute
             val s = now.second
             timeStr = if (widget.showSeconds) "%02d:%02d:%02d".format(h, m, s)
-                      else "%02d:%02d".format(h, m)
+            else "%02d:%02d".format(h, m)
             delay(1000)
         }
     }
@@ -603,7 +646,15 @@ private fun AddWidgetSheet(
                         .clip(CircleShape)
                         .background(
                             brush = Brush.sweepGradient(
-                                colors = listOf(Color.Red, Color.Magenta, Color.Blue, Color.Cyan, Color.Green, Color.Yellow, Color.Red)
+                                colors = listOf(
+                                    Color.Red,
+                                    Color.Magenta,
+                                    Color.Blue,
+                                    Color.Cyan,
+                                    Color.Green,
+                                    Color.Yellow,
+                                    Color.Red
+                                )
                             )
                         )
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
@@ -755,30 +806,30 @@ private fun PresetsSheet(
     val workingWidgets by viewModel.workingWidgets.collectAsStateWithLifecycle()
     val workingBackground by viewModel.workingBackgroundColor.collectAsStateWithLifecycle()
 
-    // Preset layouts - Minimal to Premium
-    val presets = listOf(
-        CanvasPreset(
-            id = "current",
-            name = "Current",
-            backgroundColor = workingBackground,
-            widgets = workingWidgets,
-            isDeletable = false
-        ),
-        CanvasPreset(
-            id = "minimal",
-            name = "Minimal",
-            backgroundColor = 0xFF000000.toInt(),
-            widgets = listOf(
-                CanvasWidget.RakatCount(offsetX = 441.7226f, offsetY = 662.8323f, scale = 3.3677413f, color = -1, opacity = 1.0f, fontSizeSp = 77.18303f, fontWeight = 400, isOutline = false, fontName = "Antonio"),
-            ),
-            isDeletable = false
-        ),
+    val customPresets by viewModel.customPresets.collectAsStateWithLifecycle()
+
+    var actionPreset by remember { mutableStateOf<CanvasPreset?>(null) }
+    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var showUnsavedDialog by remember { mutableStateOf(false) }
+    var showInterceptedSaveDialog by remember { mutableStateOf(false) }
+
+    val defaultPresets = listOf(
         CanvasPreset(
             id = "classy",
             name = "Classy",
             backgroundColor = 0xFF000000.toInt(),
             widgets = listOf(
-                CanvasWidget.RakatCount(offsetX = 441.7226f, offsetY = 662.8323f, scale = 3.3677413f, color = -1, opacity = 1.0f, fontSizeSp = 77.18303f, fontWeight = 400, isOutline = true, fontName = "Antonio"),
+                CanvasWidget.RakatCount(
+                    offsetX = 441.7226f,
+                    offsetY = 662.8323f,
+                    scale = 3.3677413f,
+                    color = -1,
+                    opacity = 1.0f,
+                    fontSizeSp = 77.18303f,
+                    fontWeight = 400,
+                    isOutline = true,
+                    fontName = "Antonio"
+                ),
             ),
             isDeletable = false
         ),
@@ -787,8 +838,32 @@ private fun PresetsSheet(
             name = "Pure",
             backgroundColor = 0xFF000000.toInt(),
             widgets = listOf(
-                CanvasWidget.RakatCount(offsetX = 770.9055f, offsetY = 667.29614f, scale = 3.3677413f, color = -1, opacity = 1.0f, fontSizeSp = 77.18303f, fontWeight = 400, isOutline = false, fontName = "Antonio"),
-                CanvasWidget.CustomText(offsetX = 114.73828f, offsetY = 1122.4414f, scale = 1.0f, text = "صلاة", color = -1, opacity = 1.0f, fontSizeSp = 71.04196f, fontWeight = 400, italic = false, textAlign = "Center", verticalAlign = "Center", isOutline = true, fontName = "BeVietnamPro"),
+                CanvasWidget.RakatCount(
+                    offsetX = 770.9055f,
+                    offsetY = 667.29614f,
+                    scale = 3.3677413f,
+                    color = -1,
+                    opacity = 1.0f,
+                    fontSizeSp = 77.18303f,
+                    fontWeight = 400,
+                    isOutline = false,
+                    fontName = "Antonio"
+                ),
+                CanvasWidget.CustomText(
+                    offsetX = 114.73828f,
+                    offsetY = 1122.4414f,
+                    scale = 1.0f,
+                    text = "صلاة",
+                    color = -1,
+                    opacity = 1.0f,
+                    fontSizeSp = 71.04196f,
+                    fontWeight = 400,
+                    italic = false,
+                    textAlign = "Center",
+                    verticalAlign = "Center",
+                    isOutline = true,
+                    fontName = "BeVietnamPro"
+                ),
             ),
             isDeletable = false
         ),
@@ -797,8 +872,32 @@ private fun PresetsSheet(
             name = "Subtle",
             backgroundColor = 0xFF000000.toInt(),
             widgets = listOf(
-                CanvasWidget.RakatCount(offsetX = 378.284f, offsetY = 31.923096f, scale = 3.3677413f, color = -1, opacity = 1.0f, fontSizeSp = 180.0f, fontWeight = 400, isOutline = false, fontName = "Antonio"),
-                CanvasWidget.CustomText(offsetX = 67.146484f, offsetY = 108.02832f, scale = 1.0f, text = "صلاة", color = -1, opacity = 1.0f, fontSizeSp = 71.04196f, fontWeight = 400, italic = false, textAlign = "Center", verticalAlign = "Center", isOutline = true, fontName = "BeVietnamPro"),
+                CanvasWidget.RakatCount(
+                    offsetX = 378.284f,
+                    offsetY = 31.923096f,
+                    scale = 3.3677413f,
+                    color = -1,
+                    opacity = 1.0f,
+                    fontSizeSp = 180.0f,
+                    fontWeight = 400,
+                    isOutline = false,
+                    fontName = "Antonio"
+                ),
+                CanvasWidget.CustomText(
+                    offsetX = 67.146484f,
+                    offsetY = 108.02832f,
+                    scale = 1.0f,
+                    text = "صلاة",
+                    color = -1,
+                    opacity = 1.0f,
+                    fontSizeSp = 71.04196f,
+                    fontWeight = 400,
+                    italic = false,
+                    textAlign = "Center",
+                    verticalAlign = "Center",
+                    isOutline = true,
+                    fontName = "BeVietnamPro"
+                ),
             ),
             isDeletable = false
         ),
@@ -807,25 +906,60 @@ private fun PresetsSheet(
             name = "Premium",
             backgroundColor = 0xFF000000.toInt(),
             widgets = listOf(
-                CanvasWidget.ClockWidget(offsetX = 41.727997f, offsetY = 242.21165f, scale = 1.5047318f, color = -1, opacity = 1.0f, fontSizeSp = 48.0f, showSeconds = false, use24Hour = true, isOutline = false, fontName = "BeVietnamPro"),
-                CanvasWidget.CustomText(offsetX = 719.8713f, offsetY = 589.70654f, scale = 2.133892f, text = "صلاة", color = -1, opacity = 1.0f, fontSizeSp = 32.0f, fontWeight = 400, italic = false, textAlign = "Center", verticalAlign = "Center", isOutline = false, fontName = "BeVietnamPro"),
-                CanvasWidget.RakatCount(offsetX = 559.13025f, offsetY = 687.25366f, scale = 2.5634913f, color = -1, opacity = 1.0f, fontSizeSp = 180.0f, fontWeight = 400, isOutline = false, fontName = "Antonio"),
+                CanvasWidget.ClockWidget(
+                    offsetX = 41.727997f,
+                    offsetY = 242.21165f,
+                    scale = 1.5047318f,
+                    color = -1,
+                    opacity = 1.0f,
+                    fontSizeSp = 48.0f,
+                    showSeconds = false,
+                    use24Hour = true,
+                    isOutline = false,
+                    fontName = "BeVietnamPro"
+                ),
+                CanvasWidget.CustomText(
+                    offsetX = 719.8713f,
+                    offsetY = 589.70654f,
+                    scale = 2.133892f,
+                    text = "صلاة",
+                    color = -1,
+                    opacity = 1.0f,
+                    fontSizeSp = 32.0f,
+                    fontWeight = 400,
+                    italic = false,
+                    textAlign = "Center",
+                    verticalAlign = "Center",
+                    isOutline = false,
+                    fontName = "BeVietnamPro"
+                ),
+                CanvasWidget.RakatCount(
+                    offsetX = 559.13025f,
+                    offsetY = 687.25366f,
+                    scale = 2.5634913f,
+                    color = -1,
+                    opacity = 1.0f,
+                    fontSizeSp = 180.0f,
+                    fontWeight = 400,
+                    isOutline = false,
+                    fontName = "Antonio"
+                ),
             ),
             isDeletable = false
         ),
     )
 
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-    )
-    
+    val currentPreset = CanvasPreset(id = "current", name = "Current", backgroundColor = workingBackground, widgets = workingWidgets, isDeletable = false)
+    val presets = listOf(currentPreset) + customPresets + defaultPresets
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     LaunchedEffect(Unit) {
         sheetState.expand()
     }
-    
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-//        scrimColor = ModalBottomSheetDefaults.scrimColor,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -848,19 +982,27 @@ private fun PresetsSheet(
                     text = "Presets",
                     style = MaterialTheme.typography.titleMedium,
                     fontFamily = BeVietnamPro,
-//                    fontWeight = FontWeight.,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
                 TextButton(
                     onClick = {
-                        viewModel.clearWidgets()
-                        viewModel.updateBackgroundColor(0xFF000000.toInt())
-                        onDismiss()
+                        val clearAction = {
+                            viewModel.clearWidgets()
+                            viewModel.updateBackgroundColor(0xFF000000.toInt())
+                            onDismiss()
+                        }
+
+                        if (workingWidgets.isNotEmpty()) {
+                            pendingAction = clearAction
+                            showUnsavedDialog = true
+                        } else {
+                            clearAction()
+                        }
                     },
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),  // very small & natural
-                    modifier = Modifier.defaultMinSize(minWidth = 0.dp, minHeight = 0.dp)  // removes forced 48.dp height
-                ){
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                    modifier = Modifier.defaultMinSize(minWidth = 0.dp, minHeight = 0.dp)
+                ) {
                     Text(
                         text = "Create",
                         style = MaterialTheme.typography.titleMedium,
@@ -875,18 +1017,17 @@ private fun PresetsSheet(
             val configuration = androidx.compose.ui.platform.LocalConfiguration.current
             val screenWidthDp = configuration.screenWidthDp.dp
             val horizontalPadding = (screenWidthDp - 230.dp) / 2
-            // Premium Preset Carousel with HorizontalPager
+
             val pagerState = rememberPagerState(pageCount = { presets.size })
-            
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // Single, massive reflection Box behind the pager
                 val currentPreset = presets[pagerState.currentPage]
-                val dominantColor = currentPreset.widgets.firstOrNull()?.let { 
+                val dominantColor = currentPreset.widgets.firstOrNull()?.let {
                     when (it) {
                         is CanvasWidget.RakatCount -> Color(it.color)
                         is CanvasWidget.ClockWidget -> Color(it.color)
@@ -919,20 +1060,19 @@ private fun PresetsSheet(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val preset = presets[page]
-//                    val pageOffset = pagerState.currentPageOffsetFraction
-                    val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                    val pageOffset =
+                        (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
 
                     val cardScale = 1f - (kotlin.math.abs(pageOffset) * 0.15f).coerceIn(0f, 0.15f)
                     val cardAlpha = 1f - (kotlin.math.abs(pageOffset) * 0.5f).coerceIn(0f, 0.5f)
-                    
+
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .graphicsLayer {
-                                scaleX = cardScale
-                                scaleY = cardScale
-                                alpha = cardAlpha
-                            }
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = cardScale
+                            scaleY = cardScale
+                            alpha = cardAlpha
+                        }
                     ) {
                         BoxWithConstraints(
                             modifier = Modifier
@@ -954,20 +1094,33 @@ private fun PresetsSheet(
                                     .pointerInput(preset.id) {
                                         detectTapGestures(
                                             onTap = {
-                                                viewModel.clearWidgets()
-                                                preset.widgets.forEach { viewModel.addWidget(it) }
-                                                viewModel.updateBackgroundColor(preset.backgroundColor)
-                                                onDismiss()
+                                                if (preset.id == "current") return@detectTapGestures
+
+                                                val loadAction = {
+                                                    viewModel.clearWidgets()
+                                                    preset.widgets.forEach { viewModel.addWidget(it) }
+                                                    viewModel.updateBackgroundColor(preset.backgroundColor)
+                                                    onDismiss()
+                                                }
+
+                                                if (workingWidgets.isNotEmpty()) {
+                                                    pendingAction = loadAction
+                                                    showUnsavedDialog = true
+                                                } else {
+                                                    loadAction()
+                                                }
                                             },
                                             onLongPress = {
                                                 if (preset.isDeletable) {
-                                                    // Menu for deletion/edit
+                                                    // This triggers the action menu below
+                                                    actionPreset = preset
                                                 }
                                             }
                                         )
                                     },
                                 contentAlignment = Alignment.TopStart
                             ) {
+                                // Your existing preview content logic
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -978,21 +1131,20 @@ private fun PresetsSheet(
                                         }
                                 ) {
                                     preset.widgets.forEach { widget ->
+                                        // Keeping your exact rendering loop here to avoid breaking it
                                         val widgetFontFamily = when (widget) {
                                             is CanvasWidget.RakatCount -> widget.fontName.resolveFontFamily()
                                             is CanvasWidget.ClockWidget -> widget.fontName.resolveFontFamily()
                                             is CanvasWidget.CustomText -> widget.fontName.resolveFontFamily()
                                         }
-                                        
                                         Box(
-                                            modifier = Modifier
-                                                .graphicsLayer {
-                                                    translationX = widget.offsetX
-                                                    translationY = widget.offsetY
-                                                    scaleX = widget.scale
-                                                    scaleY = widget.scale
-                                                    transformOrigin = TransformOrigin(0f, 0f)
-                                                }
+                                            modifier = Modifier.graphicsLayer {
+                                                translationX = widget.offsetX
+                                                translationY = widget.offsetY
+                                                scaleX = widget.scale
+                                                scaleY = widget.scale
+                                                transformOrigin = TransformOrigin(0f, 0f)
+                                            }
                                         ) {
                                             when (widget) {
                                                 is CanvasWidget.RakatCount -> {
@@ -1003,37 +1155,47 @@ private fun PresetsSheet(
                                                         fontWeight = FontWeight(widget.fontWeight),
                                                         style = TextStyle(
                                                             color = Color(widget.color).copy(alpha = widget.opacity),
-                                                            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
-                                                            platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                                            drawStyle = if (widget.isOutline) Stroke(
+                                                                width = 4f,
+                                                                join = StrokeJoin.Round
+                                                            ) else Fill,
+                                                            platformStyle = PlatformTextStyle(
+                                                                includeFontPadding = false
+                                                            )
                                                         )
                                                     )
                                                 }
+
                                                 is CanvasWidget.ClockWidget -> {
                                                     LiveClockTextPreview(widget)
                                                 }
+
                                                 is CanvasWidget.CustomText -> {
                                                     Box(
                                                         contentAlignment = when (widget.verticalAlign) {
-                                                            "Top" -> Alignment.TopCenter
-                                                            "Bottom" -> Alignment.BottomCenter
-                                                            else -> Alignment.Center
+                                                            "Top" -> Alignment.TopCenter; "Bottom" -> Alignment.BottomCenter; else -> Alignment.Center
                                                         }
                                                     ) {
                                                         Text(
-                                                            text = widget.text,
+                                                            text = widget.text ?: "",
                                                             fontFamily = widgetFontFamily,
                                                             fontSize = widget.fontSizeSp.sp,
                                                             fontWeight = FontWeight(widget.fontWeight),
                                                             fontStyle = if (widget.italic) FontStyle.Italic else FontStyle.Normal,
                                                             textAlign = when (widget.textAlign) {
-                                                                "Left" -> TextAlign.Left
-                                                                "Right" -> TextAlign.Right
-                                                                else -> TextAlign.Center
+                                                                "Left" -> TextAlign.Left; "Right" -> TextAlign.Right; else -> TextAlign.Center
                                                             },
                                                             style = TextStyle(
-                                                                color = Color(widget.color).copy(alpha = widget.opacity),
-                                                                drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
-                                                                platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                                                color = Color(widget.color).copy(
+                                                                    alpha = widget.opacity
+                                                                ),
+                                                                drawStyle = if (widget.isOutline) Stroke(
+                                                                    width = 4f,
+                                                                    join = StrokeJoin.Round
+                                                                ) else Fill,
+                                                                platformStyle = PlatformTextStyle(
+                                                                    includeFontPadding = false
+                                                                )
                                                             )
                                                         )
                                                     }
@@ -1044,8 +1206,7 @@ private fun PresetsSheet(
                                 }
                             }
                         }
-                        
-                        // Preset name outside card
+
                         Spacer(Modifier.height(16.dp))
                         Text(
                             text = preset.name,
@@ -1056,11 +1217,12 @@ private fun PresetsSheet(
                     }
                 }
             }
-            
-            // Page indicator 
+
             Spacer(Modifier.height(24.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
                 repeat(presets.size) { index ->
@@ -1070,13 +1232,112 @@ private fun PresetsSheet(
                             .padding(horizontal = 4.dp)
                             .size(if (isSelected) 8.dp else 6.dp)
                             .background(
-                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(
+                                    alpha = 0.3f
+                                ),
                                 shape = CircleShape
                             )
                     )
                 }
             }
         }
+    }
+
+    // ─── ACTION MENU (Appears when a preset is long-pressed) ───
+    actionPreset?.let { targetPreset ->
+        var showRenameDialog by remember { mutableStateOf(false) }
+
+        if (showRenameDialog) {
+            SavePresetDialog(
+                initialName = targetPreset.name,
+                onDismiss = {
+                    showRenameDialog = false
+                    actionPreset = null
+                },
+                onConfirm = { newName ->
+                    viewModel.renamePreset(targetPreset.id, newName)
+                    showRenameDialog = false
+                    actionPreset = null
+                }
+            )
+        } else {
+            ModalBottomSheet(
+                onDismissRequest = { actionPreset = null },
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Column(Modifier.padding(bottom = 32.dp)) {
+                    Text(
+                        text = targetPreset.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    ListItem(
+                        headlineContent = { Text("Rename Preset") },
+                        leadingContent = { Icon(Icons.Default.Edit, contentDescription = null) },
+                        modifier = Modifier.clickable { showRenameDialog = true },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                "Delete Preset",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        modifier = Modifier.clickable {
+                            viewModel.deletePreset(targetPreset.id)
+                            actionPreset = null
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+        }
+    }
+    // ─── INTERCEPTOR DIALOGS ───
+    if (showUnsavedDialog) {
+        UnsavedChangesDialog(
+            onDismiss = {
+                showUnsavedDialog = false
+                pendingAction = null
+            },
+            onDiscard = {
+                showUnsavedDialog = false
+                pendingAction?.invoke() // Executes the load/clear immediately
+                pendingAction = null
+            },
+            onSave = {
+                showUnsavedDialog = false
+                showInterceptedSaveDialog = true // Push them to the naming dialog
+            }
+        )
+    }
+
+    if (showInterceptedSaveDialog) {
+        SavePresetDialog(
+            initialName = "",
+            onDismiss = {
+                showInterceptedSaveDialog = false
+                pendingAction = null // Abort everything if they cancel naming
+            },
+            onConfirm = { newName ->
+                viewModel.saveCustomPreset(newName, workingWidgets, workingBackground)
+                showInterceptedSaveDialog = false
+                pendingAction?.invoke() // Executes the load/clear after saving
+                pendingAction = null
+            }
+        )
     }
 }
 
@@ -1118,7 +1379,7 @@ private fun WidgetConfigSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = when(widget) {
+                    text = when (widget) {
                         is CanvasWidget.RakatCount -> "Configure Counter"
                         is CanvasWidget.ClockWidget -> "Configure Clock"
                         is CanvasWidget.CustomText -> "Configure Text"
@@ -1153,7 +1414,11 @@ private fun WidgetConfigSheet(
             }
 
             // ── COLOR PICKER (5 + 1) ─────────────────────────────────
-            Text("COLOR", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "COLOR",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
             Spacer(Modifier.height(12.dp))
 
             val widgetColor = when (widget) {
@@ -1192,7 +1457,12 @@ private fun WidgetConfigSheet(
                         contentAlignment = Alignment.Center
                     ) {
                         if (isSelected) {
-                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
@@ -1202,12 +1472,29 @@ private fun WidgetConfigSheet(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(androidx.compose.ui.graphics.Brush.sweepGradient(listOf(Color.Red, Color.Magenta, Color.Blue, Color.Cyan, Color.Green, Color.Yellow, Color.Red)))
+                        .background(
+                            androidx.compose.ui.graphics.Brush.sweepGradient(
+                                listOf(
+                                    Color.Red,
+                                    Color.Magenta,
+                                    Color.Blue,
+                                    Color.Cyan,
+                                    Color.Green,
+                                    Color.Yellow,
+                                    Color.Red
+                                )
+                            )
+                        )
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                         .clickable { showColorPicker = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Palette, contentDescription = "Custom", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = "Custom",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
@@ -1232,7 +1519,11 @@ private fun WidgetConfigSheet(
             Spacer(Modifier.height(24.dp))
 
             // ── FORMATTING & STYLE BAR ───────────────────────────────
-            Text("STYLE & FORMAT", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "STYLE & FORMAT",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
             Spacer(Modifier.height(12.dp))
 
             // Compact Toggle Bar
@@ -1315,7 +1606,12 @@ private fun WidgetConfigSheet(
                 is CanvasWidget.ClockWidget -> widget.opacity
                 is CanvasWidget.CustomText -> widget.opacity
             }
-            SliderControl("OPACITY (${(widgetOpacity * 100).toInt()}%)", widgetOpacity, 0.1f, 1f) { newValue ->
+            SliderControl(
+                "OPACITY (${(widgetOpacity * 100).toInt()}%)",
+                widgetOpacity,
+                0.1f,
+                1f
+            ) { newValue ->
                 val updated = when (widget) {
                     is CanvasWidget.RakatCount -> widget.copy(opacity = newValue)
                     is CanvasWidget.ClockWidget -> widget.copy(opacity = newValue)
@@ -1329,11 +1625,18 @@ private fun WidgetConfigSheet(
             Spacer(Modifier.height(24.dp))
 
             // ── ALIGNMENT ────────────────────────────────────────────
-            Text("ALIGNMENT", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "ALIGNMENT",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
             Spacer(Modifier.height(12.dp))
 
             // Horizontal Alignment
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 listOf(
                     Alignment.Start to Icons.AutoMirrored.Filled.AlignHorizontalLeft,
                     Alignment.CenterHorizontally to Icons.Default.AlignHorizontalCenter,
@@ -1344,14 +1647,23 @@ private fun WidgetConfigSheet(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-                    ) { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
+                    ) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(8.dp))
 
             // Vertical Alignment
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 listOf(
                     Alignment.Top to Icons.Default.VerticalAlignTop,
                     Alignment.CenterVertically to Icons.Default.VerticalAlignCenter,
@@ -1362,7 +1674,13 @@ private fun WidgetConfigSheet(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-                    ) { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
+                    ) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
 
@@ -1371,10 +1689,17 @@ private fun WidgetConfigSheet(
                 Spacer(Modifier.height(24.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(24.dp))
-                Text("TIME FORMAT", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "TIME FORMAT",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(Modifier.height(12.dp))
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     FilterChip(
                         selected = !widget.use24Hour,
                         onClick = { onUpdate(widget.copy(use24Hour = false)) },
@@ -1398,9 +1723,19 @@ private fun WidgetConfigSheet(
 
 // ── Refactored Slider Helper ──
 @Composable
-private fun SliderControl(label: String, value: Float, min: Float, max: Float, onUpdate: (Float) -> Unit) {
+private fun SliderControl(
+    label: String,
+    value: Float,
+    min: Float,
+    max: Float,
+    onUpdate: (Float) -> Unit
+) {
     Column {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Slider(
             value = value,
             onValueChange = onUpdate,
@@ -1421,7 +1756,7 @@ private fun ColorPicker(
     var red by remember { mutableFloatStateOf(0.1f) }
     var green by remember { mutableFloatStateOf(0.1f) }
     var blue by remember { mutableFloatStateOf(0.1f) }
-    
+
     val selectedColor = Color(red, green, blue)
     val selectedColorInt = selectedColor.toSolidInt()
 
@@ -1434,9 +1769,9 @@ private fun ColorPicker(
             "Custom Background Color",
             style = MaterialTheme.typography.titleMedium
         )
-        
+
         Spacer(Modifier.height(16.dp))
-        
+
         // Color preview
         Box(
             modifier = Modifier
@@ -1446,9 +1781,9 @@ private fun ColorPicker(
                 .background(selectedColor)
                 .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
         )
-        
+
         Spacer(Modifier.height(16.dp))
-        
+
         // Red slider
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -1466,7 +1801,7 @@ private fun ColorPicker(
             )
             Text("${(red * 255).toInt()}", style = MaterialTheme.typography.bodySmall)
         }
-        
+
         // Green slider
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -1484,7 +1819,7 @@ private fun ColorPicker(
             )
             Text("${(green * 255).toInt()}", style = MaterialTheme.typography.bodySmall)
         }
-        
+
         // Blue slider
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -1502,9 +1837,9 @@ private fun ColorPicker(
             )
             Text("${(blue * 255).toInt()}", style = MaterialTheme.typography.bodySmall)
         }
-        
+
         Spacer(Modifier.height(16.dp))
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1523,4 +1858,63 @@ private fun ColorPicker(
             }
         }
     }
+}
+
+@Composable
+private fun SavePresetDialog(
+    initialName: String = "",
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var presetName by remember { mutableStateOf(initialName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initialName.isEmpty()) "Save Preset" else "Rename Preset") },
+        text = {
+            OutlinedTextField(
+                value = presetName,
+                onValueChange = { presetName = it },
+                label = { Text("Preset Name") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(presetName) },
+                enabled = presetName.isNotBlank()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        textContentColor = MaterialTheme.colorScheme.onSurface
+    )
+}
+
+@Composable
+private fun UnsavedChangesDialog(
+    onDismiss: () -> Unit,
+    onDiscard: () -> Unit,
+    onSave: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save Current Canvas?") },
+        text = { Text("You are about to load a new layout. Do you want to save your current canvas as a preset first?") },
+        confirmButton = {
+            Button(onClick = onSave) { Text("Save as Preset") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDiscard, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                Text("Discard")
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        textContentColor = MaterialTheme.colorScheme.onSurface
+    )
 }
