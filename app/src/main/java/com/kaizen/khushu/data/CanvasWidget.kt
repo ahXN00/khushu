@@ -1,6 +1,18 @@
 package com.kaizen.khushu.data
 
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import com.kaizen.khushu.ui.theme.Antonio
+import com.kaizen.khushu.ui.theme.BeVietnamPro
 import kotlinx.serialization.Serializable
+
+fun String.resolveFontFamily(): FontFamily {
+    return when (this) {
+        "Antonio" -> Antonio
+        "BeVietnamPro" -> BeVietnamPro
+        else -> FontFamily.Default
+    }
+}
 
 @Serializable
 sealed interface CanvasWidget {
@@ -26,6 +38,7 @@ sealed interface CanvasWidget {
         val fontSizeSp: Float = 180f,
         val fontWeight: Int = 400,
         val isOutline: Boolean = false,
+        val fontName: String = "Antonio",
     ) : CanvasWidget
 
     @Serializable
@@ -43,6 +56,7 @@ sealed interface CanvasWidget {
         val showSeconds: Boolean = false,
         val use24Hour: Boolean = true,
         val isOutline: Boolean = false,
+        val fontName: String = "BeVietnamPro",
     ) : CanvasWidget
 
     @Serializable
@@ -63,5 +77,6 @@ sealed interface CanvasWidget {
         val textAlign: String = "Center",
         val verticalAlign: String = "Center",
         val isOutline: Boolean = false,
+        val fontName: String = "BeVietnamPro",
     ) : CanvasWidget
 }
