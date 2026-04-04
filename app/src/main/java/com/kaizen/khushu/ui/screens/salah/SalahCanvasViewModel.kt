@@ -81,7 +81,14 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
     }
 
     fun addWidget(widget: CanvasWidget) {
-        _workingWidgets.update { it + widget }
+        val centerX = (_canvasWidth.value - 100f) / 2f
+        val centerY = (_canvasHeight.value - 50f) / 2f
+        val centeredWidget = when (widget) {
+            is CanvasWidget.RakatCount -> widget.copy(offsetX = centerX, offsetY = centerY)
+            is CanvasWidget.ClockWidget -> widget.copy(offsetX = centerX, offsetY = centerY)
+            is CanvasWidget.CustomText -> widget.copy(offsetX = centerX, offsetY = centerY)
+        }
+        _workingWidgets.update { it + centeredWidget }
     }
 
     fun updateWidget(updated: CanvasWidget) {
