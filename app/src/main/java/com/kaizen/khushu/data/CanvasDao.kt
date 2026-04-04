@@ -30,4 +30,7 @@ interface CanvasDao {
 
     @Query("SELECT COUNT(*) FROM canvas_presets")
     suspend fun getPresetCount(): Int
+
+    @Query("SELECT * FROM canvas_presets WHERE id = :id")
+    fun getPresetById(id: String): Flow<PresetEntity?>
 }

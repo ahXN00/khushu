@@ -205,6 +205,10 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
         viewModelScope.launch { dao.renamePreset(id, newName) }
     }
 
+    fun getPresetById(id: String) = dao.getPresetById(id)
+        .map { it?.toDomain() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     companion object {
         fun factory(dao: CanvasDao) = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {

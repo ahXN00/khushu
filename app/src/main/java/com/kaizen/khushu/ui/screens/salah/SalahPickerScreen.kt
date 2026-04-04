@@ -35,7 +35,7 @@ import dev.chrisbanes.haze.haze
 
 @Composable
 fun SalahPickerScreen(
-    onStartSalah: (rakats: Int, preset: SalahPreset) -> Unit,
+    onStartSalah: (rakats: Int, presetId: String?) -> Unit,
     onSettingsClick: () -> Unit,
     onNavigateTab: (AppDestinations) -> Unit,
     navBarClearance: Dp = 88.dp,
@@ -55,7 +55,7 @@ fun SalahPickerScreen(
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },
-                    onClick = { onStartSalah(selectedRakat, SalahPreset.Minimal) },
+                    onClick = { onStartSalah(selectedRakat, null) },
                 ),
             contentAlignment = Alignment.Center,
         ) {

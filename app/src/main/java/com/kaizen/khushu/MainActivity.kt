@@ -28,6 +28,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.compose.BackHandler
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.*
@@ -42,7 +43,7 @@ import com.kaizen.khushu.ui.screens.learn.LearnScreen
 import com.kaizen.khushu.ui.screens.learn.LearnSectionDetailScreen
 import com.kaizen.khushu.ui.screens.salah.SalahImmersiveScreen
 import com.kaizen.khushu.ui.screens.salah.SalahPickerScreen
-import com.kaizen.khushu.ui.screens.salah.SalahPreset
+import com.kaizen.khushu.data.CanvasPreset
 import com.kaizen.khushu.ui.screens.tasbeeh.TasbeehScreen
 import com.kaizen.khushu.data.CanvasDatabase
 import com.kaizen.khushu.ui.screens.salah.SalahCanvasScreen
@@ -139,7 +140,7 @@ private fun KhushuApp(
     darkTheme: Boolean
 ) {
     var immersiveRakats by remember { mutableStateOf<Int?>(null) }
-    var immersivePreset by remember { mutableStateOf<SalahPreset>(SalahPreset.Minimal) }
+    var immersivePresetId by remember { mutableStateOf<String?>(null) }
     var activeTasbeehCollection by remember { mutableStateOf<TasbeehCollection?>(null) }
     var showCanvasEditor by remember { mutableStateOf(false) }
     var canvasEditorRakats by remember { mutableIntStateOf(4) }
@@ -189,9 +190,9 @@ private fun KhushuApp(
                         popExitTransition = { tabExit() },
                     ) {
                         SalahPickerScreen(
-                            onStartSalah = { rakats, preset ->
+                            onStartSalah = { rakats, presetId ->
                                 immersiveRakats = rakats
-                                immersivePreset = preset
+                                immersivePresetId = presetId
                             },
                             onSettingsClick = { showSettingsSheet = true },
                             onNavigateTab = onNavigateTab,
@@ -439,13 +440,44 @@ private fun KhushuApp(
         }
 
         immersiveRakats?.let { rakats ->
-            SalahImmersiveScreen(
-                targetRakats = rakats,
-                preset = immersivePreset,
-                salahCanvasViewModel = salahCanvasViewModel,
-                onComplete = { immersiveRakats = null },
-                onExit = { immersiveRakats = null },
-            )
+            val presetId = immersivePresetId
+            if (presetId != null) {
+                val presetFlow = salahCanvasViewModel.getPresetById(presetId)
+                val preset by presetFlow.collectAsStateWithLifecycle()
+                if (preset != null) {
+                    SalahImmersiveScreen(
+                        targetRakats = rakats,
+                        preset = preset!!,
+                        viewModel = salahCanvasViewModel,
+                        onComplete = { immersiveRakats = null; immersivePresetId = null },
+                        onExit = { immersiveRakats = null; immersivePresetId = null },
+                    )
+                }
+            } else {
+                // Fallback to minimal preset
+                SalahImmersiveScreen(
+                    targetRakats = rakats,
+                    preset = CanvasPreset(
+                        id = "minimal",
+                        name = "Minimal",
+                        backgroundColor = 0xFF000000.toInt(),
+                        widgets = listOf(
+                            com.kaizen.khushu.data.CanvasWidget.RakatCount(
+                                offsetX = 500f,
+                                offsetY = 1200f,
+                                scale = 3f,
+                                color = 0xB3FFFFFF.toInt(),
+                                fontSizeSp = 180f,
+                                fontName = "Antonio"
+                            )
+                        ),
+                        isDeletable = false
+                    ),
+                    viewModel = salahCanvasViewModel,
+                    onComplete = { immersiveRakats = null },
+                    onExit = { immersiveRakats = null },
+                )
+            }
         }
 
         activeTasbeehCollection?.let { collection ->
