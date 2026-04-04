@@ -440,44 +440,35 @@ private fun KhushuApp(
         }
 
         immersiveRakats?.let { rakats ->
-            val presetId = immersivePresetId
-            if (presetId != null) {
-                val presetFlow = salahCanvasViewModel.getPresetById(presetId)
-                val preset by presetFlow.collectAsStateWithLifecycle()
-                if (preset != null) {
-                    SalahImmersiveScreen(
-                        targetRakats = rakats,
-                        preset = preset!!,
-                        viewModel = salahCanvasViewModel,
-                        onComplete = { immersiveRakats = null; immersivePresetId = null },
-                        onExit = { immersiveRakats = null; immersivePresetId = null },
-                    )
+            // 1. Get the LIVE canvas layout you just edited
+            val activeLayout by salahCanvasViewModel.layout.collectAsStateWithLifecycle()
+            
+            // 2. Wrap it dynamically so the Immersive screen can read it
+            val currentCanvasPreset = CanvasPreset(
+                id = "current",
+                name = "Current Canvas",
+                backgroundColor = activeLayout.backgroundColorInt,
+                widgets = activeLayout.widgets,
+                isDeletable = false
+            )
+
+            // 3. Use the Current canvas by default, UNLESS they picked a specific DB preset
+            var finalPresetToRender = currentCanvasPreset
+            
+            if (immersivePresetId != null && immersivePresetId != "current") {
+                val dbPreset by salahCanvasViewModel.getPresetFlow(immersivePresetId!!).collectAsStateWithLifecycle(initialValue = null)
+                if (dbPreset != null) {
+                    finalPresetToRender = dbPreset!!
                 }
-            } else {
-                // Fallback to minimal preset
-                SalahImmersiveScreen(
-                    targetRakats = rakats,
-                    preset = CanvasPreset(
-                        id = "minimal",
-                        name = "Minimal",
-                        backgroundColor = 0xFF000000.toInt(),
-                        widgets = listOf(
-                            com.kaizen.khushu.data.CanvasWidget.RakatCount(
-                                offsetX = 500f,
-                                offsetY = 1200f,
-                                scale = 3f,
-                                color = 0xB3FFFFFF.toInt(),
-                                fontSizeSp = 180f,
-                                fontName = "Antonio"
-                            )
-                        ),
-                        isDeletable = false
-                    ),
-                    viewModel = salahCanvasViewModel,
-                    onComplete = { immersiveRakats = null },
-                    onExit = { immersiveRakats = null },
-                )
             }
+
+            // 4. Render it
+            SalahImmersiveScreen(
+                targetRakats = rakats,
+                preset = finalPresetToRender,
+                onComplete = { immersiveRakats = null },
+                onExit = { immersiveRakats = null }
+            )
         }
 
         activeTasbeehCollection?.let { collection ->

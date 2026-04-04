@@ -57,7 +57,6 @@ private val SWIPE_THRESHOLD = 100.dp
 fun SalahImmersiveScreen(
     targetRakats: Int,
     preset: CanvasPreset,
-    viewModel: SalahCanvasViewModel,
     onComplete: () -> Unit,
     onExit: () -> Unit,
 ) {

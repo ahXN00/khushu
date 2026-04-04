@@ -305,7 +305,7 @@ fun SalahCanvasScreen(
             AddWidgetSheet(
                 currentBackground = workingBackground,
                 onAdd = { widget ->
-                    viewModel.addWidget(widget)
+                    viewModel.addNewWidgetFromMenu(widget)
                     showAddMenu = false
                 },
                 onBackgroundChange = {

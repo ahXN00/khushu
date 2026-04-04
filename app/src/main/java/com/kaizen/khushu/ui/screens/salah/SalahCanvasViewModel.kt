@@ -81,12 +81,17 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
     }
 
     fun addWidget(widget: CanvasWidget) {
-        val centerX = (_canvasWidth.value - 100f) / 2f
-        val centerY = (_canvasHeight.value - 50f) / 2f
+        _workingWidgets.update { it + widget }
+    }
+
+    fun addNewWidgetFromMenu(widget: CanvasWidget) {
+        val startX = if (_canvasWidth.value > 0) (_canvasWidth.value / 2f) - 150f else 200f
+        val startY = if (_canvasHeight.value > 0) (_canvasHeight.value / 2f) - 150f else 400f
+
         val centeredWidget = when (widget) {
-            is CanvasWidget.RakatCount -> widget.copy(offsetX = centerX, offsetY = centerY)
-            is CanvasWidget.ClockWidget -> widget.copy(offsetX = centerX, offsetY = centerY)
-            is CanvasWidget.CustomText -> widget.copy(offsetX = centerX, offsetY = centerY)
+            is CanvasWidget.RakatCount -> widget.copy(offsetX = startX, offsetY = startY)
+            is CanvasWidget.ClockWidget -> widget.copy(offsetX = startX, offsetY = startY)
+            is CanvasWidget.CustomText -> widget.copy(offsetX = startX, offsetY = startY)
         }
         _workingWidgets.update { it + centeredWidget }
     }
@@ -205,9 +210,9 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
         viewModelScope.launch { dao.renamePreset(id, newName) }
     }
 
-    fun getPresetById(id: String) = dao.getPresetById(id)
-        .map { it?.toDomain() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    fun getPresetFlow(id: String): kotlinx.coroutines.flow.Flow<CanvasPreset?> {
+        return dao.getPresetById(id).map { it?.toDomain() }
+    }
 
     companion object {
         fun factory(dao: CanvasDao) = object : ViewModelProvider.Factory {
