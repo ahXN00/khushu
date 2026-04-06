@@ -140,7 +140,7 @@ private fun KhushuApp(
     darkTheme: Boolean
 ) {
     var immersiveRakats by remember { mutableStateOf<Int?>(null) }
-    var immersivePresetId by remember { mutableStateOf<String?>(null) }
+    var immersivePresetId by remember { mutableStateOf("signature") }
     var activeTasbeehCollection by remember { mutableStateOf<TasbeehCollection?>(null) }
     var showCanvasEditor by remember { mutableStateOf(false) }
     var canvasEditorRakats by remember { mutableIntStateOf(4) }
@@ -192,7 +192,7 @@ private fun KhushuApp(
                         SalahPickerScreen(
                             onStartSalah = { rakats, presetId ->
                                 immersiveRakats = rakats
-                                immersivePresetId = presetId
+                                immersivePresetId = presetId ?: "signature"
                             },
                             onSettingsClick = { showSettingsSheet = true },
                             onNavigateTab = onNavigateTab,
@@ -455,8 +455,8 @@ private fun KhushuApp(
             // 3. Use the Current canvas by default, UNLESS they picked a specific DB preset
             var finalPresetToRender = currentCanvasPreset
             
-            if (immersivePresetId != null && immersivePresetId != "current") {
-                val dbPreset by salahCanvasViewModel.getPresetFlow(immersivePresetId!!).collectAsStateWithLifecycle(initialValue = null)
+            if (immersivePresetId != "current") {
+                val dbPreset by salahCanvasViewModel.getPresetFlow(immersivePresetId).collectAsStateWithLifecycle(initialValue = null)
                 if (dbPreset != null) {
                     finalPresetToRender = dbPreset!!
                 }
