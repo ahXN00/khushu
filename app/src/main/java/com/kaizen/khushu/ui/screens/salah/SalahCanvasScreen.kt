@@ -184,57 +184,57 @@ fun SalahCanvasScreen(
                 .padding(16.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = {
-                    val dump = buildString {
-                        appendLine("val presets = listOf(")
-                        appendLine("    \"Custom\" to listOf(")
-                        workingWidgets.forEach { widget ->
-                            append("        ")
-                            when (widget) {
-                                is CanvasWidget.RakatCount -> {
-                                    append("CanvasWidget.RakatCount(")
-                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                                    append("scale = ${widget.scale}f, color = ${widget.color}, ")
-                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                                    append("fontWeight = ${widget.fontWeight}, isOutline = ${widget.isOutline}, ")
-                                    append("fontName = \"${widget.fontName}\"")
-                                    append(")")
-                                }
-                                is CanvasWidget.ClockWidget -> {
-                                    append("CanvasWidget.ClockWidget(")
-                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                                    append("scale = ${widget.scale}f, color = ${widget.color}, ")
-                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                                    append("showSeconds = ${widget.showSeconds}, use24Hour = ${widget.use24Hour}, ")
-                                    append("isOutline = ${widget.isOutline}, ")
-                                    append("fontName = \"${widget.fontName}\"")
-                                    append(")")
-                                }
-                                is CanvasWidget.CustomText -> {
-                                    append("CanvasWidget.CustomText(")
-                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                                    append("scale = ${widget.scale}f, text = \"${widget.text}\", color = ${widget.color}, ")
-                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                                    append("fontWeight = ${widget.fontWeight}, italic = ${widget.italic}, ")
-                                    append("textAlign = \"${widget.textAlign}\", verticalAlign = \"${widget.verticalAlign}\", ")
-                                    append("isOutline = ${widget.isOutline}, ")
-                                    append("fontName = \"${widget.fontName}\"")
-                                    append(")")
-                                }
-                            }
-                            appendLine(",")
-                        }
-                        appendLine("    ),")
-                        appendLine(")")
-                    }
-                    Log.d("PRESET_DUMP", dump)
-                }) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Dev Dump",
-                        tint = Color.White.copy(alpha = 0.6f)
-                    )
-                }
+                // IconButton(onClick = {
+                //     val dump = buildString {
+                //         appendLine("val presets = listOf(")
+                //         appendLine("    \"Custom\" to listOf(")
+                //         workingWidgets.forEach { widget ->
+                //             append("        ")
+                //             when (widget) {
+                //                 is CanvasWidget.RakatCount -> {
+                //                     append("CanvasWidget.RakatCount(")
+                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                //                     append("scale = ${widget.scale}f, color = ${widget.color}, ")
+                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                //                     append("fontWeight = ${widget.fontWeight}, isOutline = ${widget.isOutline}, ")
+                //                     append("fontName = \"${widget.fontName}\"")
+                //                     append(")")
+                //                 }
+                //                 is CanvasWidget.ClockWidget -> {
+                //                     append("CanvasWidget.ClockWidget(")
+                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                //                     append("scale = ${widget.scale}f, color = ${widget.color}, ")
+                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                //                     append("showSeconds = ${widget.showSeconds}, use24Hour = ${widget.use24Hour}, ")
+                //                     append("isOutline = ${widget.isOutline}, ")
+                //                     append("fontName = \"${widget.fontName}\"")
+                //                     append(")")
+                //                 }
+                //                 is CanvasWidget.CustomText -> {
+                //                     append("CanvasWidget.CustomText(")
+                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                //                     append("scale = ${widget.scale}f, text = \"${widget.text}\", color = ${widget.color}, ")
+                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                //                     append("fontWeight = ${widget.fontWeight}, italic = ${widget.italic}, ")
+                //                     append("textAlign = \"${widget.textAlign}\", verticalAlign = \"${widget.verticalAlign}\", ")
+                //                     append("isOutline = ${widget.isOutline}, ")
+                //                     append("fontName = \"${widget.fontName}\"")
+                //                     append(")")
+                //                 }
+                //             }
+                //             appendLine(",")
+                //         }
+                //         appendLine("    ),")
+                //         appendLine(")")
+                //     }
+                //     Log.d("PRESET_DUMP", dump)
+                // }) {
+                //     Icon(
+                //         Icons.Default.Edit,
+                //         contentDescription = "Dev Dump",
+                //         tint = Color.White.copy(alpha = 0.6f)
+                //     )
+                // }
                 TextButton(
                     onClick = onExit,
                     colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f))
