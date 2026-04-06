@@ -3,135 +3,71 @@ package com.kaizen.khushu.data
 object DefaultPresets {
     val defaults = listOf(
         CanvasPreset(
-            id = "classy",
-            name = "Classy",
+            id = "core",
+            name = "Core",
             backgroundColor = 0xFF000000.toInt(),
             widgets = listOf(
-                CanvasWidget.RakatCount(
-                    offsetX = 441.7226f,
-                    offsetY = 662.8323f,
-                    scale = 3.3677413f,
-                    color = -1,
-                    opacity = 1.0f,
-                    fontSizeSp = 77.18303f,
-                    fontWeight = 400,
-                    isOutline = true,
-                    fontName = "Antonio"
-                ),
+                CanvasWidget.RakatCount(offsetX = 0.5f, offsetY = 0.5f, scale = 1.8902512f, color = -1, opacity = 1.0f, fontSizeSp = 122.17562f, fontWeight = 400, isOutline = false, fontName = "Antonio")
             ),
             isDeletable = false
         ),
         CanvasPreset(
-            id = "pure",
-            name = "Pure",
+            id = "signature",
+            name = "Signature",
             backgroundColor = 0xFF000000.toInt(),
             widgets = listOf(
-                CanvasWidget.RakatCount(
-                    offsetX = 770.9055f,
-                    offsetY = 667.29614f,
-                    scale = 3.3677413f,
-                    color = -1,
-                    opacity = 1.0f,
-                    fontSizeSp = 77.18303f,
-                    fontWeight = 400,
-                    isOutline = false,
-                    fontName = "Antonio"
-                ),
-                CanvasWidget.CustomText(
-                    offsetX = 114.73828f,
-                    offsetY = 1122.4414f,
-                    scale = 1.0f,
-                    text = "صلاة",
-                    color = -1,
-                    opacity = 1.0f,
-                    fontSizeSp = 71.04196f,
-                    fontWeight = 400,
-                    italic = false,
-                    textAlign = "Center",
-                    verticalAlign = "Center",
-                    isOutline = true,
-                    fontName = "BeVietnamPro"
-                ),
+                CanvasWidget.RakatCount(offsetX = 0.5f, offsetY = 0.5f, scale = 1.8902512f, color = -1, opacity = 1.0f, fontSizeSp = 122.17562f, fontWeight = 400, isOutline = true, fontName = "Antonio")
             ),
             isDeletable = false
         ),
         CanvasPreset(
-            id = "subtle",
-            name = "Subtle",
+            id = "horizon",
+            name = "Horizon",
             backgroundColor = 0xFF000000.toInt(),
             widgets = listOf(
-                CanvasWidget.RakatCount(
-                    offsetX = 378.284f,
-                    offsetY = 31.923096f,
-                    scale = 3.3677413f,
-                    color = -1,
-                    opacity = 1.0f,
-                    fontSizeSp = 180.0f,
-                    fontWeight = 400,
-                    isOutline = false,
-                    fontName = "Antonio"
-                ),
-                CanvasWidget.CustomText(
-                    offsetX = 67.146484f,
-                    offsetY = 108.02832f,
-                    scale = 1.0f,
-                    text = "صلاة",
-                    color = -1,
-                    opacity = 1.0f,
-                    fontSizeSp = 71.04196f,
-                    fontWeight = 400,
-                    italic = false,
-                    textAlign = "Center",
-                    verticalAlign = "Center",
-                    isOutline = true,
-                    fontName = "BeVietnamPro"
-                ),
+                CanvasWidget.RakatCount(offsetX = 0.82547814f, offsetY = 0.46540943f, scale = 1.8902512f, color = -1, opacity = 1.0f, fontSizeSp = 122.17562f, fontWeight = 400, isOutline = true, fontName = "Antonio"),
+                CanvasWidget.CustomText(offsetX = 0.25720674f, offsetY = 0.49911657f, scale = 1.2732823f, text = "صلاة", color = -1, opacity = 1.0f, fontSizeSp = 65.48039f, fontWeight = 400, italic = false, textAlign = "Center", verticalAlign = "Center", isOutline = false, fontName = "BeVietnamPro")
             ),
             isDeletable = false
         ),
         CanvasPreset(
-            id = "premium",
-            name = "Premium",
+            id = "eclipse",
+            name = "Eclipse",
             backgroundColor = 0xFF000000.toInt(),
             widgets = listOf(
-                CanvasWidget.ClockWidget(
-                    offsetX = 41.727997f,
-                    offsetY = 242.21165f,
-                    scale = 1.5047318f,
-                    color = -1,
-                    opacity = 1.0f,
-                    fontSizeSp = 48.0f,
-                    showSeconds = false,
-                    use24Hour = true,
-                    isOutline = false,
-                    fontName = "BeVietnamPro"
-                ),
-                CanvasWidget.CustomText(
-                    offsetX = 719.8713f,
-                    offsetY = 589.70654f,
-                    scale = 2.133892f,
-                    text = "صلاة",
-                    color = -1,
-                    opacity = 1.0f,
-                    fontSizeSp = 32.0f,
-                    fontWeight = 400,
-                    italic = false,
-                    textAlign = "Center",
-                    verticalAlign = "Center",
-                    isOutline = false,
-                    fontName = "BeVietnamPro"
-                ),
-                CanvasWidget.RakatCount(
-                    offsetX = 559.13025f,
-                    offsetY = 687.25366f,
-                    scale = 2.5634913f,
-                    color = -1,
-                    opacity = 1.0f,
-                    fontSizeSp = 180.0f,
-                    fontWeight = 400,
-                    isOutline = false,
-                    fontName = "Antonio"
-                ),
+                CanvasWidget.RakatCount(offsetX = 0.82547814f, offsetY = 0.46540943f, scale = 1.8902512f, color = -1, opacity = 1.0f, fontSizeSp = 122.17562f, fontWeight = 400, isOutline = false, fontName = "Antonio"),
+                CanvasWidget.CustomText(offsetX = 0.25720674f, offsetY = 0.49911657f, scale = 1.2732823f, text = "صلاة", color = -1, opacity = 1.0f, fontSizeSp = 65.48039f, fontWeight = 400, italic = false, textAlign = "Center", verticalAlign = "Center", isOutline = true, fontName = "BeVietnamPro")
+            ),
+            isDeletable = false
+        ),
+        CanvasPreset(
+            id = "essence",
+            name = "Essence",
+            backgroundColor = 0xFF000000.toInt(),
+            widgets = listOf(
+                CanvasWidget.RakatCount(offsetX = 0.6724961f, offsetY = 0.5379764f, scale = 1.8902512f, color = -1, opacity = 1.0f, fontSizeSp = 300.0f, fontWeight = 400, isOutline = false, fontName = "Antonio"),
+                CanvasWidget.CustomText(offsetX = 0.29035127f, offsetY = 0.12168428f, scale = 1.2732823f, text = "صلاة", color = -1, opacity = 1.0f, fontSizeSp = 65.48039f, fontWeight = 400, italic = false, textAlign = "Center", verticalAlign = "Center", isOutline = true, fontName = "BeVietnamPro")
+            ),
+            isDeletable = false
+        ),
+        CanvasPreset(
+            id = "lumina",
+            name = "Lumina",
+            backgroundColor = 0xFF000000.toInt(),
+            widgets = listOf(
+                CanvasWidget.RakatCount(offsetX = 0.6724961f, offsetY = 0.5379764f, scale = 1.8902512f, color = -1, opacity = 1.0f, fontSizeSp = 300.0f, fontWeight = 400, isOutline = true, fontName = "Antonio"),
+                CanvasWidget.CustomText(offsetX = 0.29035127f, offsetY = 0.12168428f, scale = 1.2732823f, text = "صلاة", color = -1, opacity = 1.0f, fontSizeSp = 65.48039f, fontWeight = 400, italic = false, textAlign = "Center", verticalAlign = "Center", isOutline = false, fontName = "BeVietnamPro")
+            ),
+            isDeletable = false
+        ),
+        CanvasPreset(
+            id = "zenith",
+            name = "Zenith",
+            backgroundColor = 0xFF000000.toInt(),
+            widgets = listOf(
+                CanvasWidget.RakatCount(offsetX = 0.7321662f, offsetY = 0.62215555f, scale = 1.5458537f, color = -1, opacity = 1.0f, fontSizeSp = 300.0f, fontWeight = 400, isOutline = true, fontName = "Antonio"),
+                CanvasWidget.CustomText(offsetX = 0.7394825f, offsetY = 0.27562904f, scale = 1.0f, text = "صلاة", color = -1, opacity = 1.0f, fontSizeSp = 65.48039f, fontWeight = 400, italic = false, textAlign = "Center", verticalAlign = "Center", isOutline = false, fontName = "BeVietnamPro"),
+                CanvasWidget.ClockWidget(offsetX = 0.29168332f, offsetY = 0.12341536f, scale = 1.5398576f, color = -1, opacity = 1.0f, fontSizeSp = 48.0f, showSeconds = false, use24Hour = false, isOutline = false, fontName = "BeVietnamPro")
             ),
             isDeletable = false
         ),

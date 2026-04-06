@@ -13,6 +13,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -90,7 +91,7 @@ fun SalahImmersiveScreen(
 
     val safeBackgroundColor = Color(preset.backgroundColor.toLong() and 0xFFFFFFFF)
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(safeBackgroundColor)
@@ -101,7 +102,7 @@ fun SalahImmersiveScreen(
                         val downChange = downEvent.changes.firstOrNull { it.pressed } ?: continue
 
                         var hasSwiped = false
-                        var localResetArmed = false // Logic state (independent of visual state)
+                        var localResetArmed = false
                         var holdJob: kotlinx.coroutines.Job? = null
 
                         if (!isComplete) {
@@ -116,18 +117,17 @@ fun SalahImmersiveScreen(
                                     resetProgress = i / 20f
                                 }
                                 resetArmed = true
-                                localResetArmed = true // Update logic state
+                                localResetArmed = true
                                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                             }
                         }
 
-                        // Tracking Loop
                         while (true) {
                             val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Main)
                             val change = event.changes.firstOrNull()
 
                             if (change == null || !change.pressed) {
-                                break // Finger lifted
+                                break
                             }
 
                             if (!hasSwiped && (change.position.y - downChange.position.y > 100f)) {
@@ -147,12 +147,11 @@ fun SalahImmersiveScreen(
                             }
                         }
 
-                        // Finger Lifted
                         holdJob?.cancel()
-                        val overlayWasShown = showOverlay // Capture this before hiding
+                        val overlayWasShown = showOverlay
 
                         if (!hasSwiped && !isComplete) {
-                            if (localResetArmed) { // Uses the local state so rapid taps don't trigger resets
+                            if (localResetArmed) {
                                 count = 0
                                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                             } else if (overlayWasShown) {
@@ -163,13 +162,11 @@ fun SalahImmersiveScreen(
                             }
                         }
 
-                        // Trigger the slide-out animation immediately
                         showOverlay = false
 
-                        // DELAY the visual state resets so the 500ms slide-out animation completes with the correct red/armed text
                         scope.launch {
                             kotlinx.coroutines.delay(500)
-                            if (!showOverlay) { // Only clear it if a new touch hasn't started
+                            if (!showOverlay) {
                                 resetProgress = 0f
                                 resetArmed = false
                             }
@@ -178,15 +175,18 @@ fun SalahImmersiveScreen(
                 }
             }
     ) {
+        val screenWidth = constraints.maxWidth.toFloat()
+        val screenHeight = constraints.maxHeight.toFloat()
+
         preset.widgets.sortedBy { it.zIndex }.forEach { widget ->
             Box(
                 modifier = Modifier
                     .graphicsLayer {
-                        translationX = widget.offsetX
-                        translationY = widget.offsetY
+                        translationX = (widget.offsetX * screenWidth) - (size.width / 2f)
+                        translationY = (widget.offsetY * screenHeight) - (size.height / 2f)
                         scaleX = widget.scale
                         scaleY = widget.scale
-                        transformOrigin = TransformOrigin(0f, 0f)
+                        transformOrigin = TransformOrigin.Center
                     }
             ) {
                 WidgetRenderer(widget = widget, currentRakats = count, isComplete = isComplete)

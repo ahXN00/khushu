@@ -87,6 +87,7 @@ import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.KhushuColors
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+import androidx.compose.foundation.combinedClickable
 
 private data class WidgetData(
     val opacity: Float,
@@ -183,58 +184,57 @@ fun SalahCanvasScreen(
                 .padding(16.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Debug dump button - commented out
-                // IconButton(onClick = {
-                //     val dump = buildString {
-                //         appendLine("val presets = listOf(")
-                //         appendLine("    \"Custom\" to listOf(")
-                //         workingWidgets.forEach { widget ->
-                //             append("        ")
-                //             when (widget) {
-                //                 is CanvasWidget.RakatCount -> {
-                //                     append("CanvasWidget.RakatCount(")
-                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                //                     append("scale = ${widget.scale}f, color = ${widget.color}, ")
-                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                //                     append("fontWeight = ${widget.fontWeight}, isOutline = ${widget.isOutline}, ")
-                //                     append("fontName = \"${widget.fontName}\"")
-                //                     append(")")
-                //                 }
-                //                 is CanvasWidget.ClockWidget -> {
-                //                     append("CanvasWidget.ClockWidget(")
-                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                //                     append("scale = ${widget.scale}f, color = ${widget.color}, ")
-                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                //                     append("showSeconds = ${widget.showSeconds}, use24Hour = ${widget.use24Hour}, ")
-                //                     append("isOutline = ${widget.isOutline}, ")
-                //                     append("fontName = \"${widget.fontName}\"")
-                //                     append(")")
-                //                 }
-                //                 is CanvasWidget.CustomText -> {
-                //                     append("CanvasWidget.CustomText(")
-                //                     append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
-                //                     append("scale = ${widget.scale}f, text = \"${widget.text}\", color = ${widget.color}, ")
-                //                     append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
-                //                     append("fontWeight = ${widget.fontWeight}, italic = ${widget.italic}, ")
-                //                     append("textAlign = \"${widget.textAlign}\", verticalAlign = \"${widget.verticalAlign}\", ")
-                //                     append("isOutline = ${widget.isOutline}, ")
-                //                     append("fontName = \"${widget.fontName}\"")
-                //                     append(")")
-                //                 }
-                //             }
-                //             appendLine(",")
-                //         }
-                //         appendLine("    ),")
-                //         appendLine(")")
-                //     }
-                //     Log.d("PRESET_DUMP", dump)
-                // }) {
-                //     Icon(
-                //         Icons.Default.Edit,
-                //         contentDescription = "Dev Dump",
-                //         tint = Color.White.copy(alpha = 0.6f)
-                //     )
-                // }
+                IconButton(onClick = {
+                    val dump = buildString {
+                        appendLine("val presets = listOf(")
+                        appendLine("    \"Custom\" to listOf(")
+                        workingWidgets.forEach { widget ->
+                            append("        ")
+                            when (widget) {
+                                is CanvasWidget.RakatCount -> {
+                                    append("CanvasWidget.RakatCount(")
+                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                                    append("scale = ${widget.scale}f, color = ${widget.color}, ")
+                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                                    append("fontWeight = ${widget.fontWeight}, isOutline = ${widget.isOutline}, ")
+                                    append("fontName = \"${widget.fontName}\"")
+                                    append(")")
+                                }
+                                is CanvasWidget.ClockWidget -> {
+                                    append("CanvasWidget.ClockWidget(")
+                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                                    append("scale = ${widget.scale}f, color = ${widget.color}, ")
+                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                                    append("showSeconds = ${widget.showSeconds}, use24Hour = ${widget.use24Hour}, ")
+                                    append("isOutline = ${widget.isOutline}, ")
+                                    append("fontName = \"${widget.fontName}\"")
+                                    append(")")
+                                }
+                                is CanvasWidget.CustomText -> {
+                                    append("CanvasWidget.CustomText(")
+                                    append("offsetX = ${widget.offsetX}f, offsetY = ${widget.offsetY}f, ")
+                                    append("scale = ${widget.scale}f, text = \"${widget.text}\", color = ${widget.color}, ")
+                                    append("opacity = ${widget.opacity}f, fontSizeSp = ${widget.fontSizeSp}f, ")
+                                    append("fontWeight = ${widget.fontWeight}, italic = ${widget.italic}, ")
+                                    append("textAlign = \"${widget.textAlign}\", verticalAlign = \"${widget.verticalAlign}\", ")
+                                    append("isOutline = ${widget.isOutline}, ")
+                                    append("fontName = \"${widget.fontName}\"")
+                                    append(")")
+                                }
+                            }
+                            appendLine(",")
+                        }
+                        appendLine("    ),")
+                        appendLine(")")
+                    }
+                    Log.d("PRESET_DUMP", dump)
+                }) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Dev Dump",
+                        tint = Color.White.copy(alpha = 0.6f)
+                    )
+                }
                 TextButton(
                     onClick = onExit,
                     colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f))
@@ -363,18 +363,14 @@ fun CanvasWidgetItem(
     Box(
         modifier = Modifier
             .graphicsLayer {
-                translationX = widget.offsetX
-                translationY = widget.offsetY
+                translationX = (widget.offsetX * screenWidth) - (size.width / 2f)
+                translationY = (widget.offsetY * screenHeight) - (size.height / 2f)
                 scaleX = widget.scale
                 scaleY = widget.scale
-                transformOrigin = TransformOrigin(0f, 0f)
+                transformOrigin = TransformOrigin.Center
             }
             .then(
-                if (isSelected) Modifier.border(
-                    1.dp,
-                    Color.White.copy(alpha = 0.4f),
-                    RoundedCornerShape(4.dp)
-                )
+                if (isSelected) Modifier.border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
                 else Modifier
             )
             .pointerInput(widget.id) {
@@ -384,30 +380,14 @@ fun CanvasWidgetItem(
                 detectTransformGestures(
                     onGesture = { _, pan, zoom, _ ->
                         val w = currentWidget
-//                        val newOffsetX = (w.offsetX + pan.x).coerceAtLeast(0f)
-//                        val newOffsetY = (w.offsetY + pan.y).coerceAtLeast(0f)
-                        val newOffsetX = w.offsetX + pan.x
-                        val newOffsetY = w.offsetY + pan.y
+                        val newOffsetX = (w.offsetX + (pan.x / screenWidth)).coerceIn(0f, 1f)
+                        val newOffsetY = (w.offsetY + (pan.y / screenHeight)).coerceIn(0f, 1f)
                         val newScale = (w.scale * zoom).coerceIn(0.2f, 5f)
 
                         val updated = when (w) {
-                            is CanvasWidget.RakatCount -> w.copy(
-                                offsetX = newOffsetX,
-                                offsetY = newOffsetY,
-                                scale = newScale
-                            )
-
-                            is CanvasWidget.ClockWidget -> w.copy(
-                                offsetX = newOffsetX,
-                                offsetY = newOffsetY,
-                                scale = newScale
-                            )
-
-                            is CanvasWidget.CustomText -> w.copy(
-                                offsetX = newOffsetX,
-                                offsetY = newOffsetY,
-                                scale = newScale
-                            )
+                            is CanvasWidget.RakatCount -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
+                            is CanvasWidget.ClockWidget -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
+                            is CanvasWidget.CustomText -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
                         }
                         currentOnUpdate(updated)
                     }
@@ -794,7 +774,8 @@ private fun WidgetPreviewCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+//@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun PresetsSheet(
     viewModel: SalahCanvasViewModel,
@@ -822,6 +803,9 @@ private fun PresetsSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         sheetState.expand()
     }
@@ -836,7 +820,7 @@ private fun PresetsSheet(
         Column(
             Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.85f)
+                .fillMaxHeight(0.90f)
         ) {
             // Header Row
             Row(
@@ -920,13 +904,24 @@ private fun PresetsSheet(
                         )
                 )
 
-                HorizontalPager(
-                    state = pagerState,
-                    key = { index -> presets[index].id },
-                    contentPadding = PaddingValues(horizontal = horizontalPadding),
-                    pageSpacing = 12.dp,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
+                val currentViewConfig = androidx.compose.ui.platform.LocalViewConfiguration.current
+                val customViewConfig = remember(currentViewConfig) {
+                    object : androidx.compose.ui.platform.ViewConfiguration by currentViewConfig {
+                        override val touchSlop: Float
+                            get() = currentViewConfig.touchSlop * 3f
+                    }
+                }
+
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.ui.platform.LocalViewConfiguration provides customViewConfig
+                ) {
+                    HorizontalPager(
+                        state = pagerState,
+                        key = { index -> presets[index].id },
+                        contentPadding = PaddingValues(horizontal = horizontalPadding),
+                        pageSpacing = 12.dp,
+                        modifier = Modifier.fillMaxSize()
+                    ) { page ->
                     val preset = presets[page]
                     val pageOffset =
                         (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
@@ -945,8 +940,11 @@ private fun PresetsSheet(
                         BoxWithConstraints(
                             modifier = Modifier
                                 .width(230.dp)
-                                .height(440.dp)
+                                .aspectRatio(actualScreenWidth / actualScreenHeight)
                         ) {
+                            val density = androidx.compose.ui.platform.LocalDensity.current
+                            val screenWidthDp = with(density) { actualScreenWidth.toDp() }
+                            val screenHeightDp = with(density) { actualScreenHeight.toDp() }
                             val previewScale = constraints.maxWidth.toFloat() / actualScreenWidth
 
                             Box(
@@ -959,39 +957,41 @@ private fun PresetsSheet(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
                                         shape = RoundedCornerShape(32.dp)
                                     )
-                                    .pointerInput(preset.id) {
-                                        detectTapGestures(
-                                            onTap = {
-                                                if (preset.id == "current") return@detectTapGestures
-
-                                                val loadAction = {
-                                                    viewModel.clearWidgets()
-                                                    preset.widgets.forEach { viewModel.addWidget(it) }
-                                                    viewModel.updateBackgroundColor(preset.backgroundColor)
-                                                    onDismiss()
-                                                }
-
-                                                if (workingWidgets.isNotEmpty()) {
-                                                    pendingAction = loadAction
-                                                    showUnsavedDialog = true
-                                                } else {
-                                                    loadAction()
-                                                }
-                                            },
-                                            onLongPress = {
-                                                if (preset.isDeletable) {
-                                                    // This triggers the action menu below
-                                                    actionPreset = preset
-                                                }
+                                    .combinedClickable(
+                                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                        indication = null,
+                                        onLongClick = {
+                                            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                            if (preset.isDeletable) {
+                                                actionPreset = preset
+                                            } else {
+                                                android.widget.Toast.makeText(context, "Default presets cannot be modified", android.widget.Toast.LENGTH_SHORT).show()
                                             }
-                                        )
-                                    },
+                                        },
+                                        onClick = {
+                                            if (preset.id == "current") return@combinedClickable
+
+                                            val loadAction = {
+                                                viewModel.clearWidgets()
+                                                preset.widgets.forEach { viewModel.addWidget(it) }
+                                                viewModel.updateBackgroundColor(preset.backgroundColor)
+                                                onDismiss()
+                                            }
+
+                                            if (workingWidgets.isNotEmpty()) {
+                                                pendingAction = loadAction
+                                                showUnsavedDialog = true
+                                            } else {
+                                                loadAction()
+                                            }
+                                        }
+                                    ),
                                 contentAlignment = Alignment.TopStart
                             ) {
-                                // Your existing preview content logic
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxSize()
+                                        .wrapContentSize(Alignment.TopStart, unbounded = true)
+                                        .size(screenWidthDp, screenHeightDp)
                                         .graphicsLayer {
                                             scaleX = previewScale
                                             scaleY = previewScale
@@ -999,7 +999,6 @@ private fun PresetsSheet(
                                         }
                                 ) {
                                     preset.widgets.forEach { widget ->
-                                        // Keeping your exact rendering loop here to avoid breaking it
                                         val widgetFontFamily = when (widget) {
                                             is CanvasWidget.RakatCount -> widget.fontName.resolveFontFamily()
                                             is CanvasWidget.ClockWidget -> widget.fontName.resolveFontFamily()
@@ -1007,11 +1006,11 @@ private fun PresetsSheet(
                                         }
                                         Box(
                                             modifier = Modifier.graphicsLayer {
-                                                translationX = widget.offsetX
-                                                translationY = widget.offsetY
+                                                translationX = (widget.offsetX * actualScreenWidth) - (size.width / 2f)
+                                                translationY = (widget.offsetY * actualScreenHeight) - (size.height / 2f)
                                                 scaleX = widget.scale
                                                 scaleY = widget.scale
-                                                transformOrigin = TransformOrigin(0f, 0f)
+                                                transformOrigin = TransformOrigin.Center
                                             }
                                         ) {
                                             when (widget) {
@@ -1023,21 +1022,14 @@ private fun PresetsSheet(
                                                         fontWeight = FontWeight(widget.fontWeight),
                                                         style = TextStyle(
                                                             color = Color(widget.color).copy(alpha = widget.opacity),
-                                                            drawStyle = if (widget.isOutline) Stroke(
-                                                                width = 4f,
-                                                                join = StrokeJoin.Round
-                                                            ) else Fill,
-                                                            platformStyle = PlatformTextStyle(
-                                                                includeFontPadding = false
-                                                            )
+                                                            drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                                                            platformStyle = PlatformTextStyle(includeFontPadding = false)
                                                         )
                                                     )
                                                 }
-
                                                 is CanvasWidget.ClockWidget -> {
                                                     LiveClockTextPreview(widget)
                                                 }
-
                                                 is CanvasWidget.CustomText -> {
                                                     Box(
                                                         contentAlignment = when (widget.verticalAlign) {
@@ -1054,16 +1046,9 @@ private fun PresetsSheet(
                                                                 "Left" -> TextAlign.Left; "Right" -> TextAlign.Right; else -> TextAlign.Center
                                                             },
                                                             style = TextStyle(
-                                                                color = Color(widget.color).copy(
-                                                                    alpha = widget.opacity
-                                                                ),
-                                                                drawStyle = if (widget.isOutline) Stroke(
-                                                                    width = 4f,
-                                                                    join = StrokeJoin.Round
-                                                                ) else Fill,
-                                                                platformStyle = PlatformTextStyle(
-                                                                    includeFontPadding = false
-                                                                )
+                                                                color = Color(widget.color).copy(alpha = widget.opacity),
+                                                                drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                                                                platformStyle = PlatformTextStyle(includeFontPadding = false)
                                                             )
                                                         )
                                                     }
@@ -1083,6 +1068,7 @@ private fun PresetsSheet(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                }
                 }
             }
 
@@ -1789,7 +1775,7 @@ private fun UnsavedChangesDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save Current Canvas?") },
+        title = { Text("Save Current Screen?") },
         text = { Text("You are about to load a new layout. Do you want to save your current canvas as a preset first?") },
         confirmButton = {
             Button(onClick = onSave) { Text("Save as Preset") }

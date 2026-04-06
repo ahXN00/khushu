@@ -54,10 +54,9 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
             }
         }
         viewModelScope.launch {
-            if (dao.getPresetCount() == 0) {
-                DefaultPresets.defaults.forEach { preset ->
-                    dao.insertPreset(preset.toEntity())
-                }
+            dao.deleteAllPresets()
+            DefaultPresets.defaults.forEach { preset ->
+                dao.insertPreset(preset.toEntity())
             }
         }
     }
@@ -85,13 +84,10 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
     }
 
     fun addNewWidgetFromMenu(widget: CanvasWidget) {
-        val startX = if (_canvasWidth.value > 0) (_canvasWidth.value / 2f) - 150f else 200f
-        val startY = if (_canvasHeight.value > 0) (_canvasHeight.value / 2f) - 150f else 400f
-
         val centeredWidget = when (widget) {
-            is CanvasWidget.RakatCount -> widget.copy(offsetX = startX, offsetY = startY)
-            is CanvasWidget.ClockWidget -> widget.copy(offsetX = startX, offsetY = startY)
-            is CanvasWidget.CustomText -> widget.copy(offsetX = startX, offsetY = startY)
+            is CanvasWidget.RakatCount -> widget.copy(offsetX = 0.5f, offsetY = 0.5f)
+            is CanvasWidget.ClockWidget -> widget.copy(offsetX = 0.5f, offsetY = 0.5f)
+            is CanvasWidget.CustomText -> widget.copy(offsetX = 0.5f, offsetY = 0.5f)
         }
         _workingWidgets.update { it + centeredWidget }
     }
@@ -134,47 +130,31 @@ class SalahCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
             list.map { widget ->
                 if (widget.id != selectedId) return@map widget
 
-                val widgetWidth = widget.width
-                val widgetHeight = widget.height
-                val scale = widget.scale
+                val scaledWidth = widget.width * widget.scale
+                val scaledHeight = widget.height * widget.scale
+
+                val widthPct = if (canvasWidth > 0) scaledWidth / canvasWidth else 0f
+                val heightPct = if (canvasHeight > 0) scaledHeight / canvasHeight else 0f
 
                 var newOffsetX = widget.offsetX
                 var newOffsetY = widget.offsetY
 
-                val scaledWidth = widgetWidth * scale
-                val scaledHeight = widgetHeight * scale
-
                 when (horizontal) {
-                    androidx.compose.ui.Alignment.Start -> {
-                        newOffsetX = 0f
-                    }
-                    androidx.compose.ui.Alignment.CenterHorizontally -> {
-                        newOffsetX = (canvasWidth - scaledWidth) / 2f
-                    }
-                    androidx.compose.ui.Alignment.End -> {
-                        newOffsetX = canvasWidth - scaledWidth
-                    }
+                    androidx.compose.ui.Alignment.Start -> newOffsetX = widthPct / 2f
+                    androidx.compose.ui.Alignment.CenterHorizontally -> newOffsetX = 0.5f
+                    androidx.compose.ui.Alignment.End -> newOffsetX = 1f - (widthPct / 2f)
                 }
 
                 when (vertical) {
-                    androidx.compose.ui.Alignment.Top -> {
-                        newOffsetY = 0f
-                    }
-                    androidx.compose.ui.Alignment.CenterVertically -> {
-                        newOffsetY = (canvasHeight - scaledHeight) / 2f
-                    }
-                    androidx.compose.ui.Alignment.Bottom -> {
-                        newOffsetY = canvasHeight - scaledHeight
-                    }
+                    androidx.compose.ui.Alignment.Top -> newOffsetY = heightPct / 2f
+                    androidx.compose.ui.Alignment.CenterVertically -> newOffsetY = 0.5f
+                    androidx.compose.ui.Alignment.Bottom -> newOffsetY = 1f - (heightPct / 2f)
                 }
 
-                newOffsetX = newOffsetX.coerceAtLeast(0f)
-                newOffsetY = newOffsetY.coerceAtLeast(0f)
-
                 when (widget) {
-                    is CanvasWidget.RakatCount -> widget.copy(offsetX = newOffsetX, offsetY = newOffsetY)
-                    is CanvasWidget.ClockWidget -> widget.copy(offsetX = newOffsetX, offsetY = newOffsetY)
-                    is CanvasWidget.CustomText -> widget.copy(offsetX = newOffsetX, offsetY = newOffsetY)
+                    is CanvasWidget.RakatCount -> widget.copy(offsetX = newOffsetX.coerceIn(0f, 1f), offsetY = newOffsetY.coerceIn(0f, 1f))
+                    is CanvasWidget.ClockWidget -> widget.copy(offsetX = newOffsetX.coerceIn(0f, 1f), offsetY = newOffsetY.coerceIn(0f, 1f))
+                    is CanvasWidget.CustomText -> widget.copy(offsetX = newOffsetX.coerceIn(0f, 1f), offsetY = newOffsetY.coerceIn(0f, 1f))
                 }
             }
         }
