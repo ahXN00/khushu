@@ -28,16 +28,10 @@ fun SalahCustomizeScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection).padding(horizontal = 12.dp, vertical = 32.dp),
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = {
-                    Text(
-                        "Salah Visuals",
-                        fontFamily = BeVietnamPro,
-                        style = MaterialTheme.typography.displaySmall
-                    )
-                },
+                title = { Text("Salah Visuals", fontFamily = BeVietnamPro) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -51,34 +45,21 @@ fun SalahCustomizeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 17.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             SectionHeader("Interface")
-            Text(
-                "Customize transitions and timer visibility for the Salah tracker to match your preferred focus level.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-
-            Spacer(Modifier.height(24.dp))
-
             SettingsToggle(
                 title = "Show Step Timer",
-                subtitle = "Display the elapsed time for each prayer step.",
+                subtitle = "Display elapsed time for each prayer step",
                 checked = settings.showStepTimer,
                 onCheckedChange = { viewModel.toggleShowStepTimer(it) }
             )
 
-            SectionHeader("Layout Editor")
-            Text(
-                "Design your own prayer interface by placing and resizing count widgets, timers, and progress rings.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-
             Spacer(Modifier.height(16.dp))
+            SectionHeader("Layout Editor")
+            Spacer(Modifier.height(12.dp))
 
             OutlinedCard(
                 onClick = { onCustomizeLayout(4) },
@@ -113,7 +94,7 @@ fun SalahCustomizeScreen(
                     )
                 }
             }
-            
+
             Spacer(Modifier.height(32.dp))
         }
     }

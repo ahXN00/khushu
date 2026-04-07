@@ -24,16 +24,10 @@ fun TasbeehCustomizeScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection).padding(horizontal = 12.dp, vertical = 32.dp),
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = {
-                    Text(
-                        "Tasbeeh Visuals",
-                        fontFamily = BeVietnamPro,
-                        style = MaterialTheme.typography.displaySmall
-                    )
-                },
+                title = { Text("Tasbeeh Visuals", fontFamily = BeVietnamPro) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -47,33 +41,23 @@ fun TasbeehCustomizeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 17.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             SectionHeader("Interface")
-            Text(
-                "Customize haptic feedback and counter visibility for your Dhikr sessions.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-
-            Spacer(Modifier.height(24.dp))
-
             SettingsToggle(
                 title = "Vibrate on Count",
-                subtitle = "Feel a subtle vibration every time you tap the counter.",
+                subtitle = "Feel a subtle vibration on each tap",
                 checked = settings.vibrationOnCount,
                 onCheckedChange = { viewModel.toggleVibrationOnCount(it) }
             )
-
             SettingsToggle(
                 title = "Show Lap Counter",
-                subtitle = "Keep track of how many full sets (33/99) you've completed.",
+                subtitle = "Track completed sets of 33 or 99",
                 checked = settings.showLapCounter,
                 onCheckedChange = { viewModel.toggleShowLapCounter(it) }
             )
-            
             Spacer(Modifier.height(32.dp))
         }
     }

@@ -24,16 +24,10 @@ fun CustomizeScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection).padding(horizontal = 12.dp, vertical = 32.dp),
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = {
-                    Text(
-                        "Customize",
-                        fontFamily = BeVietnamPro,
-                        style = MaterialTheme.typography.displaySmall
-                    )
-                },
+                title = { Text("Customize", fontFamily = BeVietnamPro) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -47,10 +41,10 @@ fun CustomizeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 17.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
             MenuSectionItem(
                 title = "Salah Screen",
@@ -60,18 +54,11 @@ fun CustomizeScreen(
             )
 
             MenuSectionItem(
-                title = "Tasbih Screen",
-                detail = "Fonts, Pulse & Animation",
+                title = "Tasbeeh Screen",
+                detail = "Haptics, Pulse & Animation",
                 iconRes = com.kaizen.khushu.R.drawable.ic_tasbeeh,
                 onClick = onNavigateTasbeeh
             )
-
-//            MenuSectionItem(
-//                title = "Branding",
-//                detail = "Logos, Socials & Identity",
-//                iconRes = com.kaizen.khushu.R.drawable.ic_learn, // Placeholder icon
-//                onClick = onNavigateBranding
-//            )
 
             MenuSectionItem(
                 title = "Palette",

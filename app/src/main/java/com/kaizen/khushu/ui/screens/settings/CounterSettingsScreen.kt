@@ -24,16 +24,10 @@ fun CounterSettingsScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection).padding(horizontal = 12.dp, vertical = 32.dp),
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = {
-                    Text(
-                        "Counter",
-                        fontFamily = BeVietnamPro,
-                        style = MaterialTheme.typography.displaySmall
-                    )
-                },
+                title = { Text("Counter", fontFamily = BeVietnamPro) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -47,10 +41,10 @@ fun CounterSettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 17.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             SectionHeader("Sensory")
             SettingsToggle(
                 title = "Haptic Feedback",
@@ -58,7 +52,7 @@ fun CounterSettingsScreen(
                 checked = settings.hapticsEnabled,
                 onCheckedChange = { viewModel.toggleHaptics(it) }
             )
-            
+
             Spacer(Modifier.height(16.dp))
             SectionHeader("Hardware")
             SettingsToggle(
