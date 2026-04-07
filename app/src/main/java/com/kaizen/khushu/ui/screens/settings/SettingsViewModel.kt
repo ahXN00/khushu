@@ -25,7 +25,11 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
             showStepTimer = true,
             fluidTransitions = true,
             vibrationOnCount = true,
-            showLapCounter = true
+            showLapCounter = true,
+            showExitButton = true,
+            showCompletionText = true,
+            completionText = "الحمد لله",
+            colorSeed = "default"
         )
     )
 
@@ -67,6 +71,22 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
 
     fun toggleShowLapCounter(show: Boolean) {
         viewModelScope.launch { repository.updateShowLapCounter(show) }
+    }
+
+    fun updateShowExitButton(show: Boolean) {
+        viewModelScope.launch { repository.updateShowExitButton(show) }
+    }
+
+    fun updateShowCompletionText(show: Boolean) {
+        viewModelScope.launch { repository.updateShowCompletionText(show) }
+    }
+
+    fun updateCompletionText(text: String) {
+        viewModelScope.launch { repository.updateCompletionText(text) }
+    }
+
+    fun setColorSeed(seed: String) {
+        viewModelScope.launch { repository.updateColorSeed(seed) }
     }
 
     companion object {

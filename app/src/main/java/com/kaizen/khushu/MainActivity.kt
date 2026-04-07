@@ -109,7 +109,8 @@ class MainActivity : ComponentActivity() {
                 KhushuTheme(
                     darkTheme = darkTheme,
                     dynamicColor = settings.dynamicColor,
-                    pureBlack = settings.pureBlack
+                    pureBlack = settings.pureBlack,
+                    colorSeed = settings.colorSeed
                 ) {
                     KhushuApp(
                         settingsViewModel = settingsViewModel,
@@ -159,6 +160,9 @@ private fun KhushuApp(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val hazeState = remember { HazeState() }
+    val showNavBar = AppDestinations.entries.any { it.route == currentRoute }
+    val currentDestination = AppDestinations.fromRoute(currentRoute) ?: AppDestinations.SALAH
 
     val onNavigateTab: (AppDestinations) -> Unit = { dest ->
         navController.navigate(dest.route) {
@@ -195,8 +199,7 @@ private fun KhushuApp(
                                 immersivePresetId = presetId ?: "signature"
                             },
                             onSettingsClick = { showSettingsSheet = true },
-                            onNavigateTab = onNavigateTab,
-                            navBarClearance = 0.dp, // Center visually on screen, not pushed up
+                            hazeState = hazeState,
                         )
                     }
 
@@ -211,7 +214,7 @@ private fun KhushuApp(
                             viewModel = tasbeehViewModel,
                             onCollectionTap = { collection -> activeTasbeehCollection = collection },
                             onSettingsClick = { showSettingsSheet = true },
-                            onNavigateTab = onNavigateTab,
+                            hazeState = hazeState,
                             contentPadding = PaddingValues(start = 0.dp, top = topClearance, end = 0.dp, bottom = pillClearance),
                         )
                     }
@@ -234,7 +237,7 @@ private fun KhushuApp(
                                 navController.navigate("learn_detail/$title")
                             },
                             onSettingsClick = { showSettingsSheet = true },
-                            onNavigateTab = onNavigateTab,
+                            hazeState = hazeState,
                             contentPadding = PaddingValues(start = 0.dp, top = topClearance, end = 0.dp, bottom = pillClearance),
                         )
                     }
@@ -269,28 +272,13 @@ private fun KhushuApp(
                             showSettingsSheet = true
                         }
                         SettingsScreen(
-                            onNavigateGeneral = { navController.navigate(SETTINGS_GENERAL_ROUTE) },
+                            viewModel = settingsViewModel,
                             onNavigateCounter = { navController.navigate(SETTINGS_COUNTER_ROUTE) },
                             onNavigateAppearance = { navController.navigate(SETTINGS_APPEARANCE_ROUTE) },
                             onBack = {
                                 navController.popBackStack()
                                 showSettingsSheet = true
                             }
-                        )
-                    }
-
-                    composable(
-                        route = SETTINGS_GENERAL_ROUTE,
-                        enterTransition = {
-                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
-                        },
-                        popExitTransition = {
-                            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
-                        },
-                    ) {
-                        GeneralSettingsScreen(
-                            viewModel = settingsViewModel,
-                            onBack = { navController.popBackStack() }
                         )
                     }
 
@@ -339,7 +327,6 @@ private fun KhushuApp(
                         }
                         CustomizeScreen(
                             onNavigateBranding = { navController.navigate(CUSTOMIZE_BRANDING_ROUTE) },
-                            onNavigatePalette = { navController.navigate(CUSTOMIZE_PALETTE_ROUTE) },
                             onNavigateSalah = { navController.navigate(CUSTOMIZE_SALAH_ROUTE) },
                             onNavigateTasbeeh = { navController.navigate(CUSTOMIZE_TASBEEH_ROUTE) },
                             onBack = {
@@ -397,21 +384,26 @@ private fun KhushuApp(
                         )
                     }
 
-                    composable(
-                        route = CUSTOMIZE_PALETTE_ROUTE,
-                        enterTransition = {
-                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
-                        },
-                        popExitTransition = {
-                            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
-                        },
-                    ) {
-                        PaletteSettingsScreen(
-                            onBack = { navController.popBackStack() }
-                        )
-                    }
                 }
+
             }
+        }
+
+        // Persistent global nav bar — outside NavHost so it never participates in page transitions
+        AnimatedVisibility(
+            visible = showNavBar,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 30.dp),
+        ) {
+            PillNavBar(
+                currentDestination = currentDestination,
+                onDestinationSelected = onNavigateTab,
+                hazeState = hazeState,
+            )
         }
 
         // FAB — visible only on Tasbeeh tab, animates in/out with scale+fade
@@ -466,6 +458,9 @@ private fun KhushuApp(
             SalahImmersiveScreen(
                 targetRakats = rakats,
                 preset = finalPresetToRender,
+                showExitButton = settingsViewModel.settings.value.showExitButton,
+                showCompletionText = settingsViewModel.settings.value.showCompletionText,
+                completionText = settingsViewModel.settings.value.completionText,
                 onComplete = { immersiveRakats = null },
                 onExit = { immersiveRakats = null }
             )
@@ -512,30 +507,10 @@ private fun KhushuApp(
     }
 }
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabEnter(): EnterTransition {
-    val initialRoute = initialState.destination.route ?: ""
-    val targetRoute = targetState.destination.route ?: ""
-    
-    val i = AppDestinations.entries.indexOfFirst { it.route == initialRoute }
-    val t = AppDestinations.entries.indexOfFirst { it.route == targetRoute }
-    
-    return when {
-        i < 0 || t < 0 -> fadeIn(tween(210, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(300))
-        t > i -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
-        else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
-    }
-}
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabEnter(): EnterTransition =
+    fadeIn(tween(300, easing = LinearOutSlowInEasing)) +
+    scaleIn(initialScale = 0.92f, animationSpec = tween(300, easing = LinearOutSlowInEasing))
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabExit(): ExitTransition {
-    val initialRoute = initialState.destination.route ?: ""
-    val targetRoute = targetState.destination.route ?: ""
-    
-    val i = AppDestinations.entries.indexOfFirst { it.route == initialRoute }
-    val t = AppDestinations.entries.indexOfFirst { it.route == targetRoute }
-    
-    return when {
-        i < 0 || t < 0 -> fadeOut(tween(90)) + scaleOut(targetScale = 0.92f, animationSpec = tween(300))
-        t > i -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
-        else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
-    }
-}
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabExit(): ExitTransition =
+    fadeOut(tween(150, easing = FastOutLinearInEasing)) +
+    scaleOut(targetScale = 0.92f, animationSpec = tween(150, easing = FastOutLinearInEasing))

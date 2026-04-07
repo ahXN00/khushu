@@ -4,7 +4,6 @@ import com.kaizen.khushu.R
 
 const val LEARN_DETAIL_ROUTE = "learn_detail/{sectionTitle}"
 const val SETTINGS_ROUTE = "settings"
-const val SETTINGS_GENERAL_ROUTE = "settings/general"
 const val SETTINGS_COUNTER_ROUTE = "settings/counter"
 const val SETTINGS_APPEARANCE_ROUTE = "settings/appearance"
 const val CUSTOMIZE_ROUTE = "customize"

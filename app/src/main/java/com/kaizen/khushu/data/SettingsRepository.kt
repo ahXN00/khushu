@@ -28,6 +28,10 @@ class SettingsRepository(private val context: Context) {
         val FLUID_TRANSITIONS = booleanPreferencesKey("fluid_transitions")
         val VIBRATION_ON_COUNT = booleanPreferencesKey("vibration_on_count")
         val SHOW_LAP_COUNTER = booleanPreferencesKey("show_lap_counter")
+        val SHOW_EXIT_BUTTON = booleanPreferencesKey("show_exit_button")
+        val SHOW_COMPLETION_TEXT = booleanPreferencesKey("show_completion_text")
+        val COMPLETION_TEXT = stringPreferencesKey("completion_text")
+        val COLOR_SEED = stringPreferencesKey("color_seed")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -48,7 +52,11 @@ class SettingsRepository(private val context: Context) {
                 showStepTimer = preferences[PreferencesKeys.SHOW_STEP_TIMER] ?: true,
                 fluidTransitions = preferences[PreferencesKeys.FLUID_TRANSITIONS] ?: true,
                 vibrationOnCount = preferences[PreferencesKeys.VIBRATION_ON_COUNT] ?: true,
-                showLapCounter = preferences[PreferencesKeys.SHOW_LAP_COUNTER] ?: true
+                showLapCounter = preferences[PreferencesKeys.SHOW_LAP_COUNTER] ?: true,
+                showExitButton = preferences[PreferencesKeys.SHOW_EXIT_BUTTON] ?: true,
+                showCompletionText = preferences[PreferencesKeys.SHOW_COMPLETION_TEXT] ?: true,
+                completionText = preferences[PreferencesKeys.COMPLETION_TEXT] ?: "الحمد لله",
+                colorSeed = preferences[PreferencesKeys.COLOR_SEED] ?: "default"
             )
         }
 
@@ -91,6 +99,22 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateShowLapCounter(show: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.SHOW_LAP_COUNTER] = show }
     }
+
+    suspend fun updateShowExitButton(show: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_EXIT_BUTTON] = show }
+    }
+
+    suspend fun updateShowCompletionText(show: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_COMPLETION_TEXT] = show }
+    }
+
+    suspend fun updateCompletionText(text: String) {
+        context.dataStore.edit { it[PreferencesKeys.COMPLETION_TEXT] = text }
+    }
+
+    suspend fun updateColorSeed(seed: String) {
+        context.dataStore.edit { it[PreferencesKeys.COLOR_SEED] = seed }
+    }
 }
 
 data class UserSettings(
@@ -103,5 +127,9 @@ data class UserSettings(
     val showStepTimer: Boolean,
     val fluidTransitions: Boolean,
     val vibrationOnCount: Boolean,
-    val showLapCounter: Boolean
+    val showLapCounter: Boolean,
+    val showExitButton: Boolean,
+    val showCompletionText: Boolean,
+    val completionText: String,
+    val colorSeed: String
 )

@@ -1,5 +1,12 @@
 package com.kaizen.khushu.data
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +49,7 @@ fun WidgetRenderer(
     widget: CanvasWidget,
     currentRakats: Int,
     isComplete: Boolean,
+    completionText: String = "الحمد لله",
     modifier: Modifier = Modifier
 ) {
     val widgetFontFamily = when (widget) {
@@ -52,18 +60,30 @@ fun WidgetRenderer(
 
     when (widget) {
         is CanvasWidget.RakatCount -> {
-            Text(
-                text = if (isComplete) "✓" else currentRakats.toString(),
-                fontFamily = widgetFontFamily,
-                fontSize = widget.fontSizeSp.sp,
-                fontWeight = FontWeight(widget.fontWeight),
-                style = TextStyle(
-                    color = Color(widget.color).copy(alpha = widget.opacity),
-                    drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
-                    platformStyle = PlatformTextStyle(includeFontPadding = false)
-                ),
+            androidx.compose.animation.AnimatedContent(
+                targetState = isComplete,
+                transitionSpec = {
+                    fadeIn(tween(800)) togetherWith
+                    fadeOut(tween(800)) using
+                    SizeTransform(clip = false)
+                },
+                contentAlignment = Alignment.Center,
+                label = "completion_crossfade",
                 modifier = modifier
-            )
+            ) { complete ->
+                Text(
+                    text = if (complete) completionText else currentRakats.toString(),
+                    fontFamily = widgetFontFamily,
+                    fontSize = if (complete) (widget.fontSizeSp * 0.35f).sp else widget.fontSizeSp.sp,
+                    fontWeight = FontWeight(widget.fontWeight),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = TextStyle(
+                        color = Color(widget.color).copy(alpha = widget.opacity),
+                        drawStyle = if (widget.isOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
+                )
+            }
         }
         is CanvasWidget.ClockWidget -> {
             var timeStr by remember { mutableStateOf("") }

@@ -4,37 +4,33 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
-import com.kaizen.khushu.ui.theme.BeVietnamPro
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateGeneral: () -> Unit,
+    viewModel: SettingsViewModel,
     onNavigateCounter: () -> Unit,
     onNavigateAppearance: () -> Unit,
     onBack: () -> Unit
 ) {
+    val settings by viewModel.settings.collectAsState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Settings", fontFamily = BeVietnamPro) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
+                title = { SettingsTopBarTitle("Settings", scrollBehavior) },
+                navigationIcon = { SettingsBackButton(onBack) },
                 scrollBehavior = scrollBehavior
             )
         }
@@ -48,12 +44,15 @@ fun SettingsScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            MenuSectionItem(
-                title = "General",
-                detail = "Screen, Awake & System",
-                imageVector = Icons.Default.Tune,
-                onClick = onNavigateGeneral
+            SectionHeader("General")
+            SettingsToggle(
+                title = "Keep Screen Awake",
+                subtitle = "Prevent device sleep during sessions",
+                checked = settings.keepScreenAwake,
+                onCheckedChange = { viewModel.toggleKeepScreenAwake(it) }
             )
+
+            Spacer(Modifier.height(16.dp))
 
             MenuSectionItem(
                 title = "Counter",

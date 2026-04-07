@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -14,10 +15,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import com.kaizen.khushu.ui.theme.BeVietnamPro
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsTopBarTitle(text: String, scrollBehavior: TopAppBarScrollBehavior) {
+    val fraction = scrollBehavior.state.collapsedFraction
+    val fontSize = lerp(28f, 20f, fraction).sp
+    Text(
+        text = text,
+        style = TextStyle(
+            fontFamily = BeVietnamPro,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = fontSize,
+            lineHeight = 32.sp
+        )
+    )
+}
+
+@Composable
+fun SettingsBackButton(onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.padding(top = 8.dp)) {
+        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+    }
+}
 
 @Composable
 fun SectionHeader(title: String) {

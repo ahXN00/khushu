@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -38,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -56,10 +58,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+enum class SessionState { ACTIVE, APEX, SLEEP, AWAKE }
+
 @Composable
 fun SalahImmersiveScreen(
     targetRakats: Int,
     preset: CanvasPreset,
+    showExitButton: Boolean = true,
+    showCompletionText: Boolean = true,
+    completionText: String = "الحمد لله",
     onComplete: () -> Unit,
     onExit: () -> Unit,
 ) {
@@ -80,22 +87,64 @@ fun SalahImmersiveScreen(
     var resetArmed by remember { mutableStateOf(false) }
     var showOverlay by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val isComplete = count >= targetRakats
+    var sessionState by remember { mutableStateOf(SessionState.ACTIVE) }
+    val isComplete = sessionState != SessionState.ACTIVE
 
-    LaunchedEffect(isComplete) {
-        if (isComplete) {
-            kotlinx.coroutines.delay(10_000)
-            onComplete()
+    LaunchedEffect(count) {
+        if (count >= targetRakats && sessionState == SessionState.ACTIVE) {
+            if (showCompletionText) {
+                sessionState = SessionState.APEX
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            } else {
+                sessionState = SessionState.SLEEP
+            }
+        }
+    }
+
+    LaunchedEffect(sessionState) {
+        if (sessionState == SessionState.APEX) {
+            delay(2800)
+            sessionState = SessionState.SLEEP
+        }
+    }
+
+    val contentAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (sessionState == SessionState.SLEEP) 0f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = if (sessionState == SessionState.SLEEP) 1500 else 300
+        ),
+        label = "oled_fade"
+    )
+
+    val context = LocalContext.current
+    val activity = context as? Activity
+    DisposableEffect(sessionState, showExitButton) {
+        if (sessionState == SessionState.SLEEP && !showExitButton) {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
     val safeBackgroundColor = Color(preset.backgroundColor.toLong() and 0xFFFFFFFF)
 
+    val animatedBgColor by androidx.compose.animation.animateColorAsState(
+        targetValue = if (sessionState == SessionState.SLEEP) Color.Black else safeBackgroundColor,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = if (sessionState == SessionState.SLEEP) 1500 else 300,
+            easing = androidx.compose.animation.core.FastOutSlowInEasing
+        ),
+        label = "bg_color_fade"
+    )
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(safeBackgroundColor)
-            .pointerInput(isComplete) {
+            .background(animatedBgColor)
+            .pointerInput(sessionState) {
                 awaitPointerEventScope {
                     while (true) {
                         val downEvent = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
@@ -105,7 +154,7 @@ fun SalahImmersiveScreen(
                         var localResetArmed = false
                         var holdJob: kotlinx.coroutines.Job? = null
 
-                        if (!isComplete) {
+                        if (sessionState == SessionState.ACTIVE) {
                             holdJob = scope.launch {
                                 kotlinx.coroutines.delay(200)
                                 showOverlay = true
@@ -134,11 +183,13 @@ fun SalahImmersiveScreen(
                                 hasSwiped = true
                                 holdJob?.cancel()
 
-                                if (showOverlay) {
-                                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                                } else if (count > 0 && !isComplete) {
-                                    count--
-                                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                if (sessionState == SessionState.ACTIVE) {
+                                    if (showOverlay) {
+                                        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                    } else if (count > 0) {
+                                        count--
+                                        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                    }
                                 }
                             }
 
@@ -150,7 +201,7 @@ fun SalahImmersiveScreen(
                         holdJob?.cancel()
                         val overlayWasShown = showOverlay
 
-                        if (!hasSwiped && !isComplete) {
+                        if (sessionState == SessionState.ACTIVE && !hasSwiped) {
                             if (localResetArmed) {
                                 count = 0
                                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
@@ -159,6 +210,14 @@ fun SalahImmersiveScreen(
                             } else {
                                 count++
                                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                            }
+                        } else if (sessionState == SessionState.SLEEP && !hasSwiped) {
+                            sessionState = SessionState.AWAKE
+                        } else if (sessionState == SessionState.AWAKE && !hasSwiped) {
+                            if (localResetArmed) {
+                                count = 0
+                                sessionState = SessionState.ACTIVE
+                                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                             }
                         }
 
@@ -178,18 +237,20 @@ fun SalahImmersiveScreen(
         val screenWidth = constraints.maxWidth.toFloat()
         val screenHeight = constraints.maxHeight.toFloat()
 
-        preset.widgets.sortedBy { it.zIndex }.forEach { widget ->
-            Box(
-                modifier = Modifier
-                    .graphicsLayer {
-                        translationX = (widget.offsetX * screenWidth) - (size.width / 2f)
-                        translationY = (widget.offsetY * screenHeight) - (size.height / 2f)
-                        scaleX = widget.scale
-                        scaleY = widget.scale
-                        transformOrigin = TransformOrigin.Center
-                    }
-            ) {
-                WidgetRenderer(widget = widget, currentRakats = count, isComplete = isComplete)
+        Box(modifier = Modifier.alpha(contentAlpha)) {
+            preset.widgets.sortedBy { it.zIndex }.forEach { widget ->
+                Box(
+                    modifier = Modifier
+                        .graphicsLayer {
+                            translationX = (widget.offsetX * screenWidth) - (size.width / 2f)
+                            translationY = (widget.offsetY * screenHeight) - (size.height / 2f)
+                            scaleX = widget.scale
+                            scaleY = widget.scale
+                            transformOrigin = TransformOrigin.Center
+                        }
+                ) {
+                    WidgetRenderer(widget = widget, currentRakats = count, isComplete = isComplete, completionText = completionText)
+                }
             }
         }
 
@@ -230,18 +291,27 @@ fun SalahImmersiveScreen(
             }
         }
 
-        androidx.compose.material3.OutlinedButton (
-            onClick = onExit,
+        AnimatedVisibility(
+            visible = (showExitButton && sessionState != SessionState.SLEEP) || sessionState == SessionState.AWAKE,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
+                .padding(bottom = 48.dp)
         ) {
-            Text(
-                text = "Exit",
-                color = Color.White.copy(alpha = 0.2f),
-                style = MaterialTheme.typography.bodyLarge
-            )
+            androidx.compose.material3.OutlinedButton(
+                onClick = onExit,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White.copy(alpha = 0.2f)
+                )
+            ) {
+                Text(
+                    text = "Exit",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
         }
     }
 }

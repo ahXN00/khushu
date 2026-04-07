@@ -1,10 +1,10 @@
 package com.kaizen.khushu.ui.screens.settings
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -31,12 +31,8 @@ fun SalahCustomizeScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Salah Visuals", fontFamily = BeVietnamPro) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
+                title = { SettingsTopBarTitle("Salah Visuals", scrollBehavior) },
+                navigationIcon = { SettingsBackButton(onBack) },
                 scrollBehavior = scrollBehavior
             )
         }
@@ -50,6 +46,36 @@ fun SalahCustomizeScreen(
         ) {
             Spacer(Modifier.height(8.dp))
             SectionHeader("Interface")
+            SettingsToggle(
+                title = "Show Exit Button",
+                subtitle = "Keep exit button visible during counting",
+                checked = settings.showExitButton,
+                onCheckedChange = { viewModel.updateShowExitButton(it) }
+            )
+            SettingsToggle(
+                title = "Show Completion Text",
+                subtitle = "Display a custom message when the target is reached",
+                checked = settings.showCompletionText,
+                onCheckedChange = { viewModel.updateShowCompletionText(it) }
+            )
+
+            AnimatedVisibility(visible = settings.showCompletionText) {
+                OutlinedTextField(
+                    value = if (settings.completionText == "الحمد لله") "" else settings.completionText,
+                    onValueChange = { text ->
+                        viewModel.updateCompletionText(text.ifBlank { "الحمد لله" })
+                    },
+                    label = { Text("Completion Message") },
+                    placeholder = {
+                        Text("الحمد لله", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                    singleLine = true
+                )
+            }
+
             SettingsToggle(
                 title = "Show Step Timer",
                 subtitle = "Display elapsed time for each prayer step",

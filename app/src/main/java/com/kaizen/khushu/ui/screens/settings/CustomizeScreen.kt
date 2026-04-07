@@ -1,22 +1,18 @@
 package com.kaizen.khushu.ui.screens.settings
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import com.kaizen.khushu.ui.theme.BeVietnamPro
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomizeScreen(
     onNavigateBranding: () -> Unit,
-    onNavigatePalette: () -> Unit,
     onNavigateSalah: () -> Unit,
     onNavigateTasbeeh: () -> Unit,
     onBack: () -> Unit
@@ -27,12 +23,8 @@ fun CustomizeScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Customize", fontFamily = BeVietnamPro) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
+                title = { SettingsTopBarTitle("Customize", scrollBehavior) },
+                navigationIcon = { SettingsBackButton(onBack) },
                 scrollBehavior = scrollBehavior
             )
         }
@@ -58,13 +50,6 @@ fun CustomizeScreen(
                 detail = "Haptics, Pulse & Animation",
                 iconRes = com.kaizen.khushu.R.drawable.ic_tasbeeh,
                 onClick = onNavigateTasbeeh
-            )
-
-            MenuSectionItem(
-                title = "Palette",
-                detail = "Colors, Fonts & Themes",
-                iconRes = com.kaizen.khushu.R.drawable.ic_learn,
-                onClick = onNavigatePalette
             )
 
             Spacer(Modifier.height(32.dp))
