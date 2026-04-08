@@ -11,12 +11,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.serialization.Serializable
+import kotlin.math.sqrt
 
 @Serializable
 sealed interface TasbihWidget {
@@ -73,11 +76,34 @@ val DefaultTasbihPreset = TasbihCanvasPreset(
     )
 )
 
+private const val BEAD_RADIUS = 18f          // dp-independent px — scaled by density in DrawScope
+private const val BOTTOM_VISIBLE_BEADS = 7   // how many uncounted beads show at the bottom
+private const val TOP_GATHERED_MAX = 3        // max beads shown in top cluster
+
+/** Draws a single bead circle with a simple highlight for depth. */
+private fun DrawScope.drawBead(center: Offset, radius: Float, alpha: Float) {
+    // Base sphere
+    drawCircle(
+        color = Color(0xFFCCCCCC).copy(alpha = alpha),
+        radius = radius,
+        center = center,
+    )
+    // Top-left highlight
+    drawCircle(
+        color = Color.White.copy(alpha = alpha * 0.55f),
+        radius = radius * 0.45f,
+        center = center + Offset(-radius * 0.25f, -radius * 0.25f),
+    )
+}
+
 /**
  * Renders a single TasbihWidget. Mirrors WidgetRenderer in CanvasWidget.kt.
  *
  * [stringControlXOffset] — px deflection of the Bezier control point from string center (0 = straight).
  * [stringControlYFraction] — 0.0–1.0, where along the string height the apex sits (0.5 = midpoint).
+ * [countedBeads] — how many beads have been swiped up (drives top cluster + bottom remaining).
+ * [totalBeads] — total count for the current dhikr item.
+ * [thumbPosition] — current thumb position in Canvas-local coordinates, null when not touching.
  */
 @Composable
 fun TasbihWidgetRenderer(
@@ -86,6 +112,9 @@ fun TasbihWidgetRenderer(
     currentItem: DhikrItem?,
     stringControlXOffset: Float = 0f,
     stringControlYFraction: Float = 0.5f,
+    countedBeads: Int = 0,
+    totalBeads: Int = 33,
+    thumbPosition: Offset? = null,
     modifier: Modifier = Modifier,
 ) {
     when (widget) {
@@ -95,23 +124,65 @@ fun TasbihWidgetRenderer(
                     .fillMaxHeight(0.9f)
                     .width(60.dp)
             ) {
+                val density = this.density
+                val beadRadius = BEAD_RADIUS * density
+
                 val cx = size.width / 2f
                 val controlX = cx + stringControlXOffset
                 val controlY = size.height * stringControlYFraction
 
+                // Build Bezier path
                 val path = Path().apply {
                     moveTo(cx, 0f)
                     quadraticTo(controlX, controlY, cx, size.height)
                 }
+
+                // Draw string
                 drawPath(
                     path = path,
                     color = Color.White.copy(alpha = 0.35f),
                     style = Stroke(
-                        width = 2.dp.toPx(),
+                        width = 2 * density,
                         cap = StrokeCap.Round,
                         join = StrokeJoin.Round,
                     )
                 )
+
+                // Measure path for bead placement — use android.graphics.PathMeasure
+                // which supports getPosTan, converting via asAndroidPath()
+                val androidPath = path.asAndroidPath()
+                val pm = android.graphics.PathMeasure(androidPath, false)
+                val pathLength = pm.length
+                if (pathLength <= 0f) return@Canvas
+
+                val pos = FloatArray(2)
+                val tan = FloatArray(2)
+
+                // --- TOP CLUSTER (counted beads) ---
+                val topCount = minOf(countedBeads, TOP_GATHERED_MAX)
+                val topSpacing = beadRadius * 2.4f
+                for (i in 0 until topCount) {
+                    val dist = beadRadius + i * topSpacing
+                    pm.getPosTan(dist, pos, tan)
+                    val center = Offset(pos[0], pos[1])
+                    val fisheyeScale = fisheyeScale(center, thumbPosition, size.width / 2f, 2.5f)
+                    drawBead(center, beadRadius * fisheyeScale, alpha = 1f)
+                }
+
+                // --- BOTTOM POOL (uncounted beads) ---
+                val remaining = (totalBeads - countedBeads).coerceAtLeast(0)
+                val visibleBottom = minOf(remaining, BOTTOM_VISIBLE_BEADS)
+                val bottomSpacing = beadRadius * 2.4f
+                for (i in 0 until visibleBottom) {
+                    val dist = pathLength - beadRadius - i * bottomSpacing
+                    if (dist <= 0f) break
+                    pm.getPosTan(dist, pos, tan)
+                    val center = Offset(pos[0], pos[1])
+                    // Fade out beads deeper in the stack
+                    val alpha = if (i < 3) 1f else 1f - ((i - 2f) / (visibleBottom - 2f)) * 0.6f
+                    val fisheyeScale = fisheyeScale(center, thumbPosition, size.width / 2f, 2.5f)
+                    drawBead(center, beadRadius * fisheyeScale, alpha = alpha.coerceIn(0.2f, 1f))
+                }
             }
         }
 
@@ -139,4 +210,22 @@ fun TasbihWidgetRenderer(
             }
         }
     }
+}
+
+/**
+ * Fisheye magnification: beads near the thumb swell up to [maxScale]x.
+ * Falls off linearly over [radiusPx] distance.
+ */
+private fun fisheyeScale(
+    beadCenter: Offset,
+    thumb: Offset?,
+    radiusPx: Float,
+    maxScale: Float,
+): Float {
+    if (thumb == null) return 1f
+    val dx = beadCenter.x - thumb.x
+    val dy = beadCenter.y - thumb.y
+    val dist = sqrt(dx * dx + dy * dy)
+    if (dist >= radiusPx) return 1f
+    return 1f + (maxScale - 1f) * (1f - dist / radiusPx)
 }
