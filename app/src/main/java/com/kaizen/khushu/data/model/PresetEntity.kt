@@ -1,7 +1,8 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.kaizen.khushu.ui.screens.salah.CanvasWidget
 
 @Entity(tableName = "canvas_presets")
 data class PresetEntity(

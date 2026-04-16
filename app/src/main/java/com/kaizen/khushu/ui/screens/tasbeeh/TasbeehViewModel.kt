@@ -5,9 +5,9 @@ import com.kaizen.khushu.ui.theme.KhushuColors
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kaizen.khushu.data.DhikrItem
-import com.kaizen.khushu.data.TasbeehCollection
-import com.kaizen.khushu.data.TasbeehDao
+import com.kaizen.khushu.data.model.DhikrItem
+import com.kaizen.khushu.data.model.TasbeehCollection
+import com.kaizen.khushu.data.local.TasbeehDao
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow

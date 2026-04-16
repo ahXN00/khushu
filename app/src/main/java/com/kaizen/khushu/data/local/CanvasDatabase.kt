@@ -1,9 +1,11 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.data.local
 
 import android.content.Context
 import androidx.room.*
+import com.kaizen.khushu.ui.screens.salah.SalahCanvasLayout
+import com.kaizen.khushu.data.model.PresetEntity
 
-@Database(entities = [SalahCanvasLayout::class, PresetEntity::class], version = 2, exportSchema = false)
+@Database(entities = [SalahCanvasLayout::class, PresetEntity::class], version = 3, exportSchema = false)
 @TypeConverters(CanvasWidgetListConverter::class)
 abstract class CanvasDatabase : RoomDatabase() {
     abstract fun canvasDao(): CanvasDao

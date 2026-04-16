@@ -1,4 +1,4 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

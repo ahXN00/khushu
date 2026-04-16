@@ -1,4 +1,4 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.ui.screens.salah
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform

@@ -79,10 +79,10 @@ import com.kaizen.khushu.ui.theme.BeVietnamPro
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kaizen.khushu.data.CanvasWidget
-import com.kaizen.khushu.data.CanvasPreset
-import com.kaizen.khushu.data.DefaultPresets
-import com.kaizen.khushu.data.resolveFontFamily
+import com.kaizen.khushu.ui.screens.salah.CanvasWidget
+import com.kaizen.khushu.data.model.CanvasPreset
+import com.kaizen.khushu.data.model.DefaultPresets
+import com.kaizen.khushu.ui.screens.salah.resolveFontFamily
 import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.KhushuColors
 import kotlinx.coroutines.delay

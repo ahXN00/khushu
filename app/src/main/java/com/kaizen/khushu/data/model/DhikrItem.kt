@@ -1,4 +1,4 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.data.model
 
 import kotlinx.serialization.Serializable
 

@@ -51,9 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.kaizen.khushu.data.CanvasPreset
-import com.kaizen.khushu.data.CanvasWidget
-import com.kaizen.khushu.data.WidgetRenderer
+import com.kaizen.khushu.data.model.CanvasPreset
+import com.kaizen.khushu.ui.screens.salah.CanvasWidget
+import com.kaizen.khushu.ui.screens.salah.WidgetRenderer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

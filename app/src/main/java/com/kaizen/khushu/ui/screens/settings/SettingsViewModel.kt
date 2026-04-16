@@ -5,8 +5,8 @@ import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kaizen.khushu.data.SettingsRepository
-import com.kaizen.khushu.data.UserSettings
+import com.kaizen.khushu.data.repository.SettingsRepository
+import com.kaizen.khushu.data.repository.UserSettings
 import com.kaizen.khushu.util.AppIconManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -133,6 +133,54 @@ class SettingsViewModel(
                 delay(1500L)
                 AppIconManager.apply(appContext, style)
             }
+        }
+    }
+
+    fun setReadingTheme(theme: String) {
+        viewModelScope.launch { repository.updateReadingTheme(theme) }
+    }
+
+    fun setArabicSizeSp(size: Float) {
+        viewModelScope.launch { repository.updateArabicSizeSp(size) }
+    }
+
+    fun setTranslationSizeSp(size: Float) {
+        viewModelScope.launch { repository.updateTranslationSizeSp(size) }
+    }
+
+    fun toggleShowTranslation(show: Boolean) {
+        viewModelScope.launch { repository.updateShowTranslation(show) }
+    }
+
+    fun toggleShowTransliteration(show: Boolean) {
+        viewModelScope.launch { repository.updateShowTransliteration(show) }
+    }
+
+    fun toggleShowWordByWord(show: Boolean) {
+        viewModelScope.launch { repository.updateShowWordByWord(show) }
+    }
+
+    fun toggleReadingKeepScreenOn(keep: Boolean) {
+        viewModelScope.launch { repository.updateReadingKeepScreenOn(keep) }
+    }
+
+    fun updateLastReadTopicId(id: String) {
+        viewModelScope.launch { repository.updateLastReadTopicId(id) }
+    }
+
+    fun toggleBookmark(topicId: String) {
+        viewModelScope.launch {
+            val current = settings.value.bookmarkedTopicIds
+            val updated = if (current.contains(topicId)) current - topicId else current + topicId
+            repository.updateBookmarkedTopicIds(updated)
+        }
+    }
+
+    fun toggleMastered(topicId: String) {
+        viewModelScope.launch {
+            val current = settings.value.masteredTopicIds
+            val updated = if (current.contains(topicId)) current - topicId else current + topicId
+            repository.updateMasteredTopicIds(updated)
         }
     }
 

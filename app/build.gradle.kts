@@ -23,8 +23,10 @@ android {
         applicationId = "com.kaizen.khushu"
         minSdk = 31
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.11.1+$gitHash"
+        versionCode = 17
+        versionName = "0.12.0+$gitHash"
+
+        buildConfigField("String", "AUDIO_BASE_URL", "\"https://example.com/audio/\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -69,6 +71,7 @@ configurations.all {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))

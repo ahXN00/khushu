@@ -1,4 +1,4 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.data.repository
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -36,6 +37,17 @@ class SettingsRepository(private val context: Context) {
         val STARTUP_TAB = stringPreferencesKey("startup_tab")
         val TASBIH_BEAD_STYLE = stringPreferencesKey("tasbih_bead_style")
         val LOGO_STYLE = stringPreferencesKey("logo_style")
+        // Reading preferences
+        val READING_THEME = stringPreferencesKey("reading_theme")
+        val ARABIC_SIZE_SP = floatPreferencesKey("arabic_size_sp")
+        val TRANSLATION_SIZE_SP = floatPreferencesKey("translation_size_sp")
+        val SHOW_TRANSLATION = booleanPreferencesKey("show_translation")
+        val SHOW_TRANSLITERATION = booleanPreferencesKey("show_transliteration")
+        val SHOW_WORD_BY_WORD = booleanPreferencesKey("show_word_by_word")
+        val READING_KEEP_SCREEN_ON = booleanPreferencesKey("reading_keep_screen_on")
+        val LAST_READ_TOPIC_ID = stringPreferencesKey("last_read_topic_id")
+        val BOOKMARKED_TOPIC_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("bookmarked_topic_ids")
+        val MASTERED_TOPIC_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("mastered_topic_ids")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -65,6 +77,16 @@ class SettingsRepository(private val context: Context) {
                 startupTab = preferences[PreferencesKeys.STARTUP_TAB] ?: "salah",
                 tasbihBeadStyle = preferences[PreferencesKeys.TASBIH_BEAD_STYLE] ?: "CLASSIC_AMBER",
                 logoStyle = preferences[PreferencesKeys.LOGO_STYLE] ?: "DYNAMIC",
+                readingTheme = preferences[PreferencesKeys.READING_THEME] ?: "DARK",
+                arabicSizeSp = preferences[PreferencesKeys.ARABIC_SIZE_SP] ?: 32f,
+                translationSizeSp = preferences[PreferencesKeys.TRANSLATION_SIZE_SP] ?: 16f,
+                showTranslation = preferences[PreferencesKeys.SHOW_TRANSLATION] ?: true,
+                showTransliteration = preferences[PreferencesKeys.SHOW_TRANSLITERATION] ?: false,
+                showWordByWord = preferences[PreferencesKeys.SHOW_WORD_BY_WORD] ?: true,
+                readingKeepScreenOn = preferences[PreferencesKeys.READING_KEEP_SCREEN_ON] ?: true,
+                lastReadTopicId = preferences[PreferencesKeys.LAST_READ_TOPIC_ID],
+                bookmarkedTopicIds = preferences[PreferencesKeys.BOOKMARKED_TOPIC_IDS] ?: emptySet(),
+                masteredTopicIds = preferences[PreferencesKeys.MASTERED_TOPIC_IDS] ?: emptySet(),
             )
         }
 
@@ -139,6 +161,46 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateLogoStyle(style: String) {
         context.dataStore.edit { it[PreferencesKeys.LOGO_STYLE] = style }
     }
+
+    suspend fun updateReadingTheme(theme: String) {
+        context.dataStore.edit { it[PreferencesKeys.READING_THEME] = theme }
+    }
+
+    suspend fun updateArabicSizeSp(size: Float) {
+        context.dataStore.edit { it[PreferencesKeys.ARABIC_SIZE_SP] = size }
+    }
+
+    suspend fun updateTranslationSizeSp(size: Float) {
+        context.dataStore.edit { it[PreferencesKeys.TRANSLATION_SIZE_SP] = size }
+    }
+
+    suspend fun updateShowTranslation(show: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_TRANSLATION] = show }
+    }
+
+    suspend fun updateShowTransliteration(show: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_TRANSLITERATION] = show }
+    }
+
+    suspend fun updateShowWordByWord(show: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_WORD_BY_WORD] = show }
+    }
+
+    suspend fun updateReadingKeepScreenOn(keep: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.READING_KEEP_SCREEN_ON] = keep }
+    }
+
+    suspend fun updateLastReadTopicId(id: String) {
+        context.dataStore.edit { it[PreferencesKeys.LAST_READ_TOPIC_ID] = id }
+    }
+
+    suspend fun updateBookmarkedTopicIds(ids: Set<String>) {
+        context.dataStore.edit { it[PreferencesKeys.BOOKMARKED_TOPIC_IDS] = ids }
+    }
+
+    suspend fun updateMasteredTopicIds(ids: Set<String>) {
+        context.dataStore.edit { it[PreferencesKeys.MASTERED_TOPIC_IDS] = ids }
+    }
 }
 
 data class UserSettings(
@@ -160,4 +222,14 @@ data class UserSettings(
     val startupTab: String,
     val tasbihBeadStyle: String,
     val logoStyle: String = "DYNAMIC",
+    val readingTheme: String = "DARK",
+    val arabicSizeSp: Float = 32f,
+    val translationSizeSp: Float = 16f,
+    val showTranslation: Boolean = true,
+    val showTransliteration: Boolean = false,
+    val showWordByWord: Boolean = true,
+    val readingKeepScreenOn: Boolean = true,
+    val lastReadTopicId: String? = null,
+    val bookmarkedTopicIds: Set<String> = emptySet(),
+    val masteredTopicIds: Set<String> = emptySet(),
 )

@@ -1,4 +1,4 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.ui.screens.tasbeeh
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.serialization.Serializable
+import com.kaizen.khushu.data.model.DhikrItem
 import kotlin.math.sqrt
 
 enum class BeadStyle { CLASSIC_AMBER, DARK_ONYX }

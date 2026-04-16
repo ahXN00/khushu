@@ -26,7 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaizen.khushu.R
-import com.kaizen.khushu.data.TasbeehCollection
+import com.kaizen.khushu.data.model.TasbeehCollection
 import com.kaizen.khushu.ui.components.KhushuAppBar
 import com.kaizen.khushu.ui.navigation.AppDestinations
 import com.kaizen.khushu.ui.screens.settings.SettingsViewModel

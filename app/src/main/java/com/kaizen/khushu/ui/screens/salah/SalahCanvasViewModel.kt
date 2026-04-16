@@ -4,13 +4,13 @@ import androidx.compose.ui.Alignment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kaizen.khushu.data.CanvasDao
-import com.kaizen.khushu.data.CanvasPreset
-import com.kaizen.khushu.data.CanvasWidget
-import com.kaizen.khushu.data.DefaultPresets
-import com.kaizen.khushu.data.SalahCanvasLayout
-import com.kaizen.khushu.data.toEntity
-import com.kaizen.khushu.data.toDomain
+import com.kaizen.khushu.data.local.CanvasDao
+import com.kaizen.khushu.data.model.CanvasPreset
+import com.kaizen.khushu.ui.screens.salah.CanvasWidget
+import com.kaizen.khushu.data.model.DefaultPresets
+import com.kaizen.khushu.ui.screens.salah.SalahCanvasLayout
+import com.kaizen.khushu.data.model.toEntity
+import com.kaizen.khushu.data.model.toDomain
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 

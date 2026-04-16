@@ -1,8 +1,9 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.ui.screens.salah
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
+import com.kaizen.khushu.data.local.CanvasWidgetListConverter
 
 @Entity(tableName = "salah_canvas_layouts")
 @TypeConverters(CanvasWidgetListConverter::class)

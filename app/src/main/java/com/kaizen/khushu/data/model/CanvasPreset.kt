@@ -1,4 +1,5 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.data.model
+import com.kaizen.khushu.ui.screens.salah.CanvasWidget
 
 data class CanvasPreset(
     val id: String,

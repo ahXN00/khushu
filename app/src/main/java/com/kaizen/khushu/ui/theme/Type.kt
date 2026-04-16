@@ -17,6 +17,13 @@ private val googleFontsProvider = GoogleFont.Provider(
 )
 
 private val beVietnamProFont = GoogleFont("Be Vietnam Pro")
+private val scheherazadeNewFont = GoogleFont("Scheherazade New")
+
+// Scheherazade New — designed for Uthmani Arabic script, far better than system Arabic
+val ScheherazadeNew = FontFamily(
+    GoogleFontSpec(googleFont = scheherazadeNewFont, fontProvider = googleFontsProvider, weight = FontWeight.Normal),
+    GoogleFontSpec(googleFont = scheherazadeNewFont, fontProvider = googleFontsProvider, weight = FontWeight.Bold),
+)
 
 // Downloaded via GMS — cached after first load
 val BeVietnamPro = FontFamily(

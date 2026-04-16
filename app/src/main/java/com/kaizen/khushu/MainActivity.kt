@@ -30,22 +30,26 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.*
-import com.kaizen.khushu.data.CanvasDatabase
-import com.kaizen.khushu.data.CanvasPreset
-import com.kaizen.khushu.data.SettingsRepository
-import com.kaizen.khushu.data.TasbeehCollection
-import com.kaizen.khushu.data.TasbeehDatabase
+import com.kaizen.khushu.data.local.CanvasDatabase
+import com.kaizen.khushu.data.model.CanvasPreset
+import com.kaizen.khushu.data.repository.AudioRepository
+import com.kaizen.khushu.data.repository.SettingsRepository
+import com.kaizen.khushu.data.model.TasbeehCollection
+import com.kaizen.khushu.data.model.DhikrItem
+import com.kaizen.khushu.data.local.TasbeehDatabase
 import com.kaizen.khushu.ui.components.PillNavBar
 import com.kaizen.khushu.ui.navigation.*
 import com.kaizen.khushu.ui.screens.learn.LearnScreen
 import com.kaizen.khushu.ui.screens.learn.LearnSectionDetailScreen
+import com.kaizen.khushu.ui.screens.learn.LearnAudioViewModel
+import com.kaizen.khushu.ui.screens.learn.LearnReadingScreen
 import com.kaizen.khushu.ui.screens.salah.SalahCanvasScreen
 import com.kaizen.khushu.ui.screens.salah.SalahCanvasViewModel
 import com.kaizen.khushu.ui.screens.salah.SalahImmersiveScreen
 import com.kaizen.khushu.ui.screens.salah.SalahPickerScreen
 import com.kaizen.khushu.ui.screens.settings.*
 import com.kaizen.khushu.ui.screens.tasbeeh.CreateCollectionSheet
-import com.kaizen.khushu.data.BeadStyle
+import com.kaizen.khushu.ui.screens.tasbeeh.BeadStyle
 import com.kaizen.khushu.ui.screens.tasbeeh.TasbihBeadCustomizerSheet
 import com.kaizen.khushu.ui.screens.tasbeeh.TasbeehImmersiveScreen
 import com.kaizen.khushu.ui.screens.tasbeeh.TasbeehScreen
@@ -59,6 +63,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var settingsViewModel: SettingsViewModel
     private lateinit var tasbeehViewModel: TasbeehViewModel
     private lateinit var salahCanvasViewModel: SalahCanvasViewModel
+    private lateinit var learnAudioViewModel: LearnAudioViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -79,6 +84,13 @@ class MainActivity : ComponentActivity() {
                         this as ViewModelStoreOwner,
                         SalahCanvasViewModel.factory(canvasDao)
                 )[SalahCanvasViewModel::class.java]
+
+        val audioRepository = AudioRepository(applicationContext)
+        learnAudioViewModel =
+                ViewModelProvider(
+                        this as ViewModelStoreOwner,
+                        LearnAudioViewModel.factory(audioRepository, applicationContext)
+                )[LearnAudioViewModel::class.java]
 
         setContent {
             val isLoaded by settingsViewModel.isSettingsLoaded.collectAsState()
@@ -129,6 +141,7 @@ class MainActivity : ComponentActivity() {
                             settingsViewModel = settingsViewModel,
                             tasbeehViewModel = tasbeehViewModel,
                             salahCanvasViewModel = salahCanvasViewModel,
+                            learnAudioViewModel = learnAudioViewModel,
                             darkTheme = darkTheme
                     )
                 }
@@ -154,6 +167,7 @@ private fun KhushuApp(
         settingsViewModel: SettingsViewModel,
         tasbeehViewModel: TasbeehViewModel,
         salahCanvasViewModel: SalahCanvasViewModel,
+        learnAudioViewModel: LearnAudioViewModel,
         darkTheme: Boolean
 ) {
     var immersiveRakats by remember { mutableStateOf<Int?>(null) }
@@ -245,7 +259,7 @@ private fun KhushuApp(
                                                 top = topClearance,
                                                 end = 0.dp,
                                                 bottom = pillClearance
-                                        ),
+                                                )
                         )
                     }
 
@@ -253,9 +267,7 @@ private fun KhushuApp(
                             route = AppDestinations.LEARN.route,
                             enterTransition = { tabEnter() },
                             exitTransition = {
-                                if (targetState.destination.route?.startsWith("learn_detail") ==
-                                                true
-                                )
+                                if (targetState.destination.route?.startsWith("learn_detail") == true)
                                         scaleOut(targetScale = 0.95f, animationSpec = tween(300)) +
                                                 fadeOut(tween(90))
                                 else tabExit()
@@ -270,15 +282,13 @@ private fun KhushuApp(
                                 onSectionTap = { title ->
                                     navController.navigate("learn_detail/$title")
                                 },
+                                onCardTap = { topicId ->
+                                    navController.navigate("learn_card/$topicId")
+                                },
                                 onSettingsClick = { showSettingsSheet = true },
                                 hazeState = hazeState,
-                                contentPadding =
-                                        PaddingValues(
-                                                start = 0.dp,
-                                                top = topClearance,
-                                                end = 0.dp,
-                                                bottom = pillClearance
-                                        ),
+                                contentPadding = PaddingValues(top = topClearance, bottom = pillClearance),
+                                settingsViewModel = settingsViewModel
                         )
                     }
 
@@ -301,7 +311,39 @@ private fun KhushuApp(
                         LearnSectionDetailScreen(
                                 sectionTitle = sectionTitle,
                                 onBack = { navController.popBackStack() },
+                                onCardTap = { topicId ->
+                                    navController.navigate("learn_card/$topicId")
+                                },
                         )
+                    }
+
+                    // Phase 1: LearnReadingScreen will replace this stub
+                    composable(
+                            route = "learn_card/{topicId}",
+                            enterTransition = {
+                                slideIntoContainer(
+                                        AnimatedContentTransitionScope.SlideDirection.Left,
+                                        tween(300)
+                                )
+                            },
+                            popExitTransition = {
+                                slideOutOfContainer(
+                                        AnimatedContentTransitionScope.SlideDirection.Right,
+                                        tween(300)
+                                )
+                            },
+                    ) { backStackEntry ->
+                        val topicId = backStackEntry.arguments?.getString("topicId") ?: ""
+                        val topic = com.kaizen.khushu.data.repository.LearnRepository.getSections()
+                            .flatMap { it.topics }.find { it.id == topicId }
+                        if (topic != null) {
+                            LearnReadingScreen(
+                                topic = topic,
+                                settingsViewModel = settingsViewModel,
+                                learnAudioViewModel = learnAudioViewModel,
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
                     }
 
                     composable(
@@ -585,9 +627,9 @@ private fun KhushuApp(
                 title = "Preview",
                 colorInt = 0xFF6650A4.toInt(),
                 items = listOf(
-                    com.kaizen.khushu.data.DhikrItem("سُبْحَانَ اللَّهِ", 33),
-                    com.kaizen.khushu.data.DhikrItem("الْحَمْدُ لِلَّهِ", 33),
-                    com.kaizen.khushu.data.DhikrItem("اللَّهُ أَكْبَرُ", 34),
+                    DhikrItem("سُبْحَانَ اللَّهِ", 33),
+                    DhikrItem("الْحَمْدُ لِلَّهِ", 33),
+                    DhikrItem("اللَّهُ أَكْبَرُ", 34),
                 ),
             )
             TasbeehImmersiveScreen(

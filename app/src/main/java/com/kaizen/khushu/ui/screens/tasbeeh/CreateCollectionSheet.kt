@@ -65,8 +65,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.kaizen.khushu.data.DhikrItem
-import com.kaizen.khushu.data.TasbeehCollection
+import com.kaizen.khushu.data.model.DhikrItem
+import com.kaizen.khushu.data.model.TasbeehCollection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableColumn

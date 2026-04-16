@@ -1,6 +1,8 @@
-package com.kaizen.khushu.data
+package com.kaizen.khushu.data.local
 
 import androidx.room.*
+import com.kaizen.khushu.ui.screens.salah.SalahCanvasLayout
+import com.kaizen.khushu.data.model.PresetEntity
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy

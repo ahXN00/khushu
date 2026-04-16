@@ -25,11 +25,14 @@ google-services.json
 # Claude Code
 CLAUDE.md
 CLAUDE-2.md
+GEMINI.md
 .claude/
+.gemini/
 tasks/
 nav-bar.md
 design.md
 AGENTS.md
+graphify-out/
 
 # Figma exports
 figma/

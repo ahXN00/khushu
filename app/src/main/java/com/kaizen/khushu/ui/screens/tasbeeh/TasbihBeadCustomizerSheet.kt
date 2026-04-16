@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kaizen.khushu.data.BeadStyle
+import com.kaizen.khushu.ui.screens.tasbeeh.BeadStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

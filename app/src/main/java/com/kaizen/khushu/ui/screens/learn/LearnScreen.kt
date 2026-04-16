@@ -3,15 +3,10 @@ package com.kaizen.khushu.ui.screens.learn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PageSize
-import androidx.compose.foundation.pager.PagerDefaults
-import androidx.compose.foundation.pager.PagerSnapDistance
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.ui.unit.Density
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,17 +16,28 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,119 +47,150 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.kaizen.khushu.data.model.LearnSection
+import com.kaizen.khushu.data.model.LearnTopic
 import com.kaizen.khushu.ui.components.KhushuAppBar
 import com.kaizen.khushu.ui.navigation.AppDestinations
+import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 
-import com.kaizen.khushu.ui.theme.prayerCardPalette
-import com.kaizen.khushu.ui.theme.duaCardPalette
-
 @Composable
 fun LearnScreen(
-    onSectionTap: (String) -> Unit,
-    onSettingsClick: () -> Unit,
+    onSectionTap: (String) -> Unit = {},
+    onCardTap: (String) -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     hazeState: HazeState,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
+    learnViewModel: LearnViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel,
 ) {
     var query by remember { mutableStateOf("") }
+    val sections = learnViewModel.sections
+    val settings by settingsViewModel.settings.collectAsState()
+
+    // Find last read topic
+    val lastReadTopic: LearnTopic? = remember(settings.lastReadTopicId, sections) {
+        settings.lastReadTopicId?.let { id ->
+            sections.flatMap { it.topics }.find { it.id == id }
+        }
+    }
+
+    // Filter sections and topics by search query
+    val filteredSections = remember(sections, query) {
+        if (query.isBlank()) sections
+        else sections.mapNotNull { section ->
+            val matchingTopics = section.topics.filter {
+                it.title.contains(query, ignoreCase = true)
+            }
+            // Include section if title matches or any topic matches
+            if (section.sectionTitle.contains(query, ignoreCase = true) || matchingTopics.isNotEmpty()) {
+                section.copy(topics = if (section.sectionTitle.contains(query, ignoreCase = true)) section.topics else matchingTopics)
+            } else null
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize().haze(state = hazeState),
             contentPadding = PaddingValues(
-                start = 0.dp, end = 0.dp,
                 top = contentPadding.calculateTopPadding(),
-                bottom = contentPadding.calculateBottomPadding()
+                bottom = contentPadding.calculateBottomPadding(),
             ),
         ) {
             item(key = "search") {
-                Spacer(modifier = Modifier.height(16.dp))
                 SearchBar(
                     query = query,
                     onQueryChange = { query = it },
                     modifier = Modifier.padding(
                         start = 20.dp, end = 20.dp,
-                        top = 16.dp, bottom = 8.dp,
+                        top = 32.dp, bottom = 4.dp,
                     ),
                 )
             }
 
-            item(key = "prayers_header") {
-                SectionRow(
-                    title = "Prayers",
-                    onArrowClick = { onSectionTap("Prayers") },
-                    modifier = Modifier.padding(start = 20.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
-                )
-            }
-
-            item(key = "prayers_row") {
-                val pagerState = rememberPagerState(pageCount = { prayerCardPalette.size })
-                HorizontalPager(
-                    state = pagerState,
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                    pageSpacing = 12.dp,
-                    pageSize = object : PageSize {
-                        override fun Density.calculateMainAxisPageSize(availableSpace: Int, pageSpacing: Int): Int {
-                            return (availableSpace * 0.475f).toInt()
-                        }
-                    },
-                    flingBehavior = PagerDefaults.flingBehavior(
-                        state = pagerState,
-                        pagerSnapDistance = PagerSnapDistance.atMost(2)
+            if (lastReadTopic != null && query.isBlank()) {
+                item(key = "continue_reading") {
+                    ContinueReadingBanner(
+                        topic = lastReadTopic,
+                        onClick = { onCardTap(lastReadTopic.id) },
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                     )
-                ) { page ->
-                    val (title, color) = prayerCardPalette[page]
-                    LearnCard(title = title, color = color, modifier = Modifier.fillMaxWidth())
                 }
             }
 
-            item(key = "spacer") { Spacer(Modifier.height(8.dp)) }
+            filteredSections.forEachIndexed { index, section ->
+                if (index > 0) {
+                    item(key = "spacer_$index") { Spacer(Modifier.height(8.dp)) }
+                }
 
-            item(key = "duas_header") {
-                SectionRow(
-                    title = "Duas",
-                    onArrowClick = { onSectionTap("Duas") },
-                    modifier = Modifier.padding(start = 20.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
-                )
-            }
-
-            item(key = "duas_row") {
-                val pagerState = rememberPagerState(pageCount = { duaCardPalette.size })
-                HorizontalPager(
-                    state = pagerState,
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                    pageSpacing = 12.dp,
-                    pageSize = object : PageSize {
-                        override fun Density.calculateMainAxisPageSize(availableSpace: Int, pageSpacing: Int): Int {
-                            return (availableSpace * 0.475f).toInt()
-                        }
-                    },
-                    flingBehavior = PagerDefaults.flingBehavior(
-                        state = pagerState,
-                        pagerSnapDistance = PagerSnapDistance.atMost(2)
+                item(key = "header_${section.id}") {
+                    SectionRow(
+                        title = section.sectionTitle,
+                        onArrowClick = { onSectionTap(section.sectionTitle) },
+                        modifier = Modifier.padding(
+                            start = 22.dp, end = 15.dp,
+                            top = 8.dp, bottom = 4.dp,
+                        ),
                     )
-                ) { page ->
-                    val (title, color) = duaCardPalette[page]
-                    LearnCard(title = title, color = color, modifier = Modifier.fillMaxWidth())
+                }
+
+                item(key = "cards_${section.id}") {
+                    SectionCards(
+                        section = section,
+                        onCardTap = onCardTap,
+                        masteredTopicIds = settings.masteredTopicIds
+                    )
                 }
             }
-
-            item(key = "bottom_spacer") { Spacer(Modifier.height(32.dp)) }
         }
 
         KhushuAppBar(
             title = AppDestinations.LEARN.label,
             onSettingsClick = onSettingsClick,
-//            hazeState = hazeState,
-            modifier = Modifier
-                .align(Alignment.TopCenter),
+            modifier = Modifier.align(Alignment.TopCenter),
         )
+    }
+}
 
+@Composable
+private fun SectionCards(
+    section: LearnSection,
+    onCardTap: (String) -> Unit,
+    masteredTopicIds: Set<String>,
+) {
+    val sectionColor = Color(section.color)
+    val pagerState = rememberPagerState(pageCount = { section.topics.size })
+
+    HorizontalPager(
+        state = pagerState,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        pageSpacing = 12.dp,
+        pageSize = object : PageSize {
+            override fun Density.calculateMainAxisPageSize(
+                availableSpace: Int,
+                pageSpacing: Int,
+            ): Int = (availableSpace * 0.475f).toInt()
+        },
+        flingBehavior = PagerDefaults.flingBehavior(
+            state = pagerState,
+            pagerSnapDistance = PagerSnapDistance.atMost(2),
+        ),
+    ) { page ->
+        val topic = section.topics[page]
+        val isMastered = masteredTopicIds.contains(topic.id)
+        LearnCard(
+            title = topic.title,
+            color = sectionColor,
+            onClick = { onCardTap(topic.id) },
+            isMastered = isMastered,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -171,7 +208,7 @@ private fun SectionRow(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Box(
             modifier = Modifier
@@ -198,6 +235,8 @@ private fun SectionRow(
 internal fun LearnCard(
     title: String,
     color: Color,
+    onClick: (() -> Unit)? = null,
+    isMastered: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -205,15 +244,78 @@ internal fun LearnCard(
             .height(200.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(color)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(12.dp),
-        contentAlignment = Alignment.BottomStart,
     ) {
+        if (isMastered) {
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = "Mastered",
+                tint = Color(0xFF10B981), // Emerald
+                modifier = Modifier
+                    .size(24.dp)
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+            )
+        }
+
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.BottomStart)
         )
+    }
+}
+
+@Composable
+private fun ContinueReadingBanner(
+    topic: LearnTopic,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "CONTINUE READING",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = com.kaizen.khushu.ui.theme.Antonio,
+                        letterSpacing = 1.sp
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = topic.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
@@ -250,6 +352,6 @@ private fun SearchBar(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), CircleShape),
     )
 }
