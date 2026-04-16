@@ -29,7 +29,9 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavType
 import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.kaizen.khushu.data.local.CanvasDatabase
 import com.kaizen.khushu.data.model.CanvasPreset
 import com.kaizen.khushu.data.repository.AudioRepository
@@ -317,9 +319,16 @@ private fun KhushuApp(
                         )
                     }
 
-                    // Phase 1: LearnReadingScreen will replace this stub
                     composable(
-                            route = "learn_card/{topicId}",
+                            route = "learn_card/{topicId}?ayah={ayah}",
+                            arguments = listOf(
+                                navArgument("topicId") { type = NavType.StringType },
+                                navArgument("ayah") { 
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                }
+                            ),
                             enterTransition = {
                                 slideIntoContainer(
                                         AnimatedContentTransitionScope.SlideDirection.Left,
@@ -334,6 +343,7 @@ private fun KhushuApp(
                             },
                     ) { backStackEntry ->
                         val topicId = backStackEntry.arguments?.getString("topicId") ?: ""
+                        val ayahIndex = backStackEntry.arguments?.getString("ayah")?.toIntOrNull()
                         val topic = com.kaizen.khushu.data.repository.LearnRepository.getSections()
                             .flatMap { it.topics }.find { it.id == topicId }
                         if (topic != null) {
@@ -342,6 +352,7 @@ private fun KhushuApp(
                                 settingsViewModel = settingsViewModel,
                                 learnAudioViewModel = learnAudioViewModel,
                                 onBack = { navController.popBackStack() },
+                                initialAyahIndex = ayahIndex
                             )
                         }
                     }

@@ -1,5 +1,6 @@
 package com.kaizen.khushu.ui.screens.learn
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,15 +28,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -56,9 +67,11 @@ import com.kaizen.khushu.data.model.LearnTopic
 import com.kaizen.khushu.ui.components.KhushuAppBar
 import com.kaizen.khushu.ui.navigation.AppDestinations
 import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
+import com.kaizen.khushu.ui.theme.BeVietnamPro
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LearnScreen(
     onSectionTap: (String) -> Unit = {},
@@ -71,6 +84,7 @@ fun LearnScreen(
     settingsViewModel: SettingsViewModel,
 ) {
     var query by remember { mutableStateOf("") }
+    var showBookmarks by remember { mutableStateOf(false) }
     val sections = learnViewModel.sections
     val settings by settingsViewModel.settings.collectAsState()
 
@@ -114,13 +128,48 @@ fun LearnScreen(
                 )
             }
 
-            if (lastReadTopic != null && query.isBlank()) {
+            if (lastReadTopic != null && query.isBlank() && settings.showContinueReading) {
                 item(key = "continue_reading") {
-                    ContinueReadingBanner(
-                        topic = lastReadTopic,
-                        onClick = { onCardTap(lastReadTopic.id) },
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = {
+                            if (it == SwipeToDismissBoxValue.EndToStart || 
+                                it == SwipeToDismissBoxValue.StartToEnd) {
+                                settingsViewModel.clearLastReadTopicId()
+                                true
+                            } else false
+                        }
                     )
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        backgroundContent = {
+                            val isSwiping = dismissState.targetValue != SwipeToDismissBoxValue.Settled
+                            val alpha by animateFloatAsState(
+                                targetValue = if (isSwiping) 1f else 0f,
+                                label = "dismissAlpha"
+                            )
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = alpha)),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Dismiss",
+                                    modifier = Modifier.padding(end = 16.dp).graphicsLayer { this.alpha = alpha },
+                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    ) {
+                        ContinueReadingBanner(
+                            topic = lastReadTopic,
+                            onClick = { onCardTap(lastReadTopic.id) },
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                        )
+                    }
                 }
             }
 
@@ -153,8 +202,21 @@ fun LearnScreen(
         KhushuAppBar(
             title = AppDestinations.LEARN.label,
             onSettingsClick = onSettingsClick,
+            onBookmarksClick = { showBookmarks = true },
             modifier = Modifier.align(Alignment.TopCenter),
         )
+
+        if (showBookmarks) {
+            BookmarksSheet(
+                bookmarkedAyahs = settings.bookmarkedAyahs,
+                sections = sections,
+                onDismiss = { showBookmarks = false },
+                onBookmarkTap = { topicId, ayahIndex ->
+                    showBookmarks = false
+                    onCardTap("$topicId?ayah=$ayahIndex")
+                }
+            )
+        }
     }
 }
 
@@ -269,6 +331,120 @@ internal fun LearnCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BookmarksSheet(
+    bookmarkedAyahs: Set<String>,
+    sections: List<LearnSection>,
+    onDismiss: () -> Unit,
+    onBookmarkTap: (String, Int) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    val bookmarkedTopics = remember(bookmarkedAyahs, sections) {
+        bookmarkedAyahs.mapNotNull { key ->
+            val parts = key.split(":")
+            val topicId = parts.getOrNull(0) ?: return@mapNotNull null
+            val ayahIndex = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val topic = sections.flatMap { it.topics }.find { it.id == topicId }
+            if (topic != null) Triple(topic, ayahIndex, key) else null
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                "Bookmarks",
+                style = MaterialTheme.typography.headlineSmall,
+//                fontWeight = FontWeight.Bold,
+                fontFamily = com.kaizen.khushu.ui.theme.BeVietnamPro,
+                modifier = Modifier.padding(bottom = 18.dp)
+            )
+
+            if (bookmarkedTopics.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "No bookmarks yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(bookmarkedTopics) { (topic, ayahIndex, key) ->
+                        BookmarkRow(
+                            topic = topic,
+                            ayahIndex = ayahIndex,
+                            onClick = { onBookmarkTap(topic.id, ayahIndex) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookmarkRow(
+    topic: LearnTopic,
+    ayahIndex: Int,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Bookmark,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column {
+                Text(
+                    topic.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (ayahIndex > 0) {
+                    Text(
+                        "Ayah ${ayahIndex + 1}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ContinueReadingBanner(
     topic: LearnTopic,
@@ -280,15 +456,17 @@ private fun ContinueReadingBanner(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-        )
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        ),
+        shadowElevation = 2.dp,
+        tonalElevation = 4.dp
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -296,7 +474,7 @@ private fun ContinueReadingBanner(
                 Text(
                     text = "CONTINUE READING",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = com.kaizen.khushu.ui.theme.Antonio,
+                        fontFamily = com.kaizen.khushu.ui.theme.BeVietnamPro,
                         letterSpacing = 1.sp
                     ),
                     color = MaterialTheme.colorScheme.primary

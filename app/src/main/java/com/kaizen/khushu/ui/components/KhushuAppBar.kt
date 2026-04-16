@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +53,7 @@ import androidx.compose.ui.geometry.Size  // NOT android.util.Size
 fun KhushuAppBar(
     title: String,
     onSettingsClick: () -> Unit,
+    onBookmarksClick: (() -> Unit)? = null,
     // Pass non-null to show the grid/list toggle in the actions area.
     // isListMode drives which button is highlighted; both callbacks are required together.
     isListMode: Boolean? = null,
@@ -117,6 +121,28 @@ fun KhushuAppBar(
                         onClick = onListClick,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
+                }
+                if (onBookmarksClick != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable(
+                                onClick = onBookmarksClick,
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bookmarks,
+                            contentDescription = "Bookmarks",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(15.dp))
                 }
                 Box(
                     modifier = Modifier

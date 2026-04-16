@@ -129,6 +129,13 @@ fun AppearanceSettingsScreen(
                 )
             }
 
+            SettingsToggle(
+                title = "Show Continue Reading",
+                subtitle = "Display the last read topic on the Learn screen",
+                checked = settings.showContinueReading,
+                onCheckedChange = { viewModel.toggleShowContinueReading(it) }
+            )
+
             AnimatedVisibility(
                 visible = !settings.dynamicColor,
                 enter = expandVertically() + fadeIn(),
