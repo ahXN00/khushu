@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,15 +27,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.graphics.shapes.RoundedPolygon
 import com.kaizen.khushu.R
 import com.kaizen.khushu.data.model.TasbeehCollection
 import com.kaizen.khushu.ui.components.KhushuAppBar
 import com.kaizen.khushu.ui.navigation.AppDestinations
 import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import com.kaizen.khushu.ui.theme.BeVietnamPro
+import com.kaizen.khushu.ui.util.rememberMorphShape
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TasbeehScreen(
     viewModel: TasbeehViewModel,
@@ -49,6 +53,8 @@ fun TasbeehScreen(
     val isListMode = settings.tasbeehListMode
     var query by remember { mutableStateOf("") }
     var selectedCollection by remember { mutableStateOf<TasbeehCollection?>(null) }
+    
+    val expressiveShape = MaterialShapes.Cookie9Sided.toShape()
 
     val filtered = remember(collections, query) {
         if (query.isBlank()) collections
@@ -57,6 +63,27 @@ fun TasbeehScreen(
                     it.items.any { item -> item.name.contains(query, ignoreCase = true) }
         }
     }
+    
+    // Shape morphing for view toggles
+    val gridProgress by animateFloatAsState(
+        targetValue = if (!isListMode) 1f else 0f,
+        label = "grid_morph_progress"
+    )
+    val listProgress by animateFloatAsState(
+        targetValue = if (isListMode) 1f else 0f,
+        label = "list_morph_progress"
+    )
+    
+    val gridMorphShape = rememberMorphShape(
+        start = MaterialShapes.Circle,
+        end = MaterialShapes.Cookie9Sided,
+        progress = gridProgress
+    )
+    val listMorphShape = rememberMorphShape(
+        start = MaterialShapes.Circle,
+        end = MaterialShapes.Cookie9Sided,
+        progress = listProgress
+    )
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -69,7 +96,7 @@ fun TasbeehScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxSize().haze(state = hazeState),
+            modifier = Modifier.fillMaxSize(),
         ) {
             item(key = "search", span = { GridItemSpan(maxLineSpan) }) {
                 SearchBar(
@@ -91,7 +118,11 @@ fun TasbeehScreen(
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         modifier = Modifier
                             .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(CircleShape)
+                            .background(
+                                if (!isListMode) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                else Color.Transparent
+                            )
                             .clickable { settingsViewModel.toggleTasbeehListMode(false) }
                             .padding(10.dp),
                     )
@@ -102,7 +133,11 @@ fun TasbeehScreen(
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         modifier = Modifier
                             .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(CircleShape)
+                            .background(
+                                if (isListMode) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                else Color.Transparent
+                            )
                             .clickable { settingsViewModel.toggleTasbeehListMode(true) }
                             .padding(10.dp),
                     )

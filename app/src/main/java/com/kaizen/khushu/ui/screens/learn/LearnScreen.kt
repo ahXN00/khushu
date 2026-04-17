@@ -1,9 +1,11 @@
 package com.kaizen.khushu.ui.screens.learn
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,10 +15,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
@@ -27,21 +29,31 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Mosque
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +62,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -63,9 +78,8 @@ import com.kaizen.khushu.ui.navigation.AppDestinations
 import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import com.kaizen.khushu.ui.theme.BeVietnamPro
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LearnScreen(
     onSectionTap: (String) -> Unit = {},
@@ -105,7 +119,7 @@ fun LearnScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().haze(state = hazeState),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 top = contentPadding.calculateTopPadding(),
                 bottom = contentPadding.calculateBottomPadding(),
@@ -209,6 +223,8 @@ private fun SectionCards(
         LearnCard(
             title = topic.title,
             color = sectionColor,
+            sectionId = section.id,
+            shape = RoundedCornerShape(28.dp),
             onClick = { onCardTap(topic.id) },
             isMastered = isMastered,
             modifier = Modifier.fillMaxWidth(),
@@ -257,41 +273,166 @@ private fun SectionRow(
 internal fun LearnCard(
     title: String,
     color: Color,
+    sectionId: String,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(28.dp),
     onClick: (() -> Unit)? = null,
     isMastered: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        label = "scale"
+    )
+
+    // Create a darker version for the gradient
+    val darkerColor = remember(color) {
+        Color(
+            red = color.red * 0.4f,
+            green = color.green * 0.4f,
+            blue = color.blue * 0.4f,
+            alpha = 1f
+        )
+    }
+
     Box(
         modifier = modifier
             .height(140.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(color)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(18.dp),
-    ) {
-        if (isMastered) {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = "Mastered",
-                tint = Color(0xFF10B981), // Emerald
-                modifier = Modifier
-                    .size(24.dp)
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
+            .scale(scale)
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(color, darkerColor),
+                    start = androidx.compose.ui.geometry.Offset.Zero,
+                    end = androidx.compose.ui.geometry.Offset.Infinite
+                )
             )
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick
+                    )
+                } else Modifier
+            ),
+    ) {
+        // Islamic Background Pattern (Rub el Hizb / 8-pointed star)
+        androidx.compose.foundation.Canvas(
+            modifier = Modifier
+                .size(180.dp)
+                .align(Alignment.CenterEnd)
+                .offset(x = 40.dp, y = 20.dp)
+        ) {
+            val starSize = size.minDimension
+            val squareSize = starSize * 0.707f
+            val path = androidx.compose.ui.graphics.Path().apply {
+                // Square 1
+                addRect(androidx.compose.ui.geometry.Rect(center, squareSize / 2))
+            }
+            
+            // Draw two overlapping rotated squares to form the star
+            val strokeWidth = 1.dp.toPx()
+            val starAlpha = 0.12f
+            
+            val rotateMatrix1 = androidx.compose.ui.graphics.Matrix().apply {
+                reset()
+                rotateZ(0f)
+            }
+            val rotateMatrix2 = androidx.compose.ui.graphics.Matrix().apply {
+                reset()
+                rotateZ(45f)
+            }
+
+            drawContext.canvas.save()
+            drawContext.transform.rotate(0f, center)
+            drawRect(
+                color = Color.White,
+                topLeft = androidx.compose.ui.geometry.Offset(center.x - squareSize/2, center.y - squareSize/2),
+                size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(strokeWidth),
+                alpha = starAlpha
+            )
+            drawContext.canvas.restore()
+
+            drawContext.canvas.save()
+            drawContext.transform.rotate(45f, center)
+            drawRect(
+                color = Color.White,
+                topLeft = androidx.compose.ui.geometry.Offset(center.x - squareSize/2, center.y - squareSize/2),
+                size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(strokeWidth),
+                alpha = starAlpha
+            )
+            drawContext.canvas.restore()
         }
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.BottomStart)
-        )
+        // Content
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                // Framed Section Icon
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.15f))
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    getSectionIcon(sectionId)?.let { icon ->
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                if (isMastered) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Mastered",
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 20.sp,
+                modifier = Modifier.fillMaxWidth(0.8f)
+            )
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private fun getSectionIcon(sectionId: String): ImageVector? {
+    return when (sectionId) {
+        "foundations" -> Icons.Default.MenuBook
+        "purification" -> Icons.Default.WaterDrop
+        "prayer" -> Icons.Default.Mosque
+        "recitations" -> Icons.Default.AutoStories
+        "daily_fortification" -> Icons.Default.Shield
+        else -> null
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun BookmarksSheet(
     bookmarkedAyahs: Set<String>,
@@ -428,7 +569,7 @@ private fun ContinueReadingBanner(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "CONTINUE READING",
+                        text = "Continue Reading",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontFamily = com.kaizen.khushu.ui.theme.BeVietnamPro,
                             letterSpacing = 1.sp

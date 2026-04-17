@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.ui.components.KhushuAppBar
 import com.kaizen.khushu.ui.navigation.AppDestinations
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
 
 @Composable
 fun SalahPickerScreen(
@@ -45,7 +44,7 @@ fun SalahPickerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .haze(state = hazeState)
+
                 .navigationBarsPadding()
                 .clickable(
                     indication = null,

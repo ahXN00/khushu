@@ -15,6 +15,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +60,7 @@ import com.kaizen.khushu.ui.screens.tasbeeh.TasbeehViewModel
 import com.kaizen.khushu.ui.theme.KhushuTheme
 import com.kaizen.khushu.ui.theme.ThemeTransitionProvider
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 
 class MainActivity : ComponentActivity() {
     private lateinit var settingsRepository: SettingsRepository
@@ -164,6 +166,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun KhushuApp(
         settingsViewModel: SettingsViewModel,
@@ -216,7 +219,7 @@ private fun KhushuApp(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().hazeSource(hazeState),
             ) {
                 NavHost(
                         navController = navController,
@@ -572,7 +575,7 @@ private fun KhushuApp(
                     onClick = { showCreateSheet = true },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = FloatingActionButtonDefaults.shape, // Circle
+                    shape = MaterialShapes.Square.toShape(),
                     elevation = FloatingActionButtonDefaults.elevation(),
             ) {
                 Icon(
