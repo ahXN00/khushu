@@ -1,6 +1,5 @@
 package com.kaizen.khushu.ui.screens.learn
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,21 +30,17 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -130,46 +124,12 @@ fun LearnScreen(
 
             if (lastReadTopic != null && query.isBlank() && settings.showContinueReading) {
                 item(key = "continue_reading") {
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = {
-                            if (it == SwipeToDismissBoxValue.EndToStart || 
-                                it == SwipeToDismissBoxValue.StartToEnd) {
-                                settingsViewModel.clearLastReadTopicId()
-                                true
-                            } else false
-                        }
+                    ContinueReadingBanner(
+                        topic = lastReadTopic,
+                        onClick = { onCardTap(lastReadTopic.id) },
+                        onDismiss = { settingsViewModel.clearLastReadTopicId() },
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                     )
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        backgroundContent = {
-                            val isSwiping = dismissState.targetValue != SwipeToDismissBoxValue.Settled
-                            val alpha by animateFloatAsState(
-                                targetValue = if (isSwiping) 1f else 0f,
-                                label = "dismissAlpha"
-                            )
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 20.dp, vertical = 8.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = alpha)),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Dismiss",
-                                    modifier = Modifier.padding(end = 16.dp).graphicsLayer { this.alpha = alpha },
-                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
-                    ) {
-                        ContinueReadingBanner(
-                            topic = lastReadTopic,
-                            onClick = { onCardTap(lastReadTopic.id) },
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-                        )
-                    }
                 }
             }
 
@@ -449,52 +409,56 @@ private fun BookmarkRow(
 private fun ContinueReadingBanner(
     topic: LearnTopic,
     onClick: () -> Unit,
+    onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    val shape = RoundedCornerShape(16.dp)
+    Box(
         modifier = modifier
             .fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-        ),
-        shadowElevation = 2.dp,
-        tonalElevation = 4.dp
     ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "CONTINUE READING",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = com.kaizen.khushu.ui.theme.BeVietnamPro,
-                        letterSpacing = 1.sp
-                    ),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = topic.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 44.dp, top = 14.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "CONTINUE READING",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = com.kaizen.khushu.ui.theme.BeVietnamPro,
+                            letterSpacing = 1.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = topic.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
+            androidx.compose.material3.IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 4.dp, end = 4.dp)
+                    .size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Dismiss",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.size(14.dp)
                 )
             }
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
         }
-    }
 }
 
 @Composable

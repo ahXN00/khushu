@@ -50,6 +50,7 @@ class SettingsRepository(private val context: Context) {
         val MASTERED_TOPIC_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("mastered_topic_ids")
         val SHOW_CONTINUE_READING = booleanPreferencesKey("show_continue_reading")
         val SHOW_TAJWEED = booleanPreferencesKey("show_tajweed")
+        val SELECTED_TRANSLATION_LANG = stringPreferencesKey("selected_translation_lang")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -91,6 +92,7 @@ class SettingsRepository(private val context: Context) {
                 masteredTopicIds = preferences[PreferencesKeys.MASTERED_TOPIC_IDS] ?: emptySet(),
                 showContinueReading = preferences[PreferencesKeys.SHOW_CONTINUE_READING] ?: true,
                 showTajweed = preferences[PreferencesKeys.SHOW_TAJWEED] ?: false,
+                selectedTranslationLang = preferences[PreferencesKeys.SELECTED_TRANSLATION_LANG] ?: "en",
             )
         }
 
@@ -213,6 +215,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateShowTajweed(show: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.SHOW_TAJWEED] = show }
     }
+
+    suspend fun updateSelectedTranslationLang(lang: String) {
+        context.dataStore.edit { it[PreferencesKeys.SELECTED_TRANSLATION_LANG] = lang }
+    }
 }
 
 data class UserSettings(
@@ -246,4 +252,5 @@ data class UserSettings(
     val masteredTopicIds: Set<String> = emptySet(),
     val showContinueReading: Boolean = true,
     val showTajweed: Boolean = false,
+    val selectedTranslationLang: String = "en",
 )

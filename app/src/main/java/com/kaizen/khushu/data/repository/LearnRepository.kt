@@ -183,6 +183,17 @@ object LearnRepository {
                             WordData(id = "60f", arabic = "الْمُسْتَقِيمَ", translation = "the straight")
                         ),
                         translations = mapOf("en" to "In the name of Allah, the Most Gracious, the Most Merciful. All praise is for Allah — Lord of all worlds, the Most Gracious, the Most Merciful, Master of the Day of Judgement. You alone we worship and You alone we ask for help. Guide us along the straight path — the path of those You have blessed, not those You are angry with or those who are astray."),
+                        ayahTranslations = mapOf(
+                            "en" to listOf(
+                                "In the name of Allah, the Most Gracious, the Most Merciful.",
+                                "All praise is for Allah — Lord of all worlds.",
+                                "The Most Gracious, the Most Merciful.",
+                                "Master of the Day of Judgement.",
+                                "You alone we worship and You alone we ask for help.",
+                                "Guide us along the straight path.",
+                                "The path of those You have blessed — not those You are angry with, or those who are astray."
+                            )
+                        ),
                         referenceSource = "Quran",
                         referenceNumber = "1:1-7",
                         audioFilename = "fatiha.mp3"

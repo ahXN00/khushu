@@ -173,6 +173,10 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateShowTajweed(show) }
     }
 
+    fun setSelectedTranslationLang(lang: String) {
+        viewModelScope.launch { repository.updateSelectedTranslationLang(lang) }
+    }
+
     fun updateLastReadTopicId(id: String) {
         viewModelScope.launch { repository.updateLastReadTopicId(id) }
     }

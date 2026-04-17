@@ -12,5 +12,6 @@ data class LearnTopic(
     val referenceSource: String? = null,
     val referenceNumber: String? = null,
     val audioFilename: String? = null,
+    val ayahTranslations: Map<String, List<String>> = emptyMap(),
     var isMastered: Boolean = false
 )
