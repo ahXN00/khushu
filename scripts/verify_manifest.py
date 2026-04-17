@@ -1,100 +1,115 @@
-import json
-import os
-import sys
+"""
+verify_manifest.py — validates hadith/ayah references in assets/learn/*.json
+against local Fawaz Ahmed and Quran JSON datasets.
+
+Run from project root:
+    python3 scripts/verify_manifest.py
+
+Formats confirmed from actual downloaded files:
+  Quran:   dict keyed by surah str -> list of {chapter, verse, text}
+  Hadith:  {metadata: {...}, hadiths: [{hadithnumber, text, grades: [{name, grade}], ...}]}
+  Grades:  bukhari/muslim are implicitly Sahih (grades array empty by design).
+           Other collections: accept if ANY grader says Sahih.
+"""
+
+import json, os, sys
 
 LEARN_DIR = "app/src/main/assets/learn"
-DATA_DIR = "scripts/data"
+DATA_DIR  = "scripts/data"
 
-def load_fawaz_ahmed(collection):
-    file_path = os.path.join(DATA_DIR, f"en.{collection}.json")
-    if not os.path.exists(file_path):
+# These collections are Sahih by definition — individual grade check not needed
+IMPLICITLY_SAHIH = {"bukhari", "muslim"}
+
+
+def load_quran():
+    path = os.path.join(DATA_DIR, "quran-uthmani.json")
+    if not os.path.exists(path):
+        print(f"quran-uthmani.json not found in {DATA_DIR}/"); sys.exit(1)
+    raw = json.load(open(path, encoding="utf-8"))
+    # Format: {"1": [{chapter, verse, text}, ...], "2": [...], ...}
+    index = {}
+    for surah_str, ayahs in raw.items():
+        for a in ayahs:
+            index[(int(surah_str), a["verse"])] = a["text"]
+    return index
+
+
+def load_hadith_collection(collection):
+    path = os.path.join(DATA_DIR, f"en.{collection}.json")
+    if not os.path.exists(path):
         return None
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    raw = json.load(open(path, encoding="utf-8"))
+    return {h["hadithnumber"]: h for h in raw.get("hadiths", [])}
 
-def load_tanzil():
-    file_path = os.path.join(DATA_DIR, "quran-uthmani.json")
-    if not os.path.exists(file_path):
-        return None
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
 
-def verify_topics():
-    tanzil_data = load_tanzil()
-    if not tanzil_data:
-        print("❌ quran-uthmani.json not found in scripts/data/")
-        return
+def is_sahih(hadith, collection):
+    if collection in IMPLICITLY_SAHIH:
+        return True
+    grades = hadith.get("grades", [])
+    return any("sahih" in g.get("grade", "").lower() for g in grades)
 
-    # Index Tanzil for fast lookup: (surah, ayah) -> text
-    quran_index = {}
-    for surah_data in tanzil_data:
-        surah_num = surah_data['number']
-        for ayah_data in surah_data['ayahs']:
-            quran_index[(surah_num, ayah_data['number'])] = ayah_data['text']
 
-    collections = {}
+def verify_topics(quran_index, hadith_cache):
+    files = sorted(f for f in os.listdir(LEARN_DIR) if f.endswith(".json"))
+    total = ok = warn = err = 0
 
-    for filename in os.listdir(LEARN_DIR):
-        if not filename.endswith(".json"):
-            continue
-        
-        file_path = os.path.join(LEARN_DIR, filename)
-        with open(file_path, 'r', encoding='utf-8') as f:
-            topic = json.load(f)
-        
+    for filename in files:
+        path  = os.path.join(LEARN_DIR, filename)
+        topic = json.load(open(path, encoding="utf-8"))
         changed = False
-        print(f"\nChecking {filename}: {topic['title']}")
-        
+        print(f"\n-- {topic.get('title', filename)} --")
+
         for block in topic.get("blocks", []):
-            if block['type'] == 'hadith':
-                coll_name = block['collection']
-                if coll_name not in collections:
-                    data = load_fawaz_ahmed(coll_name)
-                    if data:
-                        # Index by number
-                        collections[coll_name] = {h['number']: h for h in data}
-                    else:
-                        collections[coll_name] = None
-                
-                coll_data = collections[coll_name]
-                if not coll_data:
-                    print(f"  ❌ Collection {coll_name} not found locally")
-                    continue
-                
-                hadith_num = block['number']
-                hadith = coll_data.get(hadith_num)
-                
-                if hadith:
-                    grade = hadith.get('grade', '').lower()
-                    text = hadith.get('text', '')[:150].replace('\n', ' ')
-                    
-                    if grade == "sahih":
-                        print(f"  ✅ {block['display']}: sahih | {text}...")
-                        if not block.get("verified"):
-                            block["verified"] = True
-                            changed = True
-                    else:
-                        print(f"  ⚠️ {block['display']}: {grade} | {text}...")
+            btype = block.get("type")
+
+            if btype == "ayah":
+                total += 1
+                surah, ayah = block["surah"], block["ayah"]
+                text = quran_index.get((surah, ayah))
+                if text:
+                    print(f"  OK  Ayah {surah}:{ayah}  {text[:80]}...")
+                    block["verified"] = True
+                    changed = True; ok += 1
                 else:
-                    print(f"  ❌ {block['display']}: NOT FOUND")
-            
-            elif block['type'] == 'ayah':
-                ref = (block['surah'], block['ayah'])
-                if ref in quran_index:
-                    if not block.get("verified"):
-                        block["verified"] = True
-                        changed = True
-                    print(f"  ✅ {block['display']} verified")
+                    print(f"  XX  Ayah {surah}:{ayah} -- NOT FOUND in Quran dataset")
+                    err += 1
+
+            elif btype == "hadith":
+                total += 1
+                collection = block["collection"]
+                number     = block["number"]
+                display    = block.get("display", f"{collection} {number}")
+
+                if collection not in hadith_cache:
+                    hadith_cache[collection] = load_hadith_collection(collection)
+
+                db = hadith_cache[collection]
+                if db is None:
+                    print(f"  XX  {display} -- en.{collection}.json not downloaded"); err += 1; continue
+
+                hadith = db.get(number)
+                if not hadith:
+                    print(f"  XX  {display} -- number {number} NOT FOUND"); err += 1
+                elif not is_sahih(hadith, collection):
+                    grades = [g.get("grade") for g in hadith.get("grades", [])]
+                    print(f"  !!  {display} -- grade is {grades}, not Sahih"); warn += 1
                 else:
-                    print(f"  ❌ {block['display']} NOT FOUND in Quran data")
+                    text = hadith.get("text", "")
+                    print(f"  OK  {display}")
+                    print(f"      {text[:150]}...")
+                    block["verified"] = True
+                    changed = True; ok += 1
 
         if changed:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(topic, f, indent=2, ensure_ascii=False)
-            print(f"  💾 Updated {filename}")
+            json.dump(topic, open(path, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+
+    print(f"\n{'--'*30}")
+    print(f"Total: {total}  OK: {ok}  WARN: {warn}  ERR: {err}")
+    if warn or err:
+        print("Review !! and XX entries -- these remain unverified.")
+    else:
+        print("All references verified. Ready to run seeder.py")
+
 
 if __name__ == "__main__":
-    if not os.path.exists(DATA_DIR):
-        print(f"❌ Data directory {DATA_DIR} missing. Please download datasets first.")
-        sys.exit(1)
-    verify_topics()
+    verify_topics(load_quran(), {})

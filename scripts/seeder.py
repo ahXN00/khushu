@@ -7,6 +7,9 @@ LEARN_DIR = "app/src/main/assets/learn"
 DATA_DIR = "scripts/data"
 OUTPUT_DB = "app/src/main/assets/khushu.db"
 
+# These collections are Sahih by definition in the Fawaz Ahmed dataset
+IMPLICITLY_SAHIH = {"bukhari", "muslim"}
+
 def build_db():
     if os.path.exists(OUTPUT_DB):
         os.remove(OUTPUT_DB)
@@ -66,10 +69,8 @@ def build_db():
     ayah_refs = set()
     hadith_refs = set()
 
-    for filename in os.listdir(LEARN_DIR):
-        if not filename.endswith(".json"):
-            continue
-        
+    files = sorted(f for f in os.listdir(LEARN_DIR) if f.endswith(".json"))
+    for filename in files:
         with open(os.path.join(LEARN_DIR, filename), 'r', encoding='utf-8') as f:
             topic = json.load(f)
         
@@ -82,6 +83,13 @@ def build_db():
                     sys.exit(1)
                 hadith_refs.add((block['collection'], block['number']))
 
+    # Load Tajweed Overrides
+    tajweed_overrides = {}
+    overrides_path = os.path.join(DATA_DIR, "tajweed_overrides.json")
+    if os.path.exists(overrides_path):
+        with open(overrides_path, 'r', encoding='utf-8') as f:
+            tajweed_overrides = json.load(f)
+
     # Load Tanzil data
     print("📦 Processing Quran data...")
     with open(os.path.join(DATA_DIR, "quran-uthmani.json"), 'r', encoding='utf-8') as f:
@@ -89,29 +97,26 @@ def build_db():
 
     # Process Surahs and Ayahs
     surahs_to_insert = set()
-    for surah_data in tanzil_data:
-        surah_num = surah_data['number']
-        surahs_to_insert.add(surah_num) # In a real app we might want all surahs, but spec says "extracts only referenced ayahs + surah metadata"
+    for surah_str, ayahs_list in tanzil_data.items():
+        surah_num = int(surah_str)
+        surahs_to_insert.add(surah_num)
         
-        for ayah_data in surah_data['ayahs']:
-            ayah_num = ayah_data['number']
+        for ayah_data in ayahs_list:
+            ayah_num = ayah_data['verse']
             if (surah_num, ayah_num) in ayah_refs:
+                key = f"{surah_num}:{ayah_num}"
+                markup = tajweed_overrides.get(key)
                 cursor.execute(
-                    "INSERT INTO ayahs (surah, ayah, text_uthmani) VALUES (?, ?, ?)",
-                    (surah_num, ayah_num, ayah_data['text'])
+                    "INSERT INTO ayahs (surah, ayah, text_uthmani, tajweed_markup) VALUES (?, ?, ?, ?)",
+                    (surah_num, ayah_num, ayah_data['text'], markup)
                 )
     
-    # Metadata for Surahs (assuming available in same file or a companion file)
-    # If not in uthmani file, we'd need a separate metadata source.
-    # For now, let's insert placeholders for name_en/translation if not present.
-    for surah_num in surahs_to_insert:
-        # Find surah in data
-        s = next((x for x in tanzil_data if x['number'] == surah_num), None)
-        if s:
-            cursor.execute(
-                "INSERT INTO surahs (number, name_arabic, name_en, name_translation, ayah_count, revelation_type) VALUES (?, ?, ?, ?, ?, ?)",
-                (s['number'], s.get('name_arabic', ''), s.get('name_en', ''), s.get('name_translation', ''), s.get('ayah_count', 0), s.get('revelation_type', ''))
-            )
+    # Metadata for Surahs
+    for surah_num in sorted(list(surahs_to_insert)):
+        cursor.execute(
+            "INSERT INTO surahs (number, name_arabic, name_en, name_translation, ayah_count, revelation_type) VALUES (?, ?, ?, ?, ?, ?)",
+            (surah_num, "", "", "", 0, "")
+        )
 
     # Load Hadith data
     print("📦 Processing Hadith data...")
@@ -122,18 +127,23 @@ def build_db():
             if os.path.exists(file_path):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    collections[coll_name] = {h['number']: h for h in data}
+                    collections[coll_name] = {h['hadithnumber']: h for h in data['hadiths']}
     
     for coll_name, hadith_num in hadith_refs:
         h = collections.get(coll_name, {}).get(hadith_num)
         if h:
-            if h.get('grade', '').lower() != 'sahih':
-                print(f"❌ ERROR: Hadith {coll_name} {hadith_num} is not Sahih!")
-                sys.exit(1)
+            if coll_name in IMPLICITLY_SAHIH:
+                grade_str = "Sahih"
+            else:
+                sahih_grades = [g['grade'] for g in h.get('grades', []) if 'sahih' in g['grade'].lower()]
+                if not sahih_grades:
+                    print(f"❌ ERROR: Hadith {coll_name} {hadith_num} is not Sahih!")
+                    sys.exit(1)
+                grade_str = sahih_grades[0]
             
             cursor.execute(
                 "INSERT INTO hadiths (collection, number, text_en, grade, narrator) VALUES (?, ?, ?, ?, ?)",
-                (coll_name, hadith_num, h['text'], h['grade'], h.get('narrator'))
+                (coll_name, hadith_num, h['text'], grade_str, "")
             )
 
     conn.commit()
@@ -141,10 +151,4 @@ def build_db():
     print(f"✅ Database built successfully: {OUTPUT_DB}")
 
 if __name__ == "__main__":
-    if not os.path.exists(LEARN_DIR):
-        print(f"❌ Learn directory {LEARN_DIR} missing.")
-        sys.exit(1)
-    if not os.path.exists(DATA_DIR):
-        print(f"❌ Data directory {DATA_DIR} missing.")
-        sys.exit(1)
     build_db()
