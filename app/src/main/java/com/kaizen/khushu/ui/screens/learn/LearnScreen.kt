@@ -94,7 +94,7 @@ fun LearnScreen(
 ) {
     var query by remember { mutableStateOf("") }
     var showBookmarks by remember { mutableStateOf(false) }
-    val sections = learnViewModel.sections
+    val sections by learnViewModel.sections
     val settings by settingsViewModel.settings.collectAsState()
 
     // Find last read topic
@@ -223,6 +223,7 @@ private fun SectionCards(
         val isMastered = masteredTopicIds.contains(topic.id)
         LearnCard(
             title = topic.title,
+            subtitle = topic.arabicText,
             color = sectionColor,
             sectionId = section.id,
             shape = RoundedCornerShape(28.dp),
@@ -275,6 +276,7 @@ internal fun LearnCard(
     title: String,
     color: Color,
     sectionId: String,
+    subtitle: String? = null,
     shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(28.dp),
     onClick: (() -> Unit)? = null,
     isMastered: Boolean = false,
@@ -288,9 +290,10 @@ internal fun LearnCard(
     )
 
     val (containerColor, contentColor) = when (sectionId) {
-        "foundations" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        "quran" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        "foundations" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
         "purification" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        "prayer" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        "prayer" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f) to MaterialTheme.colorScheme.onPrimaryContainer
         "duas_adhkar", "recitations", "daily_fortification" -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
         else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
     }
@@ -323,7 +326,7 @@ internal fun LearnCard(
             
             // Draw two overlapping rotated squares to form the star
             val strokeWidth = 1.dp.toPx()
-            val starAlpha = 0.15f
+            val starAlpha = if (sectionId == "quran") 0.08f else 0.15f
             val starColor = contentColor
 
             drawContext.canvas.save()
@@ -359,23 +362,52 @@ internal fun LearnCard(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Framed Section Icon
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(contentColor.copy(alpha = 0.1f))
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center
+                // Header Group (Icon/Number + Arabic Name)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    getSectionIcon(sectionId)?.let { icon ->
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = contentColor,
-                            modifier = Modifier.size(22.dp)
+                    // Framed Section Icon or Surah Number
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(contentColor.copy(alpha = 0.12f))
+                            .padding(if (sectionId == "quran") 0.dp else 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (sectionId == "quran") {
+                            // Extract surah ID from title or ID if possible, for now just show a fallback or #
+                            val num = title.filter { it.isDigit() }.ifBlank { "" }
+                            Text(
+                                text = num,
+                                style = MaterialTheme.typography.labelLarge.copy(fontFamily = BeVietnamPro),
+                                color = contentColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            getSectionIcon(sectionId)?.let { icon ->
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Stylish Arabic Name
+                    if (sectionId == "quran" && subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontFamily = com.kaizen.khushu.ui.theme.ScheherazadeNew,
+                            fontSize = 24.sp,
+                            color = contentColor,
+                            modifier = Modifier.offset(y = (-2).dp) // Adjust for baseline
                         )
                     }
                 }
@@ -391,7 +423,7 @@ internal fun LearnCard(
             }
 
             Text(
-                text = title,
+                text = if (sectionId == "quran") title.replace(Regex("\\d+"), "").trim() else title,
                 style = MaterialTheme.typography.titleMedium,
                 color = contentColor,
                 fontWeight = FontWeight.SemiBold,

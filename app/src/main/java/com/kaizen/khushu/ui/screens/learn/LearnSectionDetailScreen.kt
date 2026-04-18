@@ -41,9 +41,10 @@ fun LearnSectionDetailScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val titleFraction = scrollBehavior.state.collapsedFraction
     val titleFontSize = androidx.compose.ui.util.lerp(28f, 20f, titleFraction).sp
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // Find the matching section from real data; fall back to empty list
-    val section = LearnRepository.getSections().find { it.sectionTitle == sectionTitle }
+    val section = LearnRepository.getSections(context).find { it.sectionTitle == sectionTitle }
     val sectionId = section?.id ?: ""
     val sectionColor = section?.let { androidx.compose.ui.graphics.Color(it.color) }
         ?: androidx.compose.ui.graphics.Color(0xFF3B4A6BL)
@@ -87,6 +88,7 @@ fun LearnSectionDetailScreen(
                 val topic = topics[index]
                 LearnCard(
                     title = topic.title,
+                    subtitle = topic.arabicText,
                     color = sectionColor,
                     sectionId = sectionId,
                     shape = RoundedCornerShape(28.dp),
