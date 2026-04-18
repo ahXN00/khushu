@@ -89,7 +89,7 @@ val Typography = Typography(
     titleLarge = TextStyle(
         fontFamily = Antonio,
         fontWeight = FontWeight.Normal,
-        fontSize = 40.sp,
+        fontSize = 22.sp,
         lineHeight = 28.sp,
         letterSpacing = 0.sp,
     ),

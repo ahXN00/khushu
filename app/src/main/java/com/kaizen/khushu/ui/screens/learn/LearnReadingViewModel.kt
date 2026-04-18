@@ -18,8 +18,39 @@ class LearnReadingViewModel(application: Application) : AndroidViewModel(applica
     val blocks: StateFlow<List<ContentBlock>?> = _blocks
 
     val translationMap = androidx.compose.runtime.mutableStateOf<Map<String, String>>(emptyMap())
+    val tajweedMap = androidx.compose.runtime.mutableStateOf<Map<String, String>>(emptyMap())
+    val scriptMap = androidx.compose.runtime.mutableStateOf<Map<String, String>>(emptyMap())
     val downloadProgress = androidx.compose.runtime.mutableFloatStateOf(0f)
     val isDownloading = androidx.compose.runtime.mutableStateOf(false)
+
+    init {
+        loadTajweed()
+    }
+
+    fun loadScript(context: android.content.Context, script: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // "uthmani" uses tajweedMap (already loaded) or block.textUthmani
+            if (script == "uthmani") {
+                withContext(Dispatchers.Main) {
+                    scriptMap.value = emptyMap()
+                }
+            } else {
+                val map = LearnRepository.getScriptMap(context, script)
+                withContext(Dispatchers.Main) {
+                    scriptMap.value = map
+                }
+            }
+        }
+    }
+
+    private fun loadTajweed() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val map = LearnRepository.getTajweedMap(getApplication())
+            withContext(Dispatchers.Main) {
+                tajweedMap.value = map
+            }
+        }
+    }
 
     fun loadBlocks(topicId: String) {
         if (_blocks.value != null) return // already loaded

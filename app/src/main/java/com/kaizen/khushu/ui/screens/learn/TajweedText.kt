@@ -1,32 +1,26 @@
 package com.kaizen.khushu.ui.screens.learn
 
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import com.kaizen.khushu.ui.theme.ScheherazadeNew
 
-/**
- * Renders Arabic text with tajweed color rules applied.
- *
- * Markup format: {rule}text{/rule}
- * Supported rules and their colors:
- *   madd      → gold   — vowel prolongation (2–6 counts)
- *   ghunna    → green  — nasalization (noon/meem with shaddah)
- *   qalqalah  → blue   — echo (ق ط ب ج د when saakin)
- *   ikhfa     → gray   — concealment
- *   idgham    → orange — assimilation
- *
- * Untagged text renders in the provided [color].
- */
 @Composable
 fun TajweedText(
     markup: String,
@@ -34,48 +28,116 @@ fun TajweedText(
     lineHeight: TextUnit,
     color: Color,
     modifier: Modifier = Modifier,
+    inlineContent: Map<String, InlineTextContent> = emptyMap(),
+    appendMarker: Boolean = false
 ) {
-    val annotated = remember(markup, color) { parseTajweed(markup, color) }
+    val annotatedString = remember(markup, color, appendMarker) {
+        buildAnnotatedString {
+            append(parseTajweed(markup, color))
+            if (appendMarker) {
+                // Append a special tag for the AyahEndMarker to be injected via inlineContent
+                appendInlineContent("marker", "[marker]")
+            }
+        }
+    }
+
     Text(
-        text = annotated,
+        text = annotatedString,
+        modifier = modifier,
+        fontFamily = ScheherazadeNew,
         fontSize = fontSize,
         lineHeight = lineHeight,
-        fontFamily = ScheherazadeNew,
         textAlign = TextAlign.Center,
+        inlineContent = inlineContent,
         style = MaterialTheme.typography.bodyLarge.copy(
             textDirection = TextDirection.Rtl,
             fontFamily = ScheherazadeNew,
         ),
-        modifier = modifier,
     )
 }
 
-private fun parseTajweed(markup: String, defaultColor: Color) = buildAnnotatedString {
-    val tagRegex = Regex("""\{(\w+)\}(.*?)\{/\1\}""", RegexOption.DOT_MATCHES_ALL)
-    var cursor = 0
-    for (match in tagRegex.findAll(markup)) {
-        if (match.range.first > cursor) {
-            withStyle(SpanStyle(color = defaultColor)) {
-                append(markup.substring(cursor, match.range.first))
+/**
+ * Parses Quran.com HTML-like tajweed markup into an [AnnotatedString].
+ *
+ * Example: <tajweed class=ham_wasl>ٱ</tajweed>للَّهِ
+ */
+private fun parseTajweed(markup: String, defaultColor: Color): AnnotatedString = buildAnnotatedString {
+    // Regex for both <tajweed class=...>CONTENT</tajweed> and <span class=end>...</span>
+    // Note: this assumes tags are not nested, which is true for quran.com data.
+    val tagRegex = Regex("<(tajweed|span) class=([^> ]+)>([^<]*)</\\1>")
+    
+    var lastIndex = 0
+    tagRegex.findAll(markup).forEach { match ->
+        // 1. Append plain text before the tag
+        if (match.range.first > lastIndex) {
+            append(markup.substring(lastIndex, match.range.first))
+        }
+
+        val tagType = match.groupValues[1]
+        val className = match.groupValues[2]
+        val content = match.groupValues[3]
+
+        if (tagType == "tajweed") {
+            val ruleColor = tajweedColor(className, defaultColor)
+            if (ruleColor != defaultColor) {
+                withStyle(SpanStyle(color = ruleColor)) {
+                    append(content)
+                }
+            } else {
+                append(content)
             }
+        } else if (tagType == "span" && className == "end") {
+            // Skip verse number span entirely — handled by AyahEndMarker in BlockRenderer
+        } else {
+            append(content)
         }
-        withStyle(SpanStyle(color = tajweedColor(match.groupValues[1], defaultColor))) {
-            append(match.groupValues[2])
-        }
-        cursor = match.range.last + 1
+
+        lastIndex = match.range.last + 1
     }
-    if (cursor < markup.length) {
-        withStyle(SpanStyle(color = defaultColor)) {
-            append(markup.substring(cursor))
-        }
+
+    // 2. Append remaining plain text
+    if (lastIndex < markup.length) {
+        append(markup.substring(lastIndex))
+    }
+}
+
+fun buildAyahAnnotatedString(
+    text: String,
+    color: Color,
+    appendMarker: Boolean = true
+): AnnotatedString = buildAnnotatedString {
+    append(text)
+    if (appendMarker) {
+        appendInlineContent("marker", "[marker]")
     }
 }
 
 private fun tajweedColor(rule: String, default: Color): Color = when (rule) {
-    "madd"     -> Color(0xFFFF5252) // Vibrant Red — prolongation
-    "ghunna"   -> Color(0xFF4CAF50) // Green — nasalization
-    "qalqalah" -> Color(0xFF40C4FF) // Light Blue — echo
-    "ikhfa"    -> Color(0xFF9E9E9E) // Gray — concealment
-    "idgham"   -> Color(0xFFFF9800) // Orange — assimilation
-    else       -> default
+    // Madd — prolongation (red)
+    "madda_normal", "madda_permissible", "madda_obligatory", "madda_necessary" ->
+        Color(0xFFFF5252)
+    
+    // Ghunna — nasalization (green)
+    "ghunnah" -> Color(0xFF4CAF50)
+    
+    // Qalqalah — echo (light blue)
+    "qalaqah" -> Color(0xFF40C4FF)
+    
+    // Ikhfa — concealment (gray)
+    "ikhafa", "ikhafa_shafawi" -> Color(0xFF9E9E9E)
+    
+    // Idgham — assimilation (orange)
+    "idgham_ghunnah", "idgham_wo_ghunnah", "idgham_mutajanisayn",
+    "idgham_mutaqaribayn", "idgham_shafawi" -> Color(0xFFFF9800)
+    
+    // Iqlab — conversion (purple)
+    "iqlab" -> Color(0xFFCE93D8)
+    
+    // Ham wasl / laam shamsiyah — light styling only
+    "ham_wasl", "laam_shamsiyah" -> default.copy(alpha = 0.6f)
+    
+    // slnt — silent letter (dim)
+    "slnt" -> default.copy(alpha = 0.4f)
+    
+    else -> default
 }

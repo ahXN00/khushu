@@ -173,6 +173,14 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateShowTajweed(show) }
     }
 
+    fun setSelectedReciterId(id: String) {
+        viewModelScope.launch { repository.updateSelectedReciterId(id) }
+    }
+
+    fun setSelectedScript(script: String) {
+        viewModelScope.launch { repository.updateSelectedScript(script) }
+    }
+
     fun setSelectedTranslationLang(lang: String) {
         viewModelScope.launch { repository.updateSelectedTranslationLang(lang) }
     }

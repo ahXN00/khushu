@@ -68,6 +68,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var tasbeehViewModel: TasbeehViewModel
     private lateinit var salahCanvasViewModel: SalahCanvasViewModel
     private lateinit var learnAudioViewModel: LearnAudioViewModel
+    private lateinit var quranViewModel: com.kaizen.khushu.ui.screens.quran.QuranViewModel
+    private lateinit var hadithViewModel: com.kaizen.khushu.ui.screens.hadith.HadithViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -95,6 +97,9 @@ class MainActivity : ComponentActivity() {
                         this as ViewModelStoreOwner,
                         LearnAudioViewModel.factory(audioRepository, applicationContext)
                 )[LearnAudioViewModel::class.java]
+
+        quranViewModel = ViewModelProvider(this)[com.kaizen.khushu.ui.screens.quran.QuranViewModel::class.java]
+        hadithViewModel = ViewModelProvider(this)[com.kaizen.khushu.ui.screens.hadith.HadithViewModel::class.java]
 
         setContent {
             val isLoaded by settingsViewModel.isSettingsLoaded.collectAsState()
@@ -146,6 +151,8 @@ class MainActivity : ComponentActivity() {
                             tasbeehViewModel = tasbeehViewModel,
                             salahCanvasViewModel = salahCanvasViewModel,
                             learnAudioViewModel = learnAudioViewModel,
+                            quranViewModel = quranViewModel,
+                            hadithViewModel = hadithViewModel,
                             darkTheme = darkTheme
                     )
                 }
@@ -173,6 +180,8 @@ private fun KhushuApp(
         tasbeehViewModel: TasbeehViewModel,
         salahCanvasViewModel: SalahCanvasViewModel,
         learnAudioViewModel: LearnAudioViewModel,
+        quranViewModel: com.kaizen.khushu.ui.screens.quran.QuranViewModel,
+        hadithViewModel: com.kaizen.khushu.ui.screens.hadith.HadithViewModel,
         darkTheme: Boolean
 ) {
     var immersiveRakats by remember { mutableStateOf<Int?>(null) }
@@ -288,12 +297,94 @@ private fun KhushuApp(
                                     navController.navigate("learn_detail/$title")
                                 },
                                 onCardTap = { topicId ->
-                                    navController.navigate("learn_card/$topicId")
+                                    if (topicId == "quran_browser") {
+                                        navController.navigate("quran")
+                                    } else if (topicId.startsWith("quran_surah_")) {
+                                        val surahId = topicId.removePrefix("quran_surah_")
+                                        navController.navigate("quran/$surahId")
+                                    } else if (topicId.startsWith("hadith_book_")) {
+                                        val bookId = topicId.removePrefix("hadith_book_")
+                                        navController.navigate("hadith/$bookId")
+                                    } else {
+                                        navController.navigate("learn_card/$topicId")
+                                    }
                                 },
                                 onSettingsClick = { showSettingsSheet = true },
                                 hazeState = hazeState,
                                 contentPadding = PaddingValues(top = topClearance, bottom = pillClearance),
                                 settingsViewModel = settingsViewModel
+                        )
+                    }
+
+                    composable(
+                        route = "quran",
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300)) },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300)) },
+                    ) {
+                        com.kaizen.khushu.ui.screens.quran.QuranSurahListScreen(
+                            onSurahTap = { num -> navController.navigate("quran/$num") },
+                            viewModel = quranViewModel
+                        )
+                    }
+
+                    composable(
+                        route = "quran/{surahNumber}",
+                        arguments = listOf(navArgument("surahNumber") { type = NavType.IntType }),
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300)) },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300)) },
+                    ) { backStackEntry ->
+                        val surahNumber = backStackEntry.arguments?.getInt("surahNumber") ?: 1
+                        com.kaizen.khushu.ui.screens.quran.QuranReaderScreen(
+                            surahNumber = surahNumber,
+                            onBack = { navController.popBackStack() },
+                            viewModel = quranViewModel,
+                            settingsViewModel = settingsViewModel
+                        )
+                    }
+
+                    composable(
+                        route = "hadith/{bookId}",
+                        arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300)) },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300)) },
+                    ) { backStackEntry ->
+                        val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+                        val book = com.kaizen.khushu.data.model.BUNDLED_HADITH_BOOKS.find { it.id == bookId }
+                        if (book != null) {
+                            com.kaizen.khushu.ui.screens.hadith.HadithSectionListScreen(
+                                book = book,
+                                onSectionTap = { num, title -> 
+                                    navController.navigate("hadith/$bookId/$num/$title") 
+                                },
+                                onBack = { navController.popBackStack() },
+                                viewModel = hadithViewModel
+                            )
+                        }
+                    }
+
+                    composable(
+                        route = "hadith/{bookId}/{sectionNum}/{sectionTitle}",
+                        arguments = listOf(
+                            navArgument("bookId") { type = NavType.StringType },
+                            navArgument("sectionNum") { type = NavType.IntType },
+                            navArgument("sectionTitle") { type = NavType.StringType }
+                        ),
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300)) },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300)) },
+                    ) { backStackEntry ->
+                        val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+                        val sectionNum = backStackEntry.arguments?.getInt("sectionNum") ?: 0
+                        val sectionTitle = backStackEntry.arguments?.getString("sectionTitle") ?: ""
+                        val book = com.kaizen.khushu.data.model.BUNDLED_HADITH_BOOKS.find { it.id == bookId }
+                        
+                        com.kaizen.khushu.ui.screens.hadith.HadithReaderScreen(
+                            bookId = bookId,
+                            sectionNumber = sectionNum,
+                            sectionTitle = sectionTitle,
+                            bookName = book?.name ?: "",
+                            onBack = { navController.popBackStack() },
+                            viewModel = hadithViewModel,
+                            settingsViewModel = settingsViewModel
                         )
                     }
 
@@ -317,7 +408,15 @@ private fun KhushuApp(
                                 sectionTitle = sectionTitle,
                                 onBack = { navController.popBackStack() },
                                 onCardTap = { topicId ->
-                                    navController.navigate("learn_card/$topicId")
+                                    if (topicId.startsWith("quran_surah_")) {
+                                        val surahId = topicId.removePrefix("quran_surah_")
+                                        navController.navigate("quran/$surahId")
+                                    } else if (topicId.startsWith("hadith_book_")) {
+                                        val bookId = topicId.removePrefix("hadith_book_")
+                                        navController.navigate("hadith/$bookId")
+                                    } else {
+                                        navController.navigate("learn_card/$topicId")
+                                    }
                                 },
                         )
                     }
@@ -345,9 +444,10 @@ private fun KhushuApp(
                                 )
                             },
                     ) { backStackEntry ->
+                        val context = androidx.compose.ui.platform.LocalContext.current
                         val topicId = backStackEntry.arguments?.getString("topicId") ?: ""
                         val ayahIndex = backStackEntry.arguments?.getString("ayah")?.toIntOrNull()
-                        val topic = com.kaizen.khushu.data.repository.LearnRepository.getSections()
+                        val topic = com.kaizen.khushu.data.repository.LearnRepository.getSections(context)
                             .flatMap { it.topics }.find { it.id == topicId }
                         if (topic != null) {
                             LearnReadingScreen(

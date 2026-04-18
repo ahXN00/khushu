@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import com.kaizen.khushu.ui.components.AyahEndMarker
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FormatQuote
@@ -25,11 +28,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,6 +42,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.appendInlineContent
 import com.kaizen.khushu.data.model.ArabicBlock
 import com.kaizen.khushu.data.model.AyahBlock
 import com.kaizen.khushu.data.model.CalloutBlock
@@ -62,6 +68,9 @@ fun BlockRenderer(
     fg: Color,
     bg: Color,
     translationMap: Map<String, String> = emptyMap(),
+    tajweedMap: Map<String, String> = emptyMap(),
+    scriptMap: Map<String, String> = emptyMap(),
+    isHighlighted: Boolean = false,
     onBlockClick: (ContentBlock) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -71,7 +80,7 @@ fun BlockRenderer(
     when (block) {
         is HeadingBlock   -> HeadingBlockView(block, fg, modifier.then(textPadding).clickable { onBlockClick(block) })
         is ParagraphBlock -> ParagraphBlockView(block, settings, fg, modifier.then(textPadding))
-        is AyahBlock      -> AyahBlockView(block, settings, fg, bg, translationMap, modifier.clickable { onBlockClick(block) })
+        is AyahBlock      -> AyahBlockView(block, settings, fg, bg, translationMap, tajweedMap, scriptMap, isHighlighted, modifier.clickable { onBlockClick(block) })
         is HadithBlock    -> HadithBlockView(block, settings, fg, bg, modifier.clickable { onBlockClick(block) })
         is CalloutBlock   -> CalloutBlockView(block, fg, modifier.then(textPadding))
         is DividerBlock   -> DividerBlockView(fg, modifier.then(textPadding))
@@ -130,12 +139,34 @@ private fun AyahBlockView(
     fg: Color,
     bg: Color,
     translationMap: Map<String, String>,
+    tajweedMap: Map<String, String>,
+    scriptMap: Map<String, String>,
+    isHighlighted: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val arabicBg = when {
+    val arabicBg = if (isHighlighted) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else when {
         bg == Color(0xFFF5E6C8) -> Color(0xFFEDD9A3) // paper tint
         bg == Color.White       -> Color(0xFFF0F0F0) // light tint
         else                    -> MaterialTheme.colorScheme.surfaceContainer
+    }
+    
+    val contentColor = if (isHighlighted) MaterialTheme.colorScheme.onPrimaryContainer else fg
+
+    // Inline content for the Ayah marker to keep it with the text
+    val inlineContent = remember(block.ayah, contentColor) {
+        mapOf(
+            "marker" to androidx.compose.foundation.text.InlineTextContent(
+                androidx.compose.ui.text.Placeholder(
+                    width = 38.sp,
+                    height = 32.sp,
+                    placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.Center
+                )
+            ) {
+                AyahEndMarker(number = block.ayah, fg = contentColor)
+            }
+        )
     }
 
     Surface(
@@ -151,33 +182,55 @@ private fun AyahBlockView(
         ) {
             // Reference badge top-right
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                AyahRefBadge(display = block.display, fg = fg)
+                AyahRefBadge(display = block.display, fg = contentColor)
             }
 
             Spacer(Modifier.height(24.dp))
 
-            // Arabic text — prefer tajweed markup when enabled
-            val useMarkup = settings.showTajweed && block.tajweedMarkup != null
+            // Arabic text Selection
+            val verseKey = "${block.surah}:${block.ayah}"
+            val tajweedMarkup = if (settings.selectedScript == "uthmani") {
+                tajweedMap[verseKey] ?: block.tajweedMarkup
+            } else null
+            
+            val plainArabicText = if (settings.selectedScript != "uthmani") {
+                scriptMap[verseKey] ?: block.textUthmani
+            } else {
+                block.textUthmani
+            }
+
+            // Arabic text rendering — prefer tajweed markup when enabled
+            val showTajweed = settings.showTajweed && tajweedMarkup != null
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                if (useMarkup) {
+                if (showTajweed) {
                     TajweedText(
-                        markup = block.tajweedMarkup!!,
+                        markup = tajweedMarkup!!,
                         fontSize = settings.arabicSizeSp.sp,
                         lineHeight = (settings.arabicSizeSp * 1.75f).sp,
-                        color = fg,
-                        modifier = Modifier.fillMaxWidth(),
+                        color = contentColor,
+                        inlineContent = inlineContent,
+                        appendMarker = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                } else if (block.textUthmani != null) {
+                } else if (plainArabicText != null) {
+                    val annotatedString = remember(plainArabicText, contentColor) {
+                        buildAnnotatedString {
+                            append(plainArabicText)
+                            appendInlineContent("marker", "[marker]")
+                        }
+                    }
                     Text(
-                        text = block.textUthmani,
+                        text = annotatedString,
                         fontFamily = ScheherazadeNew,
                         fontSize = settings.arabicSizeSp.sp,
                         lineHeight = (settings.arabicSizeSp * 1.75f).sp,
                         textAlign = TextAlign.Center,
-                        color = fg,
+                        color = contentColor,
+                        inlineContent = inlineContent,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             textDirection = TextDirection.Rtl,
                             fontFamily = ScheherazadeNew,
+                            color = contentColor
                         ),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -210,7 +263,7 @@ private fun AyahBlockView(
                             fontStyle = FontStyle.Italic,
                             textAlign = if (isTranslationRtl) TextAlign.Right else TextAlign.Center,
                         ),
-                        color = fg.copy(alpha = 0.75f),
+                        color = contentColor.copy(alpha = 0.75f),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

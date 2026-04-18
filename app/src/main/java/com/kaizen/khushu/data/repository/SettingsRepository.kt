@@ -2,12 +2,7 @@ package com.kaizen.khushu.data.repository
 
 import android.content.Context
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -46,11 +41,13 @@ class SettingsRepository(private val context: Context) {
         val SHOW_WORD_BY_WORD = booleanPreferencesKey("show_word_by_word")
         val READING_KEEP_SCREEN_ON = booleanPreferencesKey("reading_keep_screen_on")
         val LAST_READ_TOPIC_ID = stringPreferencesKey("last_read_topic_id")
-        val BOOKMARKED_TOPIC_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("bookmarked_topic_ids")
-        val MASTERED_TOPIC_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("mastered_topic_ids")
+        val BOOKMARKED_TOPIC_IDS = stringSetPreferencesKey("bookmarked_topic_ids")
+        val MASTERED_TOPIC_IDS = stringSetPreferencesKey("mastered_topic_ids")
         val SHOW_CONTINUE_READING = booleanPreferencesKey("show_continue_reading")
         val SHOW_TAJWEED = booleanPreferencesKey("show_tajweed")
         val SELECTED_TRANSLATION_LANG = stringPreferencesKey("selected_translation_lang")
+        val SELECTED_RECITER_ID = stringPreferencesKey("selected_reciter_id")
+        val SELECTED_SCRIPT = stringPreferencesKey("selected_script")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -93,6 +90,8 @@ class SettingsRepository(private val context: Context) {
                 showContinueReading = preferences[PreferencesKeys.SHOW_CONTINUE_READING] ?: true,
                 showTajweed = preferences[PreferencesKeys.SHOW_TAJWEED] ?: false,
                 selectedTranslationLang = preferences[PreferencesKeys.SELECTED_TRANSLATION_LANG] ?: "en_20",
+                selectedReciterId = preferences[PreferencesKeys.SELECTED_RECITER_ID] ?: "mishari",
+                selectedScript = preferences[PreferencesKeys.SELECTED_SCRIPT] ?: "uthmani",
             )
         }
 
@@ -219,6 +218,14 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateSelectedTranslationLang(lang: String) {
         context.dataStore.edit { it[PreferencesKeys.SELECTED_TRANSLATION_LANG] = lang }
     }
+
+    suspend fun updateSelectedReciterId(id: String) {
+        context.dataStore.edit { it[PreferencesKeys.SELECTED_RECITER_ID] = id }
+    }
+
+    suspend fun updateSelectedScript(script: String) {
+        context.dataStore.edit { it[PreferencesKeys.SELECTED_SCRIPT] = script }
+    }
 }
 
 data class UserSettings(
@@ -253,4 +260,6 @@ data class UserSettings(
     val showContinueReading: Boolean = true,
     val showTajweed: Boolean = false,
     val selectedTranslationLang: String = "en_20",
+    val selectedReciterId: String = "mishari",
+    val selectedScript: String = "uthmani",
 )

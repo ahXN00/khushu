@@ -444,6 +444,7 @@ fun LearnReadingScreen(
             if (showSettings) {
                 ReadingSettingsSheet(
                     settings = settings,
+                    translationLanguages = topic.translations.keys,
                     onDismiss = { showSettings = false },
                     onThemeChange = { settingsViewModel.setReadingTheme(it) },
                     onArabicSizeChange = { settingsViewModel.setArabicSizeSp(it) },
@@ -453,10 +454,14 @@ fun LearnReadingScreen(
                     onShowWordByWordChange = { settingsViewModel.toggleShowWordByWord(it) },
                     onKeepScreenOnChange = { settingsViewModel.toggleReadingKeepScreenOn(it) },
                     onShowTajweedChange = { settingsViewModel.toggleShowTajweed(it) },
+                    onTranslationLangChange = { settingsViewModel.setSelectedTranslationLang(it) },
+                    onReciterChange = { settingsViewModel.setSelectedReciterId(it) },
+                    onScriptChange = { settingsViewModel.setSelectedScript(it) },
                     onOpenTranslationPicker = {
                         showSettings = false
                         showTranslationPicker = true
                     },
+                    onDownloadAudio = { /* Learn topics handle their own audio */ }
                 )
             }
         }

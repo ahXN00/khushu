@@ -6,12 +6,61 @@ import com.kaizen.khushu.data.model.LearnSection
 import com.kaizen.khushu.data.model.LearnTopic
 import com.kaizen.khushu.data.model.TopicJson
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.ConcurrentHashMap
 
 object LearnRepository {
     private val blockCache = ConcurrentHashMap<String, List<ContentBlock>>()
+    private val tajweedCache = ConcurrentHashMap<String, String>()
+    private val scriptCache = ConcurrentHashMap<String, Map<String, String>>()
 
-    fun getSections(): List<LearnSection> {
+    fun getTajweedMap(context: Context): Map<String, String> {
+        if (tajweedCache.isNotEmpty()) return tajweedCache
+        
+        val raw = try {
+            context.assets.open("quran/uthmani_tajweed.json")
+                .bufferedReader().use { it.readText() }
+        } catch (_: Exception) {
+            return emptyMap()
+        }
+
+        return try {
+            val map = Json.decodeFromString<Map<String, String>>(raw)
+            tajweedCache.putAll(map)
+            tajweedCache
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    fun getScriptMap(context: Context, script: String): Map<String, String> {
+        scriptCache[script]?.let { return it }
+        val filename = when (script) {
+            "indopak"       -> "indopak.json"
+            "uthmani_simple"-> "uthmani_simple.json"
+            "imlaei"        -> "imlaei.json"
+            else            -> "uthmani.json"  // default
+        }
+        return try {
+            val content = context.assets.open("quran/$filename").bufferedReader().use { it.readText() }
+            val map = Json.parseToJsonElement(content).jsonObject
+                .mapValues { it.value.jsonPrimitive.content }
+            scriptCache[script] = map
+            map
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun getSections(context: Context): List<LearnSection> {
+        val quranTopics = QuranRepository.getChapters(context).map { surah ->
+            LearnTopic(
+                id = "quran_surah_${surah.id}",
+                title = "${surah.id} ${surah.nameSimple}",
+                arabicText = surah.nameArabic,
+                translations = mapOf("en" to "")
+            )
+        }
+
         return listOf(
             LearnSection(
                 id = "foundations",
@@ -56,6 +105,25 @@ object LearnRepository {
                     LearnTopic(id = "dua_before_sleep", title = "Duas Before Sleep", arabicText = "", translations = mapOf("en" to "")),
                     LearnTopic(id = "duas_after_fard", title = "Duas After Obligatory Prayer", arabicText = "", translations = mapOf("en" to ""))
                 )
+            ),
+            LearnSection(
+                id = "quran",
+                sectionTitle = "Holy Quran",
+                color = 0xFF43A047L,
+                topics = quranTopics
+            ),
+            LearnSection(
+                id = "hadith",
+                sectionTitle = "Prophetic Hadith",
+                color = 0xFF673AB7L,
+                topics = com.kaizen.khushu.data.model.BUNDLED_HADITH_BOOKS.map { book ->
+                    LearnTopic(
+                        id = "hadith_book_${book.id}",
+                        title = book.name,
+                        arabicText = "",
+                        translations = mapOf("en" to "")
+                    )
+                }
             )
         )
     }
