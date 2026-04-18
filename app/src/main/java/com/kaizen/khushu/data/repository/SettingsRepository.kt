@@ -92,7 +92,7 @@ class SettingsRepository(private val context: Context) {
                 masteredTopicIds = preferences[PreferencesKeys.MASTERED_TOPIC_IDS] ?: emptySet(),
                 showContinueReading = preferences[PreferencesKeys.SHOW_CONTINUE_READING] ?: true,
                 showTajweed = preferences[PreferencesKeys.SHOW_TAJWEED] ?: false,
-                selectedTranslationLang = preferences[PreferencesKeys.SELECTED_TRANSLATION_LANG] ?: "en",
+                selectedTranslationLang = preferences[PreferencesKeys.SELECTED_TRANSLATION_LANG] ?: "en_20",
             )
         }
 
@@ -252,5 +252,5 @@ data class UserSettings(
     val masteredTopicIds: Set<String> = emptySet(),
     val showContinueReading: Boolean = true,
     val showTajweed: Boolean = false,
-    val selectedTranslationLang: String = "en",
+    val selectedTranslationLang: String = "en_20",
 )

@@ -100,7 +100,6 @@ import com.kaizen.khushu.data.model.LearnTopic
 import com.kaizen.khushu.data.model.WordData
 import com.kaizen.khushu.data.repository.UserSettings
 import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
-import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.BeVietnamPro
 import com.kaizen.khushu.ui.theme.ScheherazadeNew
 
@@ -115,6 +114,13 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.foundation.BorderStroke
+
+import com.kaizen.khushu.ui.components.AyahEndMarker
+import com.kaizen.khushu.ui.components.toArabicIndic
+import com.kaizen.khushu.ui.components.BlockActionSheet
+import com.kaizen.khushu.ui.components.ActionRow
+import com.kaizen.khushu.ui.components.ReadingSettingsSheet
+import com.kaizen.khushu.ui.components.TranslationPickerSheet
 
 // ── Translation helpers ────────────────────────────────────────────────────────
 
@@ -177,6 +183,7 @@ fun LearnReadingScreen(
         var showTranslationPicker by remember { mutableStateOf(false) }
         
         val translationMap by learnReadingViewModel.translationMap
+        val tajweedMap by learnReadingViewModel.tajweedMap
         val context = androidx.compose.ui.platform.LocalContext.current
 
         // Load initial translation
@@ -301,6 +308,13 @@ fun LearnReadingScreen(
                                 }
                             }
                         }
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Reading settings",
+                                tint = fg.copy(alpha = 0.7f),
+                            )
+                        }
                     },
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.largeTopAppBarColors(
@@ -313,55 +327,6 @@ fun LearnReadingScreen(
             },
         ) { paddingValues ->
             var activeBlock by remember { mutableStateOf<Pair<ContentBlock, Int>?>(null) }
-
-            // Row for Reading Settings Trigger
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Translation Selector Chip
-                val currentMeta = com.kaizen.khushu.data.model.AVAILABLE_TRANSLATIONS.find { it.id == settings.selectedTranslationLang }
-                val chipLabel = currentMeta?.let { "${it.langCode.uppercase()} • ${it.translatorName.split(" ").first()}" } ?: "Translation"
-                
-                Surface(
-                    onClick = { showTranslationPicker = true },
-                    shape = RoundedCornerShape(50),
-                    color = fg.copy(alpha = 0.08f),
-                    border = BorderStroke(1.dp, fg.copy(alpha = 0.1f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.Translate, null, modifier = Modifier.size(16.dp), tint = fg.copy(alpha = 0.6f))
-                        Text(
-                            text = chipLabel,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontFamily = BeVietnamPro,
-                            color = fg.copy(alpha = 0.8f)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.weight(1f))
-
-                IconButton(
-                    onClick = { showSettings = true },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(fg.copy(alpha = 0.08f), CircleShape)
-                ) {
-                    Icon(
-                        Icons.Default.Tune,
-                        contentDescription = "Reading settings",
-                        tint = fg.copy(alpha = 0.7f),
-                    )
-                }
-            }
 
             LazyColumn(
                 state = listState,
@@ -379,6 +344,7 @@ fun LearnReadingScreen(
                             fg = fg,
                             bg = bg,
                             translationMap = translationMap,
+                            tajweedMap = tajweedMap,
                             onBlockClick = { activeBlock = it to index },
                             modifier = Modifier.padding(vertical = 6.dp),
                         )
@@ -477,7 +443,6 @@ fun LearnReadingScreen(
 
             if (showSettings) {
                 ReadingSettingsSheet(
-                    topic = topic,
                     settings = settings,
                     onDismiss = { showSettings = false },
                     onThemeChange = { settingsViewModel.setReadingTheme(it) },
@@ -488,7 +453,10 @@ fun LearnReadingScreen(
                     onShowWordByWordChange = { settingsViewModel.toggleShowWordByWord(it) },
                     onKeepScreenOnChange = { settingsViewModel.toggleReadingKeepScreenOn(it) },
                     onShowTajweedChange = { settingsViewModel.toggleShowTajweed(it) },
-                    onTranslationLangChange = { settingsViewModel.setSelectedTranslationLang(it) },
+                    onOpenTranslationPicker = {
+                        showSettings = false
+                        showTranslationPicker = true
+                    },
                 )
             }
         }
@@ -690,24 +658,6 @@ private fun AyatBlock(
     }
 }
 
-private fun Int.toArabicIndic() = this.toString().map { c ->
-    when (c) {
-        '0' -> '٠'; '1' -> '١'; '2' -> '٢'; '3' -> '٣'; '4' -> '٤'
-        '5' -> '٥'; '6' -> '٦'; '7' -> '٧'; '8' -> '٨'; '9' -> '٩'
-        else -> c
-    }
-}.joinToString("")
-
-@Composable
-private fun AyahEndMarker(number: Int, fg: Color) {
-    Box(
-        modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp).size(28.dp).border(1.dp, fg.copy(alpha = 0.6f), CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = number.toArabicIndic(), fontSize = 11.sp, color = fg.copy(alpha = 0.85f), fontFamily = ScheherazadeNew, fontWeight = FontWeight.Normal)
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AyahActionSheet(
@@ -723,108 +673,6 @@ private fun AyahActionSheet(
             ActionRow(icon = if (isMastered) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked, label = if (isMastered) "Mark as Incomplete" else "Mark as Mastered", onClick = onMastered)
             ActionRow(icon = Icons.Default.Share, label = "Share", onClick = onShare)
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BlockActionSheet(
-    block: ContentBlock,
-    topicId: String,
-    settings: UserSettings,
-    isBookmarked: Boolean,
-    onDismiss: () -> Unit,
-    onBookmark: () -> Unit,
-) {
-    val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState()
-    
-    val (title, contentToCopy, referenceToCopy) = when (block) {
-        is AyahBlock -> Triple("Ayah Actions", block.textUthmani ?: "", block.display)
-        is HadithBlock -> Triple("Hadith Actions", block.textEn ?: "", block.display)
-        is HeadingBlock -> Triple("Section Actions", block.text, null)
-        is ArabicBlock -> Triple("Arabic Text Actions", block.text, null)
-        else -> Triple("Actions", "", null)
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            ActionRow(
-                icon = Icons.Default.Share,
-                label = "Share",
-                onClick = {
-                    val shareIntent = android.content.Intent().apply {
-                        action = android.content.Intent.ACTION_SEND
-                        type = "text/plain"
-                        putExtra(android.content.Intent.EXTRA_TEXT, "$contentToCopy\n\n— $referenceToCopy")
-                    }
-                    context.startActivity(android.content.Intent.createChooser(shareIntent, "Share via"))
-                    onDismiss()
-                }
-            )
-
-            ActionRow(
-                icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                label = if (isBookmarked) "Remove Bookmark" else "Add Bookmark",
-                onClick = onBookmark
-            )
-
-            if (contentToCopy.isNotBlank()) {
-                ActionRow(
-                    icon = Icons.Default.ContentCopy,
-                    label = "Copy Text",
-                    onClick = {
-                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        val clip = android.content.ClipData.newPlainText("Khushu Text", contentToCopy)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "Text copied to clipboard", Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    }
-                )
-            }
-
-            if (referenceToCopy != null) {
-                ActionRow(
-                    icon = Icons.Default.Link,
-                    label = "Copy Reference",
-                    onClick = {
-                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        val clip = android.content.ClipData.newPlainText("Khushu Reference", referenceToCopy)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "Reference copied: $referenceToCopy", Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 12.dp, horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -865,358 +713,5 @@ private fun ReferenceBadge(source: String?, number: String?, fg: Color, modifier
     if (formattedLabel.isBlank()) return
     Surface(shape = RoundedCornerShape(50), color = fg.copy(alpha = 0.08f), modifier = modifier) {
         Text(text = formattedLabel, style = MaterialTheme.typography.labelMedium.copy(fontFamily = BeVietnamPro, fontWeight = FontWeight.Medium, fontSize = 12.sp), color = fg.copy(alpha = 0.5f), textAlign = TextAlign.End, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ReadingSettingsSheet(
-    topic: LearnTopic,
-    settings: UserSettings,
-    onDismiss: () -> Unit,
-    onThemeChange: (String) -> Unit,
-    onArabicSizeChange: (Float) -> Unit,
-    onTranslationSizeChange: (Float) -> Unit,
-    onShowTranslationChange: (Boolean) -> Unit,
-    onShowTransliterationChange: (Boolean) -> Unit,
-    onShowWordByWordChange: (Boolean) -> Unit,
-    onKeepScreenOnChange: (Boolean) -> Unit,
-    onShowTajweedChange: (Boolean) -> Unit,
-    onTranslationLangChange: (String) -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var selectedTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val tabs = listOf("Display", "Text", "Audio")
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp)
-        ) {
-            Text(
-                text = "Reading Settings",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = BeVietnamPro,
-                    fontWeight = FontWeight.Normal
-                ),
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
-            )
-
-            androidx.compose.material3.PrimaryTabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = Color.Transparent,
-                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)) },
-                indicator = {
-                    androidx.compose.material3.TabRowDefaults.PrimaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(selectedTab),
-                        width = 64.dp,
-                        shape = RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)
-                    )
-                }
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    androidx.compose.material3.Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontFamily = BeVietnamPro,
-                                color = if (selectedTab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(28.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                when (selectedTab) {
-                    0 -> { // Display
-                        SettingLabel("Background Theme")
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            listOf(
-                                Triple("DARK", "Dark", Color.Black to Color.White),
-                                Triple("PAPER", "Paper", Color(0xFFF5E6C8) to Color.Black),
-                                Triple("LIGHT", "Light", Color.White to Color.Black)
-                            ).forEach { (value, label, colors) ->
-                                ThemePreviewCard(
-                                    label = label,
-                                    selected = settings.readingTheme == value,
-                                    bgColor = colors.first,
-                                    fgColor = colors.second,
-                                    onClick = { onThemeChange(value) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-
-                        SettingToggle(label = "Keep Screen On", checked = settings.readingKeepScreenOn, onCheckedChange = onKeepScreenOnChange)
-                    }
-                    1 -> { // Text
-                        SettingLabel("Arabic Size: ${settings.arabicSizeSp.toInt()}sp")
-                        Slider(
-                            value = settings.arabicSizeSp,
-                            onValueChange = onArabicSizeChange,
-                            valueRange = 24f..64f,
-                            steps = 9
-                        )
-
-                        if (settings.showTranslation) {
-                            SettingLabel("Translation Size: ${settings.translationSizeSp.toInt()}sp")
-                            Slider(
-                                value = settings.translationSizeSp,
-                                onValueChange = onTranslationSizeChange,
-                                valueRange = 14f..28f,
-                                steps = 6
-                            )
-                        }
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                        SettingToggle(label = "Tajweed Colors", checked = settings.showTajweed, onCheckedChange = onShowTajweedChange)
-                        SettingToggle(label = "Show Translation", checked = settings.showTranslation, onCheckedChange = onShowTranslationChange)
-                        SettingToggle(label = "Show Transliteration", checked = settings.showTransliteration, onCheckedChange = onShowTransliterationChange)
-                        SettingToggle(label = "Show Word-by-Word", checked = settings.showWordByWord, onCheckedChange = onShowWordByWordChange)
-
-                        if (settings.showTranslation && topic.translations.size > 1) {
-                            SettingLabel("Translation Language")
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                topic.translations.keys.forEach { lang ->
-                                    ThemeChip(
-                                        label = lang.uppercase(),
-                                        selected = settings.selectedTranslationLang == lang,
-                                        onClick = { onTranslationLangChange(lang) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    2 -> { // Audio
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                .padding(20.dp)
-                        ) {
-                            Text(
-                                text = "Audio settings will appear here during playback. Control playback using the toolbar icons.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontFamily = BeVietnamPro,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                        
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .alpha(0.6f)
-                                .padding(horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Playback Speed", fontFamily = BeVietnamPro, style = MaterialTheme.typography.bodyLarge)
-                            Text("1.0x", fontWeight = FontWeight.Bold, fontFamily = Antonio, fontSize = 20.sp)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TranslationPickerSheet(
-    selectedId: String,
-    isDownloading: Boolean,
-    progress: Float,
-    onSelect: (com.kaizen.khushu.data.model.TranslationMeta) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState()
-    val context = LocalContext.current
-    
-    val grouped = remember {
-        com.kaizen.khushu.data.model.AVAILABLE_TRANSLATIONS.groupBy { it.langName }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
-        ) {
-            Text(
-                "Translations",
-                style = MaterialTheme.typography.headlineSmall.copy(fontFamily = Antonio),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            if (isDownloading) {
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-                    Text(
-                        "Downloading translation...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = BeVietnamPro,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    androidx.compose.material3.LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                grouped.forEach { (lang, translations) ->
-                    item {
-                        Text(
-                            text = lang,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontFamily = BeVietnamPro,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                    items(translations) { meta ->
-                        val isDownloaded = TranslationRepository.isDownloaded(context, meta.id)
-                        val isSelected = selectedId == meta.id
-
-                        Surface(
-                            onClick = { if (!isDownloading) onSelect(meta) },
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
-                            border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        meta.translatorName,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontFamily = BeVietnamPro,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                    Text(
-                                        "${meta.langCode.uppercase()} • ${meta.sizeKb}KB",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontFamily = BeVietnamPro,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                if (isSelected) {
-                                    Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                                } else if (!isDownloaded) {
-                                    Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ThemePreviewCard(
-    label: String,
-    selected: Boolean,
-    bgColor: Color,
-    fgColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val borderColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
-    
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .border(2.dp, borderColor, RoundedCornerShape(10.dp)),
-            shape = RoundedCornerShape(10.dp),
-            color = bgColor,
-            shadowElevation = 2.dp
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "بِسْمِ اللَّهِ",
-                    color = fgColor,
-                    fontFamily = ScheherazadeNew,
-                    fontSize = 18.sp
-                )
-            }
-        }
-        
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontFamily = BeVietnamPro,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-        )
-    }
-}
-
-@Composable
-private fun ThemeChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
-    val fg = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    val border = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.clip(RoundedCornerShape(50)).background(bg).border(1.dp, border, RoundedCornerShape(50)).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(text = label, style = MaterialTheme.typography.labelLarge, color = fg, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-    }
-}
-
-@Composable
-private fun SettingLabel(text: String) {
-    Text(text = text, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BeVietnamPro), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-}
-
-@Composable
-private fun SettingToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(text = label, style = MaterialTheme.typography.bodyLarge.copy(fontFamily = BeVietnamPro), color = MaterialTheme.colorScheme.onSurface)
-        Switch(checked = checked, onCheckedChange = onCheckedChange, colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.onPrimary, checkedTrackColor = MaterialTheme.colorScheme.primary))
     }
 }

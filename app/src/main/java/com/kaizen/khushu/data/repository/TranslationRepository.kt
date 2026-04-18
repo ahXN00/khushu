@@ -16,7 +16,7 @@ object TranslationRepository {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun isDownloaded(context: Context, id: String): Boolean {
-        if (id == "en_20") return true
+        if (id == "en_20" || id == "ur_54") return true
         val file = File(context.filesDir, "translations/$id.json")
         return file.exists()
     }
@@ -53,8 +53,9 @@ object TranslationRepository {
         val cached = cache[id]
         if (cached != null) return cached
 
-        val content = if (id == "en_20") {
-            context.assets.open("translations/en_20.json").bufferedReader().use { it.readText() }
+        val bundledIds = setOf("en_20", "ur_54")
+        val content = if (id in bundledIds) {
+            context.assets.open("translations/$id.json").bufferedReader().use { it.readText() }
         } else {
             val file = File(context.filesDir, "translations/$id.json")
             if (!file.exists()) return emptyMap()
