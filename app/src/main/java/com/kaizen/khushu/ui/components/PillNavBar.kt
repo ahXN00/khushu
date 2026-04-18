@@ -87,9 +87,9 @@ fun PillNavBar(
                 .hazeEffect(
                     state = hazeState,
                     style = HazeStyle(
-                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        blurRadius = 35.dp,
-                        tints = listOf(HazeTint(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f))),
+                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        blurRadius = 20.dp,
+                        tints = listOf(HazeTint(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))),
                     )
                 )
         )

@@ -26,11 +26,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -48,7 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.R
 import androidx.compose.ui.geometry.Size  // NOT android.util.Size
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun KhushuAppBar(
     title: String,
@@ -62,6 +65,8 @@ fun KhushuAppBar(
     modifier: Modifier = Modifier,
 //    hazeState: HazeState? = null,
 ) {
+    val expressiveShape = MaterialShapes.Circle.toShape()
+    
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -126,7 +131,7 @@ fun KhushuAppBar(
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(expressiveShape)
                             .background(MaterialTheme.colorScheme.primaryContainer)
                             .clickable(
                                 onClick = onBookmarksClick,
@@ -147,7 +152,7 @@ fun KhushuAppBar(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(expressiveShape)
                         .background(MaterialTheme.colorScheme.primaryContainer)
                         .clickable(
                             onClick = onSettingsClick,
@@ -176,6 +181,7 @@ fun KhushuAppBar(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AppBarIconButton(
     iconRes: Int,
@@ -183,6 +189,8 @@ private fun AppBarIconButton(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val expressiveShape = MaterialShapes.Cookie9Sided.toShape()
+    
     val containerColor = if (selected) {
         MaterialTheme.colorScheme.primaryContainer
     } else {
@@ -196,7 +204,7 @@ private fun AppBarIconButton(
     Box(
         modifier = Modifier
             .size(32.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(expressiveShape)
             .background(containerColor)
             .clickable(
                 onClick = onClick,

@@ -69,7 +69,7 @@ import com.kaizen.khushu.data.model.DhikrItem
 import com.kaizen.khushu.data.model.TasbeehCollection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import sh.calvin.reorderable.ReorderableColumn
+import sh.calvin.reorderable.*
 
 // Immutable fields — all mutations go through .copy() on the snapshot list.
 // 'var' on data class fields causes missed recompositions; 'val' + list write is correct.
@@ -232,8 +232,9 @@ fun CreateCollectionSheet(
             ReorderableColumn(
                 list = dhikrRows,
                 onSettle = { from, to ->
-                    dhikrRows.add(to, dhikrRows.removeAt(from))
+                    dhikrRows[from] = dhikrRows[to].also { dhikrRows[to] = dhikrRows[from] }
                 },
+                onMove = { /* Haptic feedback here */ },
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -241,106 +242,103 @@ fun CreateCollectionSheet(
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             ) { index, row, isDragging ->
                 key(row.id) {
-                    // Each row gets its own FocusRequester. When pendingFocusId matches,
-                    // LaunchedEffect fires once and requests focus on this row's name field.
-                    val focusRequester = remember { FocusRequester() }
-                    if (pendingFocusId == row.id) {
-                        LaunchedEffect(row.id) {
-                            // Delay until the TextField has completed layout and attached
-                            // itself to the focus tree. Calling requestFocus() before layout
-                            // throws IllegalStateException (FocusRequester not initialized).
-                            delay(50)
-                            try { focusRequester.requestFocus() } catch (_: IllegalStateException) {}
-                            pendingFocusId = null
+                    ReorderableItem {
+                        val focusRequester = remember { FocusRequester() }
+                        if (pendingFocusId == row.id) {
+                            LaunchedEffect(row.id) {
+                                delay(50)
+                                try {
+                                    focusRequester.requestFocus()
+                                } catch (_: IllegalStateException) {
+                                }
+                                pendingFocusId = null
+                            }
                         }
-                    }
 
-                    Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .then(
-                                    if (isDragging)
-                                        Modifier.shadow(
-                                            elevation = 8.dp,
-                                            shape = RoundedCornerShape(12.dp),
-                                            ambientColor = MaterialTheme.colorScheme.primary
-                                                .copy(alpha = 0.15f),
-                                            spotColor = MaterialTheme.colorScheme.primary
-                                                .copy(alpha = 0.25f),
-                                        )
-                                    else Modifier
-                                )
-                                .background(
-                                    if (isDragging)
-                                        MaterialTheme.colorScheme.surfaceContainerHigh
-                                    else
-                                        Color.Transparent,
-                                )
-                                .padding(horizontal = 16.dp),
-                        ) {
-                            // Name field — focusRequester applied so auto-focus works on add.
-                            // indexOfFirst locates the row by stable ID before mutating,
-                            // preventing the stale-index crash when items have been reordered.
-                            TextField(
-                                value = row.name,
-                                onValueChange = { new ->
-                                    val i = dhikrRows.indexOfFirst { it.id == row.id }
-                                    if (i != -1) dhikrRows[i] = dhikrRows[i].copy(name = new)
-                                },
-                                placeholder = { Text("Dhikr name") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    capitalization = KeyboardCapitalization.Sentences,
-                                    imeAction = ImeAction.Next,
-                                ),
-                                colors = transparentColors,
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .focusRequester(focusRequester),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            // Count field — same safe mutation pattern.
-                            TextField(
-                                value = row.count,
-                                onValueChange = { new ->
-                                    if (new.length <= 4) {
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (isDragging)
+                                            Modifier.shadow(
+                                                elevation = 8.dp,
+                                                shape = RoundedCornerShape(12.dp),
+                                                ambientColor = MaterialTheme.colorScheme.primary
+                                                    .copy(alpha = 0.15f),
+                                                spotColor = MaterialTheme.colorScheme.primary
+                                                    .copy(alpha = 0.25f),
+                                            )
+                                        else Modifier
+                                    )
+                                    .background(
+                                        if (isDragging)
+                                            MaterialTheme.colorScheme.surfaceContainerHigh
+                                        else
+                                            Color.Transparent,
+                                    )
+                                    .padding(horizontal = 16.dp),
+                            ) {
+                                TextField(
+                                    value = row.name,
+                                    onValueChange = { new ->
                                         val i = dhikrRows.indexOfFirst { it.id == row.id }
-                                        if (i != -1) dhikrRows[i] = dhikrRows[i].copy(count = new)
-                                    }
-                                },
-                                placeholder = { Text("33") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
-                                colors = transparentColors,
-                                modifier = Modifier.width(72.dp),
-                            )
-                            // Drag handle
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Drag to reorder",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .padding(start = 4.dp)
-                                    .size(20.dp)
-                                    .draggableHandle(),
-                            )
-                        }
+                                        if (i != -1) dhikrRows[i] = dhikrRows[i].copy(name = new)
+                                    },
+                                    placeholder = { Text("Dhikr name") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        capitalization = KeyboardCapitalization.Sentences,
+                                        imeAction = ImeAction.Next,
+                                    ),
+                                    colors = transparentColors,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .focusRequester(focusRequester),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                TextField(
+                                    value = row.count,
+                                    onValueChange = { new ->
+                                        if (new.length <= 4) {
+                                            val i = dhikrRows.indexOfFirst { it.id == row.id }
+                                            if (i != -1) dhikrRows[i] =
+                                                dhikrRows[i].copy(count = new)
+                                        }
+                                    },
+                                    placeholder = { Text("33") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
+                                    colors = transparentColors,
+                                    modifier = Modifier.width(72.dp),
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Drag to reorder",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .padding(start = 4.dp)
+                                        .size(20.dp)
+                                        .draggableHandle(),
+                                )
+                            }
 
-                        if (index < dhikrRows.lastIndex) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                            )
+                            if (index < dhikrRows.lastIndex) {
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                )
+                            }
                         }
                     }
                 }
             }
-            } // end key(dhikrRows.size)
+            }
+ // end key(dhikrRows.size)
 
             Spacer(Modifier.height(4.dp))
 

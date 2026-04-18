@@ -171,7 +171,6 @@ private fun AyahBlockView(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
-                    // Fallback: show display reference while DB entry loads
                     Text(
                         text = block.display,
                         fontFamily = BeVietnamPro,
@@ -180,6 +179,22 @@ private fun AyahBlockView(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+            }
+
+            if (block.translationEn != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = block.translationEn,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = BeVietnamPro,
+                        fontSize = settings.translationSizeSp.sp,
+                        lineHeight = (settings.translationSizeSp * 1.65f).sp,
+                        fontStyle = FontStyle.Italic,
+                        textAlign = TextAlign.Center,
+                    ),
+                    color = fg.copy(alpha = 0.75f),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

@@ -63,6 +63,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
 
 private enum class SettingsView {
@@ -280,25 +281,26 @@ private fun SettingsBrandingHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 22.dp, vertical = 22.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            KhushuLogoBadge(logoStyle = logoStyle)
+            KhushuLogoBadge(
+                logoStyle = logoStyle,
+                size = 64.dp,
+                iconSize = 48.dp
+            )
             Spacer(modifier = Modifier.width(18.dp))
             Text(
                 text = "Khushu",
-//                style = MaterialTheme.typography.titleLarge,
-                fontFamily = Antonio,
-                fontSize = 32.sp,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = Antonio, 
+                    fontSize = 32.sp,
+                    letterSpacing = 1.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
             )
-//            Text(
-//                "Khushu",
-//                fontFamily = BeVietnamPro,
-//                style = MaterialTheme.typography.displaySmall
-//            )
         }
 
         Spacer(modifier = Modifier.weight(1f))

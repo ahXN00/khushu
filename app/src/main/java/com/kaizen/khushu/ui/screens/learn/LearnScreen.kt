@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -286,14 +287,12 @@ internal fun LearnCard(
         label = "scale"
     )
 
-    // Create a darker version for the gradient
-    val darkerColor = remember(color) {
-        Color(
-            red = color.red * 0.4f,
-            green = color.green * 0.4f,
-            blue = color.blue * 0.4f,
-            alpha = 1f
-        )
+    val (containerColor, contentColor) = when (sectionId) {
+        "foundations" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        "purification" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+        "prayer" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        "duas_adhkar", "recitations", "daily_fortification" -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
     }
 
     Box(
@@ -301,13 +300,7 @@ internal fun LearnCard(
             .height(140.dp)
             .scale(scale)
             .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(color, darkerColor),
-                    start = androidx.compose.ui.geometry.Offset.Zero,
-                    end = androidx.compose.ui.geometry.Offset.Infinite
-                )
-            )
+            .background(containerColor)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -327,28 +320,16 @@ internal fun LearnCard(
         ) {
             val starSize = size.minDimension
             val squareSize = starSize * 0.707f
-            val path = androidx.compose.ui.graphics.Path().apply {
-                // Square 1
-                addRect(androidx.compose.ui.geometry.Rect(center, squareSize / 2))
-            }
             
             // Draw two overlapping rotated squares to form the star
             val strokeWidth = 1.dp.toPx()
-            val starAlpha = 0.12f
-            
-            val rotateMatrix1 = androidx.compose.ui.graphics.Matrix().apply {
-                reset()
-                rotateZ(0f)
-            }
-            val rotateMatrix2 = androidx.compose.ui.graphics.Matrix().apply {
-                reset()
-                rotateZ(45f)
-            }
+            val starAlpha = 0.15f
+            val starColor = contentColor
 
             drawContext.canvas.save()
             drawContext.transform.rotate(0f, center)
             drawRect(
-                color = Color.White,
+                color = starColor,
                 topLeft = androidx.compose.ui.geometry.Offset(center.x - squareSize/2, center.y - squareSize/2),
                 size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(strokeWidth),
@@ -359,7 +340,7 @@ internal fun LearnCard(
             drawContext.canvas.save()
             drawContext.transform.rotate(45f, center)
             drawRect(
-                color = Color.White,
+                color = starColor,
                 topLeft = androidx.compose.ui.geometry.Offset(center.x - squareSize/2, center.y - squareSize/2),
                 size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(strokeWidth),
@@ -385,7 +366,7 @@ internal fun LearnCard(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.15f))
+                        .background(contentColor.copy(alpha = 0.1f))
                         .padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -393,7 +374,7 @@ internal fun LearnCard(
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = contentColor,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -403,7 +384,7 @@ internal fun LearnCard(
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = "Mastered",
-                        tint = Color(0xFF10B981),
+                        tint = contentColor,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -412,7 +393,7 @@ internal fun LearnCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
+                color = contentColor,
                 fontWeight = FontWeight.SemiBold,
                 lineHeight = 20.sp,
                 modifier = Modifier.fillMaxWidth(0.8f)
@@ -427,6 +408,7 @@ private fun getSectionIcon(sectionId: String): ImageVector? {
         "purification" -> Icons.Default.WaterDrop
         "prayer" -> Icons.Default.Mosque
         "recitations" -> Icons.Default.AutoStories
+        "duas_adhkar" -> Icons.Default.Shield
         "daily_fortification" -> Icons.Default.Shield
         else -> null
     }

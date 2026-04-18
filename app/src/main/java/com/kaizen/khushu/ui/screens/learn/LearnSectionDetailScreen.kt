@@ -14,10 +14,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -41,6 +44,7 @@ fun LearnSectionDetailScreen(
 
     // Find the matching section from real data; fall back to empty list
     val section = LearnRepository.getSections().find { it.sectionTitle == sectionTitle }
+    val sectionId = section?.id ?: ""
     val sectionColor = section?.let { androidx.compose.ui.graphics.Color(it.color) }
         ?: androidx.compose.ui.graphics.Color(0xFF3B4A6BL)
     val topics = section?.topics ?: emptyList()
@@ -84,6 +88,8 @@ fun LearnSectionDetailScreen(
                 LearnCard(
                     title = topic.title,
                     color = sectionColor,
+                    sectionId = sectionId,
+                    shape = RoundedCornerShape(28.dp),
                     onClick = { onCardTap(topic.id) },
                     modifier = Modifier
                         .fillMaxWidth()

@@ -1,154 +1,119 @@
 import json
 import os
 import sys
-import sqlite3
 
 LEARN_DIR = "app/src/main/assets/learn"
 DATA_DIR = "scripts/data"
-OUTPUT_DB = "app/src/main/assets/khushu.db"
 
-# These collections are Sahih by definition in the Fawaz Ahmed dataset
 IMPLICITLY_SAHIH = {"bukhari", "muslim"}
 
-def build_db():
-    if os.path.exists(OUTPUT_DB):
-        os.remove(OUTPUT_DB)
+def extract_grade(hadith, collection):
+    if collection in IMPLICITLY_SAHIH:
+        return "Sahih"
+    grades = hadith.get("grades", [])
+    # Prefer Al-Albani grading, then any grader
+    for grader_pref in ["Al-Albani", "Shu'ayb Al Arna'ut"]:
+        for g in grades:
+            if grader_pref in g.get("name", ""):
+                return g.get("grade", "")
+    if grades:
+        return grades[0].get("grade", "")
+    return None
+
+def main():
+    # 1. Load quran-uthmani.json -> build index: (surah_int, ayah_int) → arabic_text
+    print("📦 Loading Quran Arabic (Uthmani)...")
+    with open(os.path.join(DATA_DIR, "quran-uthmani.json"), 'r', encoding='utf-8') as f:
+        quran_uthmani_raw = json.load(f)
     
-    conn = sqlite3.connect(OUTPUT_DB)
-    cursor = conn.cursor()
+    quran_arabic_index = {}
+    for surah_str, ayahs_list in quran_uthmani_raw.items():
+        surah_int = int(surah_str)
+        for ayah_data in ayahs_list:
+            quran_arabic_index[(surah_int, ayah_data['verse'])] = ayah_data['text']
 
-    # Create tables
-    cursor.execute("""
-        CREATE TABLE surahs (
-            number INTEGER PRIMARY KEY,
-            name_arabic TEXT,
-            name_en TEXT,
-            name_translation TEXT,
-            ayah_count INTEGER,
-            revelation_type TEXT
-        )
-    """)
+    # 2. Load en.quran.json -> build index: (surah_int, ayah_int) → english_text
+    print("📦 Loading Quran English...")
+    with open(os.path.join(DATA_DIR, "en.quran.json"), 'r', encoding='utf-8') as f:
+        en_quran_raw = json.load(f)
+    
+    quran_english_index = {}
+    for entry in en_quran_raw['quran']:
+        quran_english_index[(entry['chapter'], entry['verse'])] = entry['text']
 
-    cursor.execute("""
-        CREATE TABLE ayahs (
-            surah INTEGER,
-            ayah INTEGER,
-            text_uthmani TEXT,
-            tajweed_markup TEXT,
-            PRIMARY KEY (surah, ayah),
-            FOREIGN KEY (surah) REFERENCES surahs(number)
-        )
-    """)
-    cursor.execute("CREATE INDEX idx_ayahs_ref ON ayahs(surah, ayah)")
+    # 3. Load hadith collections -> build index: collection_name → {number → hadith_obj}
+    hadith_collections = {}
+    hadith_files = [f for f in os.listdir(DATA_DIR) if f.startswith("en.") and f.endswith(".json") and f != "en.quran.json"]
+    for h_file in hadith_files:
+        coll_name = h_file.split(".")[1]
+        print(f"📦 Loading Hadith collection: {coll_name}...")
+        with open(os.path.join(DATA_DIR, h_file), 'r', encoding='utf-8') as f:
+            h_data = json.load(f)
+            hadith_collections[coll_name] = {h['hadithnumber']: h for h in h_data['hadiths']}
 
-    cursor.execute("""
-        CREATE TABLE hadiths (
-            collection TEXT,
-            number INTEGER,
-            text_arabic TEXT,
-            text_en TEXT,
-            grade TEXT,
-            narrator TEXT,
-            PRIMARY KEY (collection, number)
-        )
-    """)
-    cursor.execute("CREATE INDEX idx_hadiths_ref ON hadiths(collection, number)")
-
-    cursor.execute("""
-        CREATE TABLE translations (
-            surah INTEGER,
-            ayah INTEGER,
-            lang TEXT,
-            text TEXT,
-            edition TEXT,
-            PRIMARY KEY (surah, ayah, lang, edition)
-        )
-    """)
-
-    # Collect unique references from topic JSONs
-    ayah_refs = set()
-    hadith_refs = set()
-
-    files = sorted(f for f in os.listdir(LEARN_DIR) if f.endswith(".json"))
-    for filename in files:
-        with open(os.path.join(LEARN_DIR, filename), 'r', encoding='utf-8') as f:
-            topic = json.load(f)
-        
-        for block in topic.get("blocks", []):
-            if block['type'] == 'ayah':
-                ayah_refs.add((block['surah'], block['ayah']))
-            elif block['type'] == 'hadith':
-                if not block.get("verified"):
-                    print(f"❌ ERROR: Hadith {block['display']} in {filename} is NOT verified!")
-                    sys.exit(1)
-                hadith_refs.add((block['collection'], block['number']))
-
-    # Load Tajweed Overrides
+    # 4. Load tajweed_overrides.json -> build index: "surah:ayah" → tajweed_markup_string
+    print("📦 Loading Tajweed overrides...")
     tajweed_overrides = {}
     overrides_path = os.path.join(DATA_DIR, "tajweed_overrides.json")
     if os.path.exists(overrides_path):
         with open(overrides_path, 'r', encoding='utf-8') as f:
             tajweed_overrides = json.load(f)
 
-    # Load Tanzil data
-    print("📦 Processing Quran data...")
-    with open(os.path.join(DATA_DIR, "quran-uthmani.json"), 'r', encoding='utf-8') as f:
-        tanzil_data = json.load(f)
-
-    # Process Surahs and Ayahs
-    surahs_to_insert = set()
-    for surah_str, ayahs_list in tanzil_data.items():
-        surah_num = int(surah_str)
-        surahs_to_insert.add(surah_num)
+    # 5. Process each JSON file in assets/learn/
+    files = sorted(f for f in os.listdir(LEARN_DIR) if f.endswith(".json"))
+    for filename in files:
+        file_path = os.path.join(LEARN_DIR, filename)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            topic = json.load(f)
         
-        for ayah_data in ayahs_list:
-            ayah_num = ayah_data['verse']
-            if (surah_num, ayah_num) in ayah_refs:
-                key = f"{surah_num}:{ayah_num}"
-                markup = tajweed_overrides.get(key)
-                cursor.execute(
-                    "INSERT INTO ayahs (surah, ayah, text_uthmani, tajweed_markup) VALUES (?, ?, ?, ?)",
-                    (surah_num, ayah_num, ayah_data['text'], markup)
-                )
-    
-    # Metadata for Surahs
-    for surah_num in sorted(list(surahs_to_insert)):
-        cursor.execute(
-            "INSERT INTO surahs (number, name_arabic, name_en, name_translation, ayah_count, revelation_type) VALUES (?, ?, ?, ?, ?, ?)",
-            (surah_num, "", "", "", 0, "")
-        )
+        modified = False
+        print(f"📄 Processing {filename}...")
+        
+        for block in topic.get("blocks", []):
+            if block['type'] == 'ayah':
+                surah = block['surah']
+                ayah = block['ayah']
+                ref = (surah, ayah)
+                
+                text_uthmani = quran_arabic_index.get(ref)
+                translation_en = quran_english_index.get(ref)
+                
+                if block.get("verified"):
+                    if not text_uthmani:
+                        print(f"❌ ERROR: Ayah {surah}:{ayah} Arabic text not found!")
+                        sys.exit(1)
+                    if not translation_en:
+                        print(f"❌ ERROR: Ayah {surah}:{ayah} English translation not found!")
+                        sys.exit(1)
+                
+                block['textUthmani'] = text_uthmani
+                block['translationEn'] = translation_en
+                block['tajweedMarkup'] = tajweed_overrides.get(f"{surah}:{ayah}")
+                modified = True
+                
+            elif block['type'] == 'hadith':
+                coll = block['collection']
+                num = block['number']
+                
+                hadith_obj = hadith_collections.get(coll, {}).get(num)
+                
+                if block.get("verified"):
+                    if not hadith_obj:
+                        print(f"❌ ERROR: Hadith {coll} {num} not found!")
+                        sys.exit(1)
+                
+                if hadith_obj:
+                    block['textEn'] = hadith_obj.get('text')
+                    block['grade'] = extract_grade(hadith_obj, coll)
+                    block['narrator'] = hadith_obj.get('narrator')
+                    block['chapter'] = hadith_obj.get('chaptername')
+                    modified = True
 
-    # Load Hadith data
-    print("📦 Processing Hadith data...")
-    collections = {}
-    for coll_name, _ in hadith_refs:
-        if coll_name not in collections:
-            file_path = os.path.join(DATA_DIR, f"en.{coll_name}.json")
-            if os.path.exists(file_path):
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    collections[coll_name] = {h['hadithnumber']: h for h in data['hadiths']}
-    
-    for coll_name, hadith_num in hadith_refs:
-        h = collections.get(coll_name, {}).get(hadith_num)
-        if h:
-            if coll_name in IMPLICITLY_SAHIH:
-                grade_str = "Sahih"
-            else:
-                sahih_grades = [g['grade'] for g in h.get('grades', []) if 'sahih' in g['grade'].lower()]
-                if not sahih_grades:
-                    print(f"❌ ERROR: Hadith {coll_name} {hadith_num} is not Sahih!")
-                    sys.exit(1)
-                grade_str = sahih_grades[0]
-            
-            cursor.execute(
-                "INSERT INTO hadiths (collection, number, text_en, grade, narrator) VALUES (?, ?, ?, ?, ?)",
-                (coll_name, hadith_num, h['text'], grade_str, "")
-            )
+        if modified:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(topic, f, ensure_ascii=False, indent=2)
 
-    conn.commit()
-    conn.close()
-    print(f"✅ Database built successfully: {OUTPUT_DB}")
+    print("✅ Seeding complete.")
 
 if __name__ == "__main__":
-    build_db()
+    main()

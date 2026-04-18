@@ -43,6 +43,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -85,6 +86,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.kaizen.khushu.data.model.ContentBlock
 import com.kaizen.khushu.data.model.LearnTopic
 import com.kaizen.khushu.data.model.WordData
 import com.kaizen.khushu.data.repository.UserSettings
@@ -129,12 +132,13 @@ private fun readingColorScheme(readingTheme: String, dynamicColor: Boolean): Col
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LearnReadingScreen(
     topic: LearnTopic,
     settingsViewModel: SettingsViewModel,
     learnAudioViewModel: LearnAudioViewModel,
+    learnReadingViewModel: LearnReadingViewModel = viewModel(),
     onBack: () -> Unit,
     initialAyahIndex: Int? = null,
     modifier: Modifier = Modifier,
@@ -144,6 +148,7 @@ fun LearnReadingScreen(
 
     MaterialTheme(colorScheme = scheme) {
         val audioState by learnAudioViewModel.audioState.collectAsState()
+        val blocks by learnReadingViewModel.blocks.collectAsState()
         val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
         var showSettings by remember { mutableStateOf(false) }
@@ -156,6 +161,11 @@ fun LearnReadingScreen(
 
         val titleFraction = scrollBehavior.state.collapsedFraction
         val titleFontSize = androidx.compose.ui.util.lerp(28f, 20f, titleFraction).sp
+
+        // Kick off block loading for this topic
+        androidx.compose.runtime.LaunchedEffect(topic.id) {
+            learnReadingViewModel.loadBlocks(topic.id)
+        }
 
         // Track last read topic
         androidx.compose.runtime.LaunchedEffect(topic.id) {
@@ -284,16 +294,33 @@ fun LearnReadingScreen(
                 contentPadding = paddingValues,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                item {
-                    Spacer(Modifier.height(8.dp))
-                    AyatBlock(
-                        topic = topic,
-                        settings = settings,
-                        fg = fg,
-                        bg = bg,
-                        onTap = { showActionSheet = true }
-                    )
-                    Spacer(Modifier.height(24.dp))
+                val resolvedBlocks = blocks
+                if (resolvedBlocks != null && resolvedBlocks.isNotEmpty()) {
+                    // Block-based rendering from JSON assets
+                    item { Spacer(Modifier.height(8.dp)) }
+                    items(resolvedBlocks) { block ->
+                        BlockRenderer(
+                            block = block,
+                            settings = settings,
+                            fg = fg,
+                            bg = bg,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                        )
+                    }
+                    item { Spacer(Modifier.height(80.dp)) }
+                } else {
+                    // Legacy rendering (topics without JSON or while loading)
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        AyatBlock(
+                            topic = topic,
+                            settings = settings,
+                            fg = fg,
+                            bg = bg,
+                            onTap = { showActionSheet = true }
+                        )
+                        Spacer(Modifier.height(24.dp))
+                    }
                 }
             }
 
@@ -569,7 +596,7 @@ private fun AyahEndMarker(number: Int, fg: Color) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AyahActionSheet(
     onDismiss: () -> Unit, onPlay: () -> Unit, onBookmark: () -> Unit, onMastered: () -> Unit, onShare: () -> Unit,
@@ -638,7 +665,7 @@ private fun ReferenceBadge(source: String?, number: String?, fg: Color, modifier
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReadingSettingsSheet(
     topic: LearnTopic, settings: UserSettings, onDismiss: () -> Unit, onThemeChange: (String) -> Unit, onArabicSizeChange: (Float) -> Unit, onTranslationSizeChange: (Float) -> Unit,

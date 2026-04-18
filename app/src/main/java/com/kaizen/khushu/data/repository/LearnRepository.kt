@@ -1,23 +1,22 @@
 package com.kaizen.khushu.data.repository
 
 import android.content.Context
-import com.kaizen.khushu.data.local.KhushuDatabase
-import com.kaizen.khushu.data.model.AyahBlock
 import com.kaizen.khushu.data.model.ContentBlock
-import com.kaizen.khushu.data.model.HadithBlock
 import com.kaizen.khushu.data.model.LearnSection
 import com.kaizen.khushu.data.model.LearnTopic
 import com.kaizen.khushu.data.model.TopicJson
-import com.kaizen.khushu.data.model.WordData
 import kotlinx.serialization.json.Json
+import java.util.concurrent.ConcurrentHashMap
 
 object LearnRepository {
+    private val blockCache = ConcurrentHashMap<String, List<ContentBlock>>()
+
     fun getSections(): List<LearnSection> {
         return listOf(
             LearnSection(
                 id = "foundations",
                 sectionTitle = "Foundations",
-                color = 0xFF4A3B6BL,
+                color = 0xFF2A4B7CL,
                 topics = listOf(
                     LearnTopic(id = "foundations_intention", title = "The Role of Intention (Niyyah)", arabicText = "", translations = mapOf("en" to "")),
                     LearnTopic(id = "foundations_sincerity", title = "Sincerity (Ikhlas) in Worship", arabicText = "", translations = mapOf("en" to "")),
@@ -28,7 +27,7 @@ object LearnRepository {
             LearnSection(
                 id = "purification",
                 sectionTitle = "Purification",
-                color = 0xFF8B5A4BL,
+                color = 0xFF357B83L,
                 topics = listOf(
                     LearnTopic(id = "purification_types", title = "Types of Purification in Islam", arabicText = "", translations = mapOf("en" to "")),
                     LearnTopic(id = "purification_istinja", title = "Istinja and Istijmar", arabicText = "", translations = mapOf("en" to "")),
@@ -39,7 +38,7 @@ object LearnRepository {
             LearnSection(
                 id = "prayer",
                 sectionTitle = "The Prayer",
-                color = 0xFF2E5A4EL,
+                color = 0xFF2D5A4CL,
                 topics = listOf(
                     LearnTopic(id = "salah_obligation", title = "The Obligation of Salah", arabicText = "", translations = mapOf("en" to "")),
                     LearnTopic(id = "salah_times", title = "The Five Prayer Times", arabicText = "", translations = mapOf("en" to "")),
@@ -50,7 +49,7 @@ object LearnRepository {
             LearnSection(
                 id = "duas_adhkar",
                 sectionTitle = "Duas & Adhkar",
-                color = 0xFFD4AF37L,
+                color = 0xFFA87B61L,
                 topics = listOf(
                     LearnTopic(id = "surah_fatiha", title = "Surah Al-Fatiha", arabicText = "", translations = mapOf("en" to "")),
                     LearnTopic(id = "dua_morning_evening", title = "Morning and Evening Adhkar", arabicText = "", translations = mapOf("en" to "")),
@@ -61,18 +60,11 @@ object LearnRepository {
         )
     }
 
-    // ── Block-based content loading ────────────────────────────────────────────
-
     private val blockJson = Json { ignoreUnknownKeys = true }
 
-    /**
-     * Loads the JSON asset for [topicId] from assets/learn/<topicId>.json,
-     * deserializes blocks, and resolves [AyahBlock]/[HadithBlock] references
-     * from Room. Returns an empty list if the file is missing or parsing fails.
-     *
-     * Must be called from a coroutine (suspend).
-     */
     suspend fun getBlocks(topicId: String, context: Context): List<ContentBlock> {
+        blockCache[topicId]?.let { return it }
+
         val raw = try {
             context.assets.open("learn/$topicId.json")
                 .bufferedReader().use { it.readText() }
@@ -80,42 +72,10 @@ object LearnRepository {
             return emptyList()
         }
 
-        val topicJson = try {
-            blockJson.decodeFromString<TopicJson>(raw)
+        return try {
+            blockJson.decodeFromString<TopicJson>(raw).blocks
         } catch (_: Exception) {
-            return emptyList()
-        }
-
-        val db = try {
-            KhushuDatabase.getInstance(context)
-        } catch (_: Exception) {
-            return topicJson.blocks // DB unavailable — return blocks without enrichment
-        }
-
-        return topicJson.blocks.map { block ->
-            try {
-                when (block) {
-                    is AyahBlock -> {
-                        val entity = db.ayahDao().getAyah(block.surah, block.ayah)
-                        if (entity != null) block.copy(
-                            textUthmani = entity.textUthmani,
-                            tajweedMarkup = entity.tajweedMarkup,
-                        ) else block
-                    }
-                    is HadithBlock -> {
-                        val entity = db.hadithDao().getHadith(block.collection, block.number)
-                        if (entity != null) block.copy(
-                            textArabic = entity.textArabic,
-                            textEn = entity.textEn,
-                            grade = entity.grade,
-                            narrator = entity.narrator,
-                        ) else block
-                    }
-                    else -> block
-                }
-            } catch (_: Exception) {
-                block // DB query failed — render block without enrichment
-            }
-        }
+            emptyList()
+        }.also { blockCache[topicId] = it }
     }
 }
