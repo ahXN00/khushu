@@ -148,12 +148,7 @@ fun TasbeehScreen(
                 items = filtered,
                 key = { _, it -> "real_${it.id}" }
             ) { index, collection ->
-                var isVisible by remember { mutableStateOf(false) }
-
-                LaunchedEffect(Unit) {
-                    kotlinx.coroutines.delay(150L + (minOf(index, 8) * 40L))
-                    isVisible = true
-                }
+                val isVisible = true 
 
                 val alpha by animateFloatAsState(
                     targetValue = if (isVisible) 1f else 0f,
@@ -167,9 +162,21 @@ fun TasbeehScreen(
                     label = "card_scale"
                 )
 
+                val (resolvedBg, resolvedContent) = if (settings.tasbeehDynamicColors) {
+                    when (index % 3) {
+                        0 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+                        1 -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+                        else -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+                    }
+                } else {
+                    Color(collection.colorInt) to Color.White
+                }
+
                 CollectionCard(
                     collection = collection,
                     isListMode = isListMode,
+                    containerColor = resolvedBg,
+                    contentColor = resolvedContent,
                     onTap = { selectedCollection = collection },
                     modifier = Modifier.graphicsLayer {
                         this.alpha = alpha
@@ -189,8 +196,20 @@ fun TasbeehScreen(
 
     // Safely unwrap to prevent NullPointerExceptions on Dismiss/Delete
     selectedCollection?.let { collection ->
+        val index = collections.indexOf(collection)
+        val (resolvedBg, resolvedContent) = if (settings.tasbeehDynamicColors && index != -1) {
+            when (index % 3) {
+                0 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+                1 -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+                else -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+            }
+        } else {
+            Color(collection.colorInt) to Color.White
+        }
+
         CollectionDetailSheet(
             collection = collection,
+            accentColor = if (settings.tasbeehDynamicColors) resolvedBg else MaterialTheme.colorScheme.primary,
             onDismiss = { selectedCollection = null },
             onStart = {
                 onCollectionTap(collection)
@@ -208,6 +227,7 @@ fun TasbeehScreen(
 @Composable
 private fun CollectionDetailSheet(
     collection: TasbeehCollection,
+    accentColor: Color,
     onDismiss: () -> Unit,
     onStart: () -> Unit,
     onDelete: () -> Unit,
@@ -290,12 +310,13 @@ private fun CollectionDetailSheet(
                             text = "×${item.targetCount}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = accentColor,
                             modifier = Modifier.padding(start = 16.dp),
                         )
                     }
                 }
             }
+
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -379,6 +400,8 @@ private fun SearchBar(
 private fun CollectionCard(
     collection: TasbeehCollection,
     isListMode: Boolean,
+    containerColor: Color,
+    contentColor: Color,
     onTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -388,7 +411,7 @@ private fun CollectionCard(
                 .fillMaxWidth()
                 .height(150.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(Color(collection.colorInt))
+                .background(containerColor)
                 .clickable(onClick = onTap)
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.Top,
@@ -399,7 +422,7 @@ private fun CollectionCard(
                         text = collection.title,
                         style = MaterialTheme.typography.headlineMedium,
                         fontFamily = BeVietnamPro,
-                        color = Color.White,
+                        color = contentColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -408,7 +431,7 @@ private fun CollectionCard(
                 Text(
                     text = "${collection.items.size} dhikr",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = contentColor.copy(alpha = 0.6f),
                 )
                 if (collection.items.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
@@ -416,7 +439,7 @@ private fun CollectionCard(
                         Text(
                             text = "· ${item.name}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f),
+                            color = contentColor.copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -428,7 +451,7 @@ private fun CollectionCard(
                     text = collection.items.first().targetCount.toString(),
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = 0.18f),
+                    color = contentColor.copy(alpha = 0.18f),
                 )
             }
         }
@@ -437,7 +460,7 @@ private fun CollectionCard(
             modifier = modifier
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(18.dp))
-                .background(Color(collection.colorInt))
+                .background(containerColor)
                 .clickable(onClick = onTap)
                 .padding(12.dp),
         ) {
@@ -447,7 +470,7 @@ private fun CollectionCard(
                         text = collection.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = contentColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -462,7 +485,7 @@ private fun CollectionCard(
                         Text(
                             text = item.name,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White,
+                            color = contentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f).padding(end = 4.dp),
@@ -470,7 +493,7 @@ private fun CollectionCard(
                         Text(
                             text = item.targetCount.toString(),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White,
+                            color = contentColor,
                             fontWeight = FontWeight.Medium,
                         )
                     }
@@ -479,7 +502,7 @@ private fun CollectionCard(
                     Text(
                         text = "...",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = contentColor.copy(alpha = 0.6f),
                     )
                 }
             }

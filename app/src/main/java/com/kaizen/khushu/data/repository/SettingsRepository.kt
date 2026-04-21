@@ -48,6 +48,7 @@ class SettingsRepository(private val context: Context) {
         val SELECTED_TRANSLATION_LANG = stringPreferencesKey("selected_translation_lang")
         val SELECTED_RECITER_ID = stringPreferencesKey("selected_reciter_id")
         val SELECTED_SCRIPT = stringPreferencesKey("selected_script")
+        val TASBEEH_DYNAMIC_COLORS = booleanPreferencesKey("tasbeeh_dynamic_colors")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -92,8 +93,13 @@ class SettingsRepository(private val context: Context) {
                 selectedTranslationLang = preferences[PreferencesKeys.SELECTED_TRANSLATION_LANG] ?: "en_20",
                 selectedReciterId = preferences[PreferencesKeys.SELECTED_RECITER_ID] ?: "mishari",
                 selectedScript = preferences[PreferencesKeys.SELECTED_SCRIPT] ?: "uthmani",
+                tasbeehDynamicColors = preferences[PreferencesKeys.TASBEEH_DYNAMIC_COLORS] ?: true,
             )
         }
+
+    suspend fun updateTasbeehDynamicColors(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.TASBEEH_DYNAMIC_COLORS] = enabled }
+    }
 
     suspend fun updateHaptics(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.HAPTICS_ENABLED] = enabled }
@@ -262,4 +268,5 @@ data class UserSettings(
     val selectedTranslationLang: String = "en_20",
     val selectedReciterId: String = "mishari",
     val selectedScript: String = "uthmani",
+    val tasbeehDynamicColors: Boolean = true,
 )

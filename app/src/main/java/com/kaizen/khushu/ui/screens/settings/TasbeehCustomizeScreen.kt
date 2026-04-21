@@ -65,6 +65,12 @@ fun TasbeehCustomizeScreen(
                 checked = settings.showLapCounter,
                 onCheckedChange = { viewModel.toggleShowLapCounter(it) }
             )
+            SettingsToggle(
+                title = "Dynamic Card Colors",
+                subtitle = "Assign colors automatically based on theme",
+                checked = settings.tasbeehDynamicColors,
+                onCheckedChange = { viewModel.toggleTasbeehDynamicColors(it) }
+            )
             Spacer(Modifier.height(32.dp))
         }
     }

@@ -113,6 +113,10 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateTasbeehListMode(isList) }
     }
 
+    fun toggleTasbeehDynamicColors(enabled: Boolean) {
+        viewModelScope.launch { repository.updateTasbeehDynamicColors(enabled) }
+    }
+
     fun setStartupTab(route: String) {
         viewModelScope.launch { repository.updateStartupTab(route) }
     }

@@ -43,6 +43,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -67,6 +68,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.data.model.DhikrItem
 import com.kaizen.khushu.data.model.TasbeehCollection
+import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.*
@@ -83,12 +85,14 @@ private data class DhikrRow(
 @Composable
 fun CreateCollectionSheet(
     viewModel: TasbeehViewModel,
+    settingsViewModel: SettingsViewModel,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val focusManager = LocalFocusManager.current
     val isImeVisible = WindowInsets.isImeVisible
+    val settings by settingsViewModel.settings.collectAsState()
 
     // Single BackHandler owns the full back-press hierarchy for this sheet.
     // The sheet's own back handling is disabled (shouldDismissOnBackPress = false) so
@@ -169,40 +173,42 @@ fun CreateCollectionSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(24.dp))
+            if (!settings.tasbeehDynamicColors) {
+                Spacer(Modifier.height(24.dp))
 
-            // ── Color picker ──────────────────────────────────────────────────
-            Text(
-                text = "Color",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(10.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                itemsIndexed(KhushuColors.Palette) { index, color ->
-                    val isSelected = index == selectedColorIndex
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .then(
-                                if (isSelected) Modifier.border(
-                                    width = 2.5.dp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    shape = CircleShape,
-                                ) else Modifier
-                            )
-                            .clickable { selectedColorIndex = index },
-                    ) {
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Selected",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp),
-                            )
+                // ── Color picker ──────────────────────────────────────────────────
+                Text(
+                    text = "Color",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    itemsIndexed(KhushuColors.Palette) { index, color ->
+                        val isSelected = index == selectedColorIndex
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .then(
+                                    if (isSelected) Modifier.border(
+                                        width = 2.5.dp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        shape = CircleShape,
+                                    ) else Modifier
+                                )
+                                .clickable { selectedColorIndex = index },
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         }
                     }
                 }
