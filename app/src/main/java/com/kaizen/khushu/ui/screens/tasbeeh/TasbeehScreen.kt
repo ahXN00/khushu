@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -308,7 +309,7 @@ private fun CollectionDetailSheet(
                             text = collection.title?.takeIf { it.isNotBlank() } ?: "Collection",
                             style = MaterialTheme.typography.headlineMedium,
                             fontFamily = BeVietnamPro,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
                             maxLines = 2,
@@ -322,9 +323,10 @@ private fun CollectionDetailSheet(
                                 .clip(CircleShape)
                                 .clickable { showDeleteConfirm = true }
                                 .padding(8.dp)
+                                .padding(top = 20.dp, end = 10.dp, bottom = 0.dp)
                         )
                     }
-                    Spacer(Modifier.height(4.dp))
+//                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = "${collection.items.size} dhikr items",
                         style = MaterialTheme.typography.labelMedium,
