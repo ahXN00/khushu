@@ -1,5 +1,10 @@
 package com.kaizen.khushu.ui.screens.tasbeeh
 
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import com.kaizen.khushu.ui.theme.KhushuColors
 import androidx.lifecycle.ViewModel
@@ -14,7 +19,76 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+data class CreateDhikrRow(
+    val id: Int,
+    val name: String = "",
+    val count: String = "",
+)
+
 class TasbeehViewModel(private val dao: TasbeehDao) : ViewModel() {
+
+    // --- Creation State ---
+    var createTitle by mutableStateOf("")
+    var createColorIndex by mutableIntStateOf(0)
+    val createDhikrRows = mutableStateListOf(CreateDhikrRow(id = 0))
+    private var nextId = 1
+    var pendingFocusId by mutableStateOf<Int?>(null)
+
+    fun updateCreateTitle(newTitle: String) {
+        createTitle = newTitle
+    }
+
+    fun updateCreateColorIndex(index: Int) {
+        createColorIndex = index
+    }
+
+    fun updateDhikrName(id: Int, name: String) {
+        val index = createDhikrRows.indexOfFirst { it.id == id }
+        if (index != -1) {
+            createDhikrRows[index] = createDhikrRows[index].copy(name = name)
+        }
+    }
+
+    fun updateDhikrCount(id: Int, count: String) {
+        val index = createDhikrRows.indexOfFirst { it.id == id }
+        if (index != -1) {
+            createDhikrRows[index] = createDhikrRows[index].copy(count = count)
+        }
+    }
+
+    fun addDhikrRow() {
+        val id = nextId++
+        createDhikrRows.add(CreateDhikrRow(id = id))
+        pendingFocusId = id
+    }
+
+    fun removeDhikrRow(id: Int) {
+        createDhikrRows.removeAll { it.id == id }
+    }
+
+    fun moveDhikrRow(from: Int, to: Int) {
+        createDhikrRows.add(to, createDhikrRows.removeAt(from))
+    }
+
+    fun resetCreateState() {
+        createTitle = ""
+        createColorIndex = 0
+        createDhikrRows.clear()
+        createDhikrRows.add(CreateDhikrRow(id = 0))
+        nextId = 1
+        pendingFocusId = null
+    }
+
+    fun loadCollectionForEdit(collection: TasbeehCollection) {
+        createTitle = collection.title ?: ""
+        createColorIndex = KhushuColors.Palette.indexOfFirst { it.toArgb() == collection.colorInt }.coerceAtLeast(0)
+        createDhikrRows.clear()
+        collection.items.forEachIndexed { index, item ->
+            createDhikrRows.add(CreateDhikrRow(id = index, name = item.name, count = item.targetCount.toString()))
+        }
+        nextId = collection.items.size
+        pendingFocusId = null
+    }
 
     // Eagerly-started StateFlow so the list is pre-loaded before the screen is ever
     // composed — prevents the empty→populated flash that conflicts with page transitions.

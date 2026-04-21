@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -36,6 +37,7 @@ import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import com.kaizen.khushu.ui.theme.BeVietnamPro
 import com.kaizen.khushu.ui.util.rememberMorphShape
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -43,6 +45,7 @@ fun TasbeehScreen(
     viewModel: TasbeehViewModel,
     settingsViewModel: SettingsViewModel,
     onCollectionTap: (TasbeehCollection) -> Unit,
+    onEditCollection: () -> Unit,
     onSettingsClick: () -> Unit,
     hazeState: HazeState,
     contentPadding: PaddingValues = PaddingValues(),
@@ -215,6 +218,11 @@ fun TasbeehScreen(
                 onCollectionTap(collection)
                 selectedCollection = null
             },
+            onEdit = {
+                viewModel.loadCollectionForEdit(collection)
+                selectedCollection = null
+                onEditCollection()
+            },
             onDelete = {
                 viewModel.delete(collection)
                 selectedCollection = null
@@ -230,13 +238,16 @@ private fun CollectionDetailSheet(
     accentColor: Color,
     onDismiss: () -> Unit,
     onStart: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = sheetState,
         dragHandle = null
     ) {
         Column(
@@ -245,58 +256,94 @@ private fun CollectionDetailSheet(
                 .fillMaxHeight(0.63f)
                 .navigationBarsPadding(),
         ) {
-            // Header
+            // Header (Sticky)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 16.dp, bottom = 16.dp),
+                    .padding(start = 28.dp, end = 28.dp, top = 30.dp, bottom = 0.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Column(modifier = Modifier.weight(1f).padding(top = 24.dp,end = 12.dp)) {
-                    Text(
-                        text = collection.title?.takeIf { it.isNotBlank() } ?: "Collection",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontFamily = BeVietnamPro,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = "${collection.items.size} dhikr items",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                OutlinedButton(
-                    onClick = onStart,
-//                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
-//                    contentPadding = PaddingValues(end = 18.dp, top = 12.dp),
-                    modifier = Modifier.padding(end = 12.dp, top = 12.dp),
-                ) {
-                    Text(
-//                        text = "بسم الله",
-                        text = "Start",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
+                Text(
+                    text = "Edit",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onEdit() }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+
+                Text(
+                    text = "Close",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            scope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
+            // Scrollable Content
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(start = 28.dp, end = 28.dp, bottom = 8.dp),
             ) {
-                items(collection.items) { item ->
+                item {
+                    Spacer(Modifier.height(24.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = collection.title?.takeIf { it.isNotBlank() } ?: "Collection",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontFamily = BeVietnamPro,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable { showDeleteConfirm = true }
+                                .padding(8.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "${collection.items.size} dhikr items",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                }
+
+                item {
+                    HorizontalDivider(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                }
+
+                items(collection.items) { item ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -310,48 +357,48 @@ private fun CollectionDetailSheet(
                             text = "×${item.targetCount}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Medium,
-                            color = accentColor,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 16.dp),
                         )
                     }
                 }
             }
 
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            // Sticky delete footer
-            if (showDeleteConfirm) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = { showDeleteConfirm = false },
-                        modifier = Modifier.weight(1f).height(52.dp),
-                        shape = RoundedCornerShape(14.dp),
-                    ) { Text("Cancel") }
+            // Footer (Sticky)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp, vertical = 24.dp)
+            ) {
+                if (showDeleteConfirm) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = { showDeleteConfirm = false },
+                            modifier = Modifier.weight(1f).height(52.dp),
+                            shape = RoundedCornerShape(14.dp),
+                        ) { Text("Cancel", style = MaterialTheme.typography.titleSmall) }
+                        Button(
+                            onClick = onDelete,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.weight(1f).height(52.dp),
+                            shape = RoundedCornerShape(14.dp),
+                        ) { Text("Confirm Delete", style = MaterialTheme.typography.titleSmall) }
+                    }
+                } else {
                     Button(
-                        onClick = onDelete,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        modifier = Modifier.weight(1f).height(52.dp),
+                        onClick = onStart,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(14.dp),
-                    ) { Text("Confirm Delete") }
-                }
-            } else {
-                OutlinedButton(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
-                        .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    Text("Delete Collection", style = MaterialTheme.typography.titleSmall)
+                    ) {
+                        Text(
+                            text = "Start Tasbih",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
         }

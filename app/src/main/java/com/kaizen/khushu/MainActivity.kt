@@ -266,6 +266,7 @@ private fun KhushuApp(
                             onCollectionTap = { collection ->
                                 activeTasbeehCollection = collection
                             },
+                            onEditCollection = { showCreateSheet = true },
                             onSettingsClick = { showSettingsSheet = true },
                             hazeState = hazeState,
                             contentPadding =

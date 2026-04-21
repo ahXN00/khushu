@@ -23,8 +23,8 @@ android {
         applicationId = "com.kaizen.khushu"
         minSdk = 31
         targetSdk = 35
-        versionCode = 41
-        versionName = "0.17.5+$gitHash"
+        versionCode = 43
+        versionName = "0.18.0+$gitHash"
 
         buildConfigField("String", "AUDIO_BASE_URL", "\"https://example.com/audio/\"")
 
