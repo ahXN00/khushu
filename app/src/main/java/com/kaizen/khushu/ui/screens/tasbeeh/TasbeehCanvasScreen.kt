@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kaizen.khushu.data.model.CustomBeadStyle
 import com.kaizen.khushu.data.model.TasbeehCanvasPresetDomain
 import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.BeVietnamPro
@@ -48,6 +49,7 @@ import com.kaizen.khushu.ui.theme.KhushuColors
 @Composable
 fun TasbeehCanvasScreen(
     viewModel: TasbeehCanvasViewModel,
+    settingsViewModel: com.kaizen.khushu.ui.screens.settings.SettingsViewModel,
     onExit: () -> Unit,
 ) {
     val view = LocalView.current
@@ -69,6 +71,10 @@ fun TasbeehCanvasScreen(
     val selectedWidgetId by viewModel.selectedWidgetId.collectAsStateWithLifecycle()
     val isUiVisible by viewModel.isUiVisible.collectAsStateWithLifecycle()
     val presets by viewModel.presets.collectAsStateWithLifecycle()
+    val settings by settingsViewModel.settings.collectAsState()
+    val activeBeadStyle = remember(settings.activeBeadStyleId, settings.customBeadStyles) {
+        settings.customBeadStyles.find { it.id == settings.activeBeadStyleId }
+    }
 
     var showAddMenu by remember { mutableStateOf(false) }
     var showPresetsMenu by remember { mutableStateOf(false) }
@@ -103,6 +109,7 @@ fun TasbeehCanvasScreen(
                 isSelected = widget.id == selectedWidgetId,
                 screenWidth = screenWidth,
                 screenHeight = screenHeight,
+                customBeadStyle = activeBeadStyle,
                 onUpdate = { viewModel.updateWidget(it) },
                 onTap = {
                     viewModel.selectWidget(widget.id)
@@ -123,7 +130,7 @@ fun TasbeehCanvasScreen(
                 .padding(16.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onExit, colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f))) {
+                TextButton(onClick = onExit, colors = ButtonDefaults.textButtonColors(contentColor = if (Color(workingBackground.toLong()) == Color.White) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.6f))) {
                     Text("Exit")
                 }
                 Button(
@@ -149,19 +156,19 @@ fun TasbeehCanvasScreen(
                 .padding(bottom = 24.dp)
         ) {
             Surface(
-                color = Color.Black.copy(alpha = 0.7f),
+                color = if (Color(workingBackground.toLong()) == Color.White) Color.Black.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.7f),
                 shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                border = BorderStroke(1.dp, if (Color(workingBackground.toLong()) == Color.White) Color.Black.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.15f)),
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    EditorMenuAction(icon = Icons.Default.Add, label = "Add", onClick = { showAddMenu = true })
-                    EditorMenuAction(icon = Icons.Default.Style, label = "Presets", onClick = { showPresetsMenu = true })
-                    EditorMenuAction(icon = Icons.Default.Palette, label = "BG", onClick = { showBackgroundMenu = true })
-                    EditorMenuAction(icon = Icons.Default.RestartAlt, label = "Reset", onClick = { viewModel.resetToDefault() })
+                    EditorMenuAction(icon = Icons.Default.Add, label = "Add", dark = Color(workingBackground.toLong()) == Color.White, onClick = { showAddMenu = true })
+                    EditorMenuAction(icon = Icons.Default.Style, label = "Presets", dark = Color(workingBackground.toLong()) == Color.White, onClick = { showPresetsMenu = true })
+                    EditorMenuAction(icon = Icons.Default.Palette, label = "BG", dark = Color(workingBackground.toLong()) == Color.White, onClick = { showBackgroundMenu = true })
+                    EditorMenuAction(icon = Icons.Default.RestartAlt, label = "Reset", dark = Color(workingBackground.toLong()) == Color.White, onClick = { viewModel.resetToDefault() })
                 }
             }
         }
@@ -210,7 +217,8 @@ fun TasbeehCanvasScreen(
 }
 
 @Composable
-private fun EditorMenuAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+private fun EditorMenuAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, dark: Boolean = false, onClick: () -> Unit) {
+    val contentColor = if (dark) Color.Black else Color.White
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -218,8 +226,8 @@ private fun EditorMenuAction(icon: androidx.compose.ui.graphics.vector.ImageVect
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(24.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+        Icon(icon, null, tint = contentColor, modifier = Modifier.size(24.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = contentColor.copy(alpha = 0.7f))
     }
 }
 
@@ -229,6 +237,7 @@ fun TasbeehCanvasWidgetItem(
     isSelected: Boolean,
     screenWidth: Float,
     screenHeight: Float,
+    customBeadStyle: CustomBeadStyle? = null,
     onUpdate: (TasbihWidget) -> Unit,
     onTap: () -> Unit,
     onSizeMeasured: (String, Float, Float) -> Unit,
@@ -247,7 +256,7 @@ fun TasbeehCanvasWidgetItem(
                 transformOrigin = TransformOrigin.Center
             }
             .then(
-                if (isSelected) Modifier.border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                if (isSelected) Modifier.border(1.dp, if (widget is TasbihWidget.CustomText && Color(widget.color) == Color.White) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
                 else Modifier
             )
             .onGloballyPositioned { coordinates ->
@@ -274,6 +283,7 @@ fun TasbeehCanvasWidgetItem(
                         is TasbihWidget.CounterWidget -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
                         is TasbihWidget.ProgressCircleWidget -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
                         is TasbihWidget.MeaningWidget -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
+                        is TasbihWidget.CustomText -> w.copy(offsetX = newOffsetX, offsetY = newOffsetY, scale = newScale)
                     }
                     currentOnUpdate(updated)
                 }
@@ -291,6 +301,7 @@ fun TasbeehCanvasWidgetItem(
                 countedBeads = 12,
                 totalBeads = 33,
                 beadStyle = BeadStyle.CLASSIC_AMBER,
+                customBeadStyle = customBeadStyle,
                 activeBeadProgress = null,
                 thumbPosition = null
             )
@@ -341,12 +352,21 @@ private fun AddTasbihWidgetSheet(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            WidgetPreviewCard(
-                title = "Bead String",
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { onAdd(TasbihWidget.StringBeadWidget(id = "string_${System.currentTimeMillis()}")) }
-            ) {
-                Box(Modifier.width(2.dp).fillMaxHeight(0.6f).background(Color.White.copy(alpha = 0.3f)))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                WidgetPreviewCard(
+                    title = "Bead String",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onAdd(TasbihWidget.StringBeadWidget(id = "string_${System.currentTimeMillis()}")) }
+                ) {
+                    Box(Modifier.width(2.dp).fillMaxHeight(0.6f).background(Color.White.copy(alpha = 0.3f)))
+                }
+                WidgetPreviewCard(
+                    title = "Custom Text",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onAdd(TasbihWidget.CustomText(id = "text_${System.currentTimeMillis()}")) }
+                ) {
+                    Icon(Icons.Default.TextFields, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                }
             }
         }
     }
@@ -390,7 +410,7 @@ private fun TasbihPresetsSheet(
 
             if (presets.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("No custom presets yet", color = Color.White.copy(alpha = 0.4f))
+                    Text("No custom presets yet", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                 }
             } else {
                 LazyVerticalGrid(
@@ -409,7 +429,7 @@ private fun TasbihPresetsSheet(
                                 Text(preset.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                                 Spacer(Modifier.height(8.dp))
                                 Row {
-                                    Text("${preset.widgets.size} widgets", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
+                                    Text("${preset.widgets.size} widgets", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                     Spacer(Modifier.weight(1f))
                                     Icon(
                                         Icons.Default.Delete, 
@@ -455,7 +475,7 @@ private fun TasbihBackgroundSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val colors = listOf(Color.Black, Color(0xFF1A1A1A), Color(0xFF0D1B2A), Color(0xFF1B4332), Color(0xFF432818))
+    val colors = listOf(Color.Black, Color.White, Color(0xFF1A1A1A), Color(0xFF0D1B2A), Color(0xFF1B4332), Color(0xFF432818))
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -471,7 +491,7 @@ private fun TasbihBackgroundSheet(
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(color)
-                            .border(2.dp, if (currentColor == color) Color.White else Color.Transparent, CircleShape)
+                            .border(2.dp, if (currentColor == color) (if (color == Color.White) Color.Black else Color.White) else Color.Transparent, CircleShape)
                             .clickable { onSelect(color) }
                     )
                 }
@@ -526,7 +546,7 @@ private fun TasbihWidgetConfigSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.6f)
+                .fillMaxHeight(0.7f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
@@ -543,6 +563,24 @@ private fun TasbihWidgetConfigSheet(
             }
             Spacer(Modifier.height(24.dp))
 
+            if (widget is TasbihWidget.CustomText) {
+                OutlinedTextField(
+                    value = widget.text,
+                    onValueChange = { onUpdate(widget.copy(text = it)) },
+                    label = { Text("Text Content") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(16.dp))
+                
+                Text("Font Size", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Slider(
+                    value = widget.fontSize,
+                    onValueChange = { onUpdate(widget.copy(fontSize = it)) },
+                    valueRange = 12f..120f
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+
             SliderControl("Scale", widget.scale, 0.5f, 3f) { onUpdate(
                 when(widget) {
                     is TasbihWidget.StringBeadWidget -> widget.copy(scale = it)
@@ -550,6 +588,7 @@ private fun TasbihWidgetConfigSheet(
                     is TasbihWidget.CounterWidget -> widget.copy(scale = it)
                     is TasbihWidget.ProgressCircleWidget -> widget.copy(scale = it)
                     is TasbihWidget.MeaningWidget -> widget.copy(scale = it)
+                    is TasbihWidget.CustomText -> widget.copy(scale = it)
                 }
             )}
 

@@ -60,6 +60,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaizen.khushu.data.model.TasbeehCollection
+import com.kaizen.khushu.data.repository.UserSettings
 import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
@@ -71,6 +72,7 @@ fun TasbeehImmersiveScreen(
     viewModel: TasbeehViewModel,
     canvasViewModel: TasbeehCanvasViewModel,
     collection: TasbeehCollection,
+    settings: UserSettings,
     onExit: () -> Unit,
     beadStyle: BeadStyle = BeadStyle.CLASSIC_AMBER,
 ) {
@@ -80,6 +82,9 @@ fun TasbeehImmersiveScreen(
     val focusRequester = remember { FocusRequester() }
 
     val layout by canvasViewModel.layout.collectAsStateWithLifecycle()
+    val activeBeadStyle = remember(settings.activeBeadStyleId, settings.customBeadStyles) {
+        settings.customBeadStyles.find { it.id == settings.activeBeadStyleId }
+    }
 
     // Hide system bars
     DisposableEffect(Unit) {
@@ -106,32 +111,35 @@ fun TasbeehImmersiveScreen(
     val controlXAnim = remember { Animatable(0f) }
     val controlYAnim = remember { Animatable(0.5f) }
     val scope = rememberCoroutineScope()
-    val stringSpring = spring<Float>(
-        dampingRatio = Spring.DampingRatioMediumBouncy,
-        stiffness = Spring.StiffnessMedium,
+    
+    // Physics constants from settings
+    val wobbleSpring = spring<Float>(
+        dampingRatio = settings.wobbleDampingRatio,
+        stiffness = settings.wobbleStiffness,
     )
 
     // --- Bead drag state ---
+    // 1.0 = bottom, 0.0 = top
     val activeBeadProgress = remember { Animatable(1f) }
     var isBeadDragActive by remember { mutableStateOf(false) }
 
     // --- Gesture / interaction state ---
     var thumbPosition by remember { mutableStateOf<Offset?>(null) }
     
-    // --- Reset state (mirroring Salah) ---
+    // --- Reset state ---
     var resetProgress by remember { mutableFloatStateOf(0f) }
     var resetArmed by remember { mutableStateOf(false) }
     var showResetOverlay by remember { mutableStateOf(false) }
 
     fun countUp() {
-        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         currentCount++
         
         // --- String Twang Effect ---
         scope.launch {
-            controlXAnim.animateTo(15f, spring(stiffness = Spring.StiffnessHigh))
-            controlXAnim.animateTo(-10f, spring(stiffness = Spring.StiffnessHigh))
-            controlXAnim.animateTo(0f, spring(stiffness = Spring.StiffnessMedium))
+            controlXAnim.animateTo(20f, spring(stiffness = Spring.StiffnessHigh))
+            controlXAnim.animateTo(-15f, spring(stiffness = Spring.StiffnessHigh))
+            controlXAnim.animateTo(0f, wobbleSpring)
         }
 
         if (currentCount >= currentTarget) {
@@ -150,6 +158,13 @@ fun TasbeehImmersiveScreen(
         } else if (currentItemIndex > 0) {
             currentItemIndex--
             currentCount = items[currentItemIndex].targetCount - 1
+        }
+        
+        // Inverse Twang
+        scope.launch {
+            controlXAnim.animateTo(-15f, spring(stiffness = Spring.StiffnessHigh))
+            controlXAnim.animateTo(10f, spring(stiffness = Spring.StiffnessHigh))
+            controlXAnim.animateTo(0f, wobbleSpring)
         }
     }
 
@@ -211,6 +226,7 @@ fun TasbeehImmersiveScreen(
                         countedBeads = currentCount,
                         totalBeads = currentTarget,
                         beadStyle = beadStyle,
+                        customBeadStyle = activeBeadStyle,
                         activeBeadProgress = if (widget is TasbihWidget.StringBeadWidget && isBeadDragActive)
                             activeBeadProgress.value else null,
                         thumbPosition = if (widget is TasbihWidget.StringBeadWidget) {
@@ -220,6 +236,9 @@ fun TasbeehImmersiveScreen(
                                 Offset(t.x - widgetScreenX, t.y - widgetScreenY)
                             }
                         } else null,
+                        elasticity = settings.stringElasticity,
+                        microScale = settings.beadMicroScale,
+                        isTouchActive = thumbPosition != null
                     )
                 }
             }
@@ -237,23 +256,26 @@ fun TasbeehImmersiveScreen(
                             val down = awaitFirstDown()
                             down.consume()
 
-                            val beadRadiusPx = BEAD_RADIUS_DP * density
                             val stringScreenX = (stringWidget?.offsetX ?: 0.88f) * screenWidth
-                            val stringBottomScreenY = screenHeight * 0.95f - beadRadiusPx
-
                             val touchScreenX = down.position.x
                             val touchScreenY = down.position.y
-
                             val dx = touchScreenX - stringScreenX
-                            val dy = touchScreenY - stringBottomScreenY
-                            val isBeadHit = kotlin.math.abs(dx) < 60f * density && kotlin.math.abs(dy) < 80f * density
 
+                            // Detect if we hit the string horizontally
+                            val isStringHit = kotlin.math.abs(dx) < 60f * density
+                            
+                            // 1.0 = bottom anchor, 0.0 = top anchor
+                            // Determine if we are starting drag from bottom half (inc) or top half (dec)
+                            val isStartingFromBottom = touchScreenY > screenHeight * 0.5f
+                            val isBeadHit = isStringHit && !showResetOverlay
+
+                            var dragDirectionIsDown = false
                             val startY = down.position.y
                             var hasSwiped = false
                             var localResetArmed = false
-                            var hasCounted = false
+                            var hasFinishedGesture = false
 
-                            // Hold to Reset logic (mirroring Salah)
+                            // Hold to Reset logic
                             val holdJob = if (!isBeadHit) {
                                 scope.launch {
                                     kotlinx.coroutines.delay(200)
@@ -271,9 +293,15 @@ fun TasbeehImmersiveScreen(
                                 }
                             } else null
 
-                            val stringCenterX = stringScreenX
                             val stringTopY = screenHeight * 0.05f
                             val stringHeightPx = screenHeight * 0.9f
+
+                            if (isBeadHit) {
+                                isBeadDragActive = true
+                                // Initialize active bead progress based on where we started
+                                val initialProgress = (touchScreenY - stringTopY) / stringHeightPx
+                                scope.launch { activeBeadProgress.snapTo(initialProgress.coerceIn(0f, 1f)) }
+                            }
 
                             while (true) {
                                 val event = awaitPointerEvent()
@@ -285,13 +313,13 @@ fun TasbeehImmersiveScreen(
                                 thumbPosition = Offset(absX, absY)
 
                                 // String physics follows thumb
-                                val targetX = (absX - stringCenterX).coerceIn(-120f, 120f)
+                                val targetX = (absX - stringScreenX).coerceIn(-120f, 120f)
                                 val targetYFraction = (absY / screenHeight).coerceIn(0.1f, 0.9f)
-                                scope.launch { controlXAnim.animateTo(targetX, stringSpring) }
-                                scope.launch { controlYAnim.animateTo(targetYFraction, stringSpring) }
+                                scope.launch { controlXAnim.animateTo(targetX, spring(stiffness = Spring.StiffnessHigh)) }
+                                scope.launch { controlYAnim.animateTo(targetYFraction, spring(stiffness = Spring.StiffnessHigh)) }
 
-                                // Swipe down to abort reset
-                                if (!hasSwiped && (absY - startY > 100f)) {
+                                // Reset handling
+                                if (!hasSwiped && (absY - startY > 150f)) {
                                     hasSwiped = true
                                     holdJob?.cancel()
                                     if (showResetOverlay) {
@@ -299,22 +327,10 @@ fun TasbeehImmersiveScreen(
                                     }
                                 }
 
-                                if (isBeadHit && !hasCounted && !showResetOverlay) {
-                                    isBeadDragActive = true
+                                if (isBeadDragActive && !hasFinishedGesture && !showResetOverlay) {
                                     val rawProgress = (absY - stringTopY) / stringHeightPx
                                     val progress = rawProgress.coerceIn(0f, 1f)
                                     scope.launch { activeBeadProgress.snapTo(progress) }
-
-                                    if (progress < 0.3f) {
-                                        hasCounted = true
-                                        holdJob?.cancel()
-                                        scope.launch {
-                                            activeBeadProgress.animateTo(0f, spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh))
-                                            countUp()
-                                            activeBeadProgress.snapTo(1f)
-                                            isBeadDragActive = false
-                                        }
-                                    }
                                 }
                                 if (change.positionChanged()) change.consume()
                             }
@@ -328,19 +344,55 @@ fun TasbeehImmersiveScreen(
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 } else if (overlayWasShown) {
                                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                } else if (isBeadDragActive) {
+                                    // Threshold logic
+                                    if (isStartingFromBottom) {
+                                        // Swipe UP: target is top (0.0)
+                                        if (activeBeadProgress.value < 0.5f) {
+                                            hasFinishedGesture = true
+                                            scope.launch {
+                                                activeBeadProgress.animateTo(0f, spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh))
+                                                countUp()
+                                                activeBeadProgress.snapTo(1f)
+                                                isBeadDragActive = false
+                                            }
+                                        } else {
+                                            scope.launch {
+                                                activeBeadProgress.animateTo(1f, wobbleSpring)
+                                                isBeadDragActive = false
+                                            }
+                                        }
+                                    } else {
+                                        // Swipe DOWN: target is bottom (1.0)
+                                        if (activeBeadProgress.value > 0.5f) {
+                                            hasFinishedGesture = true
+                                            scope.launch {
+                                                activeBeadProgress.animateTo(1f, spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh))
+                                                countDown()
+                                                activeBeadProgress.snapTo(0f)
+                                                isBeadDragActive = false
+                                            }
+                                        } else {
+                                            scope.launch {
+                                                activeBeadProgress.animateTo(0f, wobbleSpring)
+                                                isBeadDragActive = false
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
                             thumbPosition = null
                             showResetOverlay = false
-                            if (isBeadDragActive && !hasCounted) {
+                            if (isBeadDragActive && !hasFinishedGesture) {
                                 scope.launch {
-                                    activeBeadProgress.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
+                                    val target = if (isStartingFromBottom) 1f else 0f
+                                    activeBeadProgress.animateTo(target, wobbleSpring)
                                     isBeadDragActive = false
                                 }
                             }
-                            scope.launch { controlXAnim.animateTo(0f, stringSpring) }
-                            scope.launch { controlYAnim.animateTo(0.5f, stringSpring) }
+                            scope.launch { controlXAnim.animateTo(0f, wobbleSpring) }
+                            scope.launch { controlYAnim.animateTo(0.5f, wobbleSpring) }
 
                             scope.launch {
                                 kotlinx.coroutines.delay(500)
@@ -354,7 +406,7 @@ fun TasbeehImmersiveScreen(
             )
         }
 
-        // --- Reset overlay (exactly like Salah) ---
+        // --- Reset overlay ---
         AnimatedVisibility(
             visible = showResetOverlay,
             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
@@ -388,7 +440,7 @@ fun TasbeehImmersiveScreen(
             }
         }
 
-        // --- Exit button (exactly like Salah) ---
+        // --- Exit button ---
         AnimatedVisibility(
             visible = !showResetOverlay,
             enter = fadeIn(),

@@ -728,6 +728,7 @@ private fun KhushuApp(
                 canvasViewModel = tasbeehCanvasViewModel,
                 collection = collection,
                 beadStyle = beadStyle,
+                settings = settings,
                 onExit = { activeTasbeehCollection = null },
             )
         }
@@ -735,18 +736,14 @@ private fun KhushuApp(
         if (showTasbihCanvasEditor) {
             TasbeehCanvasScreen(
                 viewModel = tasbeehCanvasViewModel,
+                settingsViewModel = settingsViewModel,
                 onExit = { showTasbihCanvasEditor = false }
             )
         }
 
         if (showBeadCustomizer) {
-            val beadStyle = if (settings.tasbihBeadStyle == "DARK_ONYX") BeadStyle.DARK_ONYX else BeadStyle.CLASSIC_AMBER
             TasbihBeadCustomizerSheet(
-                currentStyle = beadStyle,
-                onStyleSelected = { style ->
-                    settingsViewModel.setTasbihBeadStyle(style.name)
-                    showBeadCustomizer = false
-                },
+                settingsViewModel = settingsViewModel,
                 onDismiss = { showBeadCustomizer = false },
             )
         }

@@ -10,10 +10,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kaizen.khushu.data.model.CustomBeadStyle
@@ -143,6 +147,7 @@ fun TasbihWidgetRenderer(
     countedBeads: Int = 0,
     totalBeads: Int = 33,
     beadStyle: BeadStyle = BeadStyle.CLASSIC_AMBER,
+    customBeadStyle: CustomBeadStyle? = null,
     activeBeadProgress: Float? = null,
     thumbPosition: Offset? = null,
     elasticity: Float = 1.8f,
@@ -152,6 +157,26 @@ fun TasbihWidgetRenderer(
 ) {
     when (widget) {
         is TasbihWidget.StringBeadWidget -> {
+            val layoutDirection = LocalLayoutDirection.current
+            val composeDensity = androidx.compose.ui.platform.LocalDensity.current
+            val pathSizePx = BEAD_RADIUS * composeDensity.density * 2f
+            val noiseShader = remember { createNoiseShader(128) }
+            // beadShapeTypeToShape is @Composable so must be called directly, not inside remember lambda
+            val beadShape: Shape? = if (customBeadStyle != null) beadShapeTypeToShape(customBeadStyle.shapeType) else null
+            val baseBeadPath: Path? = remember(beadShape, pathSizePx) {
+                beadShape?.let {
+                    createBeadPath(it, Size(pathSizePx, pathSizePx), layoutDirection, Density(density = composeDensity.density, fontScale = 1f))
+                }
+            }
+            val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
+            val brushCache: BeadBrushCache? = remember(customBeadStyle, pathSizePx) {
+                if (customBeadStyle == null || baseBeadPath == null) null
+                else BeadBrushCache(
+                    noiseBrush = if (customBeadStyle.textureStyle != com.kaizen.khushu.data.model.BeadTextureStyle.SOLID) noiseBrush else null,
+                    specularBrush = buildSpecularBrush(customBeadStyle, Size(pathSizePx, pathSizePx)),
+                    metallicBrush = buildMetallicBrush(customBeadStyle, Size(pathSizePx, pathSizePx)),
+                )
+            }
             Canvas(
                 modifier = modifier
                     .fillMaxHeight(0.9f)
@@ -207,12 +232,30 @@ fun TasbihWidgetRenderer(
                     pm.getPosTan(dist, pos, tan)
                     val center = Offset(pos[0], pos[1])
                     val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, microScale)
-                    drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
+                    if (customBeadStyle != null && baseBeadPath != null && brushCache != null) {
+                        withTransform({
+                            translate(left = center.x - beadRadius, top = center.y - beadRadius)
+                            scale(scaleX = scale, scaleY = scale, pivot = Offset(beadRadius, beadRadius))
+                        }) {
+                            drawPremiumBead(baseBeadPath, customBeadStyle, brushCache)
+                        }
+                    } else {
+                        drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
+                    }
                 }
 
                 if (activeCenter != null) {
                     val scale = fisheyeScale(activeCenter, fisheyeCenter, fisheyeRadius, microScale)
-                    drawBead(activeCenter, beadRadius * scale, alpha = 1f, style = beadStyle)
+                    if (customBeadStyle != null && baseBeadPath != null && brushCache != null) {
+                        withTransform({
+                            translate(left = activeCenter.x - beadRadius, top = activeCenter.y - beadRadius)
+                            scale(scaleX = scale, scaleY = scale, pivot = Offset(beadRadius, beadRadius))
+                        }) {
+                            drawPremiumBead(baseBeadPath, customBeadStyle, brushCache)
+                        }
+                    } else {
+                        drawBead(activeCenter, beadRadius * scale, alpha = 1f, style = beadStyle)
+                    }
                 }
 
                 val remaining = (totalBeads - countedBeads).coerceAtLeast(0)
@@ -242,8 +285,17 @@ fun TasbihWidgetRenderer(
                     val center = Offset(pos[0], pos[1])
                     
                     val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, microScale)
-                    drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
-                    
+                    if (customBeadStyle != null && baseBeadPath != null && brushCache != null) {
+                        withTransform({
+                            translate(left = center.x - beadRadius, top = center.y - beadRadius)
+                            scale(scaleX = scale, scaleY = scale, pivot = Offset(beadRadius, beadRadius))
+                        }) {
+                            drawPremiumBead(baseBeadPath, customBeadStyle, brushCache)
+                        }
+                    } else {
+                        drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
+                    }
+
                     currentDistance += baseSpacing * stretchFactor
                 }
             }
