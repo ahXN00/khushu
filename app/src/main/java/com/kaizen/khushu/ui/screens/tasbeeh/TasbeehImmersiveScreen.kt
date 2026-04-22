@@ -15,11 +15,24 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -104,7 +117,11 @@ fun TasbeehImmersiveScreen(
 
     // --- Gesture / interaction state ---
     var thumbPosition by remember { mutableStateOf<Offset?>(null) }
-    var showExitOverlay by remember { mutableStateOf(false) }
+    
+    // --- Reset state (mirroring Salah) ---
+    var resetProgress by remember { mutableFloatStateOf(0f) }
+    var resetArmed by remember { mutableStateOf(false) }
+    var showResetOverlay by remember { mutableStateOf(false) }
 
     fun countUp() {
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -210,7 +227,6 @@ fun TasbeehImmersiveScreen(
 
         // --- Interaction zones ---
         if (screenWidth > 0f && screenHeight > 0f) {
-            // We use the full screen for gestures now, but hit-test specifically against the string widget's horizontal position
             val stringWidget = layout.widgets.filterIsInstance<TasbihWidget.StringBeadWidget>().firstOrNull()
             
             Box(
@@ -221,7 +237,6 @@ fun TasbeehImmersiveScreen(
                             val down = awaitFirstDown()
                             down.consume()
 
-                            // --- Hit-test: is touch near the string? ---
                             val beadRadiusPx = BEAD_RADIUS_DP * density
                             val stringScreenX = (stringWidget?.offsetX ?: 0.88f) * screenWidth
                             val stringBottomScreenY = screenHeight * 0.95f - beadRadiusPx
@@ -231,16 +246,27 @@ fun TasbeehImmersiveScreen(
 
                             val dx = touchScreenX - stringScreenX
                             val dy = touchScreenY - stringBottomScreenY
-                            
-                            // Hit test radius: wider horizontally (80dp) to make it easier to grab the string
                             val isBeadHit = kotlin.math.abs(dx) < 60f * density && kotlin.math.abs(dy) < 80f * density
 
                             val startY = down.position.y
+                            var hasSwiped = false
+                            var localResetArmed = false
                             var hasCounted = false
 
+                            // Hold to Reset logic (mirroring Salah)
                             val holdJob = scope.launch {
-                                kotlinx.coroutines.delay(350)
-                                if (!isBeadHit) showExitOverlay = true
+                                kotlinx.coroutines.delay(200)
+                                showResetOverlay = true
+                                resetProgress = 0f
+                                resetArmed = false
+
+                                for (i in 1..20) {
+                                    kotlinx.coroutines.delay(40)
+                                    resetProgress = i / 20f
+                                }
+                                resetArmed = true
+                                localResetArmed = true
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
 
                             val stringCenterX = stringScreenX
@@ -262,7 +288,16 @@ fun TasbeehImmersiveScreen(
                                 scope.launch { controlXAnim.animateTo(targetX, stringSpring) }
                                 scope.launch { controlYAnim.animateTo(targetYFraction, stringSpring) }
 
-                                if (isBeadHit && !hasCounted) {
+                                // Swipe down to abort reset
+                                if (!hasSwiped && (absY - startY > 100f)) {
+                                    hasSwiped = true
+                                    holdJob.cancel()
+                                    if (showResetOverlay) {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                }
+
+                                if (isBeadHit && !hasCounted && !showResetOverlay) {
                                     isBeadDragActive = true
                                     val rawProgress = (absY - stringTopY) / stringHeightPx
                                     val progress = rawProgress.coerceIn(0f, 1f)
@@ -278,20 +313,24 @@ fun TasbeehImmersiveScreen(
                                             isBeadDragActive = false
                                         }
                                     }
-                                } else if (!isBeadHit) {
-                                    if (showExitOverlay && (absY - startY) > 240f) {
-                                        holdJob.cancel()
-                                        showExitOverlay = false
-                                        onExit()
-                                        return@awaitEachGesture
-                                    }
                                 }
                                 if (change.positionChanged()) change.consume()
                             }
 
                             holdJob.cancel()
+                            val overlayWasShown = showResetOverlay
+
+                            if (!hasSwiped) {
+                                if (localResetArmed) {
+                                    currentCount = 0
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                } else if (overlayWasShown) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+
                             thumbPosition = null
-                            showExitOverlay = false
+                            showResetOverlay = false
                             if (isBeadDragActive && !hasCounted) {
                                 scope.launch {
                                     activeBeadProgress.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
@@ -300,30 +339,74 @@ fun TasbeehImmersiveScreen(
                             }
                             scope.launch { controlXAnim.animateTo(0f, stringSpring) }
                             scope.launch { controlYAnim.animateTo(0.5f, stringSpring) }
+
+                            scope.launch {
+                                kotlinx.coroutines.delay(500)
+                                if (!showResetOverlay) {
+                                    resetProgress = 0f
+                                    resetArmed = false
+                                }
+                            }
                         }
                     }
             )
         }
 
-        // --- Exit overlay pill ---
+        // --- Reset overlay (exactly like Salah) ---
         AnimatedVisibility(
-            visible = showExitOverlay,
+            visible = showResetOverlay,
             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 56.dp),
+                .padding(top = 48.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(50))
-                    .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(50))
-                    .padding(horizontal = 28.dp, vertical = 14.dp),
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(50))
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        progress = { resetProgress },
+                        modifier = Modifier.size(24.dp),
+                        color = if (resetArmed) MaterialTheme.colorScheme.error else Color.White,
+                        trackColor = Color.White.copy(alpha = 0.2f),
+                        strokeWidth = 3.dp
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Text(
+                        text = if (resetArmed) "Release to Reset  ·  Swipe Down to Abort" else "Holding to Reset...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (resetArmed) MaterialTheme.colorScheme.error else Color.White
+                    )
+                }
+            }
+        }
+
+        // --- Exit button (exactly like Salah) ---
+        AnimatedVisibility(
+            visible = !showResetOverlay,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 48.dp)
+        ) {
+            OutlinedButton(
+                onClick = onExit,
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White.copy(alpha = 0.2f)
+                )
+            ) {
                 Text(
-                    text = "Hold to exit",
-                    color = Color.White.copy(alpha = 0.7f),
+                    text = "Exit",
+                    style = MaterialTheme.typography.bodyLarge
                 )
             }
         }
