@@ -177,6 +177,7 @@ fun TasbihWidgetRenderer(
                     metallicBrush = buildMetallicBrush(customBeadStyle, Size(pathSizePx, pathSizePx)),
                 )
             }
+            val stringPath = remember { Path() }
             Canvas(
                 modifier = modifier
                     .fillMaxHeight(0.9f)
@@ -189,10 +190,10 @@ fun TasbihWidgetRenderer(
                 val controlX = cx + stringControlXOffset
                 val controlY = size.height * stringControlYFraction
 
-                val path = Path().apply {
-                    moveTo(cx, 0f)
-                    quadraticTo(controlX, controlY, cx, size.height)
-                }
+                stringPath.reset()
+                stringPath.moveTo(cx, 0f)
+                stringPath.quadraticTo(controlX, controlY, cx, size.height)
+                val path = stringPath
 
                 drawPath(
                     path = path,
