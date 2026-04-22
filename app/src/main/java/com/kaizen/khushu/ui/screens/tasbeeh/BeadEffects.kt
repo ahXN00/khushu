@@ -5,6 +5,7 @@ import android.graphics.Shader
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -184,4 +185,50 @@ fun DrawScope.drawBeadMetallicSheen(path: Path, metallicBrush: Brush?) {
     withTransform({ clipPath(path) }) {
         drawRect(brush = metallicBrush, blendMode = BlendMode.Overlay, alpha = 0.75f)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Brush cache bundle
+// ---------------------------------------------------------------------------
+
+/** Bundles all pre-computed Brush instances for a bead. Cache with remember(style, pathSize). */
+data class BeadBrushCache(
+    val noiseBrush: ShaderBrush?,
+    val specularBrush: Brush?,
+    val metallicBrush: Brush?,
+)
+
+// ---------------------------------------------------------------------------
+// Brush builders — call inside remember(style, pathSize) { } at composable level
+// ---------------------------------------------------------------------------
+
+/** Builds the specular highlight Brush for a path of the given size, or null if disabled. */
+fun buildSpecularBrush(style: CustomBeadStyle, pathSize: Size): Brush? {
+    if (!style.is3dEnabled || style.specularity <= 0f) return null
+    val alpha = (style.specularity * 0.65f).coerceIn(0f, 0.65f)
+    return Brush.radialGradient(
+        colors = listOf(Color.White.copy(alpha = alpha), Color.Transparent),
+        center = Offset(pathSize.width * 0.28f, pathSize.height * 0.22f),
+        radius = pathSize.width * 0.72f,
+    )
+}
+
+/** Builds the metallic sheen Brush for a path of the given size, or null if disabled. */
+fun buildMetallicBrush(style: CustomBeadStyle, pathSize: Size): Brush? {
+    if (!style.metallicSheen) return null
+    val base = Color(style.baseColor)
+    val light = base.copy(
+        red   = (base.red   * 1.55f).coerceAtMost(1f),
+        green = (base.green * 1.55f).coerceAtMost(1f),
+        blue  = (base.blue  * 1.55f).coerceAtMost(1f),
+    )
+    val dark = base.copy(
+        red   = base.red   * 0.5f,
+        green = base.green * 0.5f,
+        blue  = base.blue  * 0.5f,
+    )
+    return Brush.sweepGradient(
+        colors = listOf(dark, light, dark, light, dark, light, dark),
+        center = Offset(pathSize.width / 2f, pathSize.height / 2f),
+    )
 }
