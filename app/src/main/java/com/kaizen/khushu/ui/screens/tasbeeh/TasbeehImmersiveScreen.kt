@@ -254,20 +254,22 @@ fun TasbeehImmersiveScreen(
                             var hasCounted = false
 
                             // Hold to Reset logic (mirroring Salah)
-                            val holdJob = scope.launch {
-                                kotlinx.coroutines.delay(200)
-                                showResetOverlay = true
-                                resetProgress = 0f
-                                resetArmed = false
+                            val holdJob = if (!isBeadHit) {
+                                scope.launch {
+                                    kotlinx.coroutines.delay(200)
+                                    showResetOverlay = true
+                                    resetProgress = 0f
+                                    resetArmed = false
 
-                                for (i in 1..20) {
-                                    kotlinx.coroutines.delay(40)
-                                    resetProgress = i / 20f
+                                    for (i in 1..20) {
+                                        kotlinx.coroutines.delay(40)
+                                        resetProgress = i / 20f
+                                    }
+                                    resetArmed = true
+                                    localResetArmed = true
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 }
-                                resetArmed = true
-                                localResetArmed = true
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            }
+                            } else null
 
                             val stringCenterX = stringScreenX
                             val stringTopY = screenHeight * 0.05f
@@ -291,7 +293,7 @@ fun TasbeehImmersiveScreen(
                                 // Swipe down to abort reset
                                 if (!hasSwiped && (absY - startY > 100f)) {
                                     hasSwiped = true
-                                    holdJob.cancel()
+                                    holdJob?.cancel()
                                     if (showResetOverlay) {
                                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     }
@@ -305,7 +307,7 @@ fun TasbeehImmersiveScreen(
 
                                     if (progress < 0.3f) {
                                         hasCounted = true
-                                        holdJob.cancel()
+                                        holdJob?.cancel()
                                         scope.launch {
                                             activeBeadProgress.animateTo(0f, spring(Spring.DampingRatioNoBouncy, Spring.StiffnessHigh))
                                             countUp()
@@ -317,7 +319,7 @@ fun TasbeehImmersiveScreen(
                                 if (change.positionChanged()) change.consume()
                             }
 
-                            holdJob.cancel()
+                            holdJob?.cancel()
                             val overlayWasShown = showResetOverlay
 
                             if (!hasSwiped) {
