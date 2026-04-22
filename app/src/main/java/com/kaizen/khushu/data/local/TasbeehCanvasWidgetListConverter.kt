@@ -18,6 +18,7 @@ class TasbeehCanvasWidgetListConverter {
                 subclass(TasbihWidget.CounterWidget.serializer())
                 subclass(TasbihWidget.ProgressCircleWidget.serializer())
                 subclass(TasbihWidget.MeaningWidget.serializer())
+                subclass(TasbihWidget.CustomText.serializer())
             }
         }
     }

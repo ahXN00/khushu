@@ -4,38 +4,39 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasbeehCustomizeScreen(
     viewModel: SettingsViewModel,
-    onPreview: () -> Unit = {},
-    onCustomizeBeads: () -> Unit = {},
+    onPreview: () -> Unit,
+    onCustomizeBeads: () -> Unit,
     onBack: () -> Unit
 ) {
-    val settings by viewModel.settings.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { SettingsTopBarTitle("Tasbeeh Visuals", scrollBehavior) },
+                title = { SettingsTopBarTitle("Tasbih Visuals", scrollBehavior) },
                 navigationIcon = { SettingsBackButton(onBack) },
                 scrollBehavior = scrollBehavior
             )
-        }
-    ) { paddingValues ->
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
         Column(
             modifier = Modifier
+                .padding(padding)
                 .fillMaxSize()
-                .padding(paddingValues)
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
@@ -51,27 +52,99 @@ fun TasbeehCustomizeScreen(
                 detail = "Choose Classic Amber or Dark Onyx",
                 onClick = onCustomizeBeads
             )
-            Spacer(Modifier.height(16.dp))
-            SectionHeader("Interface")
+
+            SectionHeader("Visual Effects")
             SettingsToggle(
-                title = "Vibrate on Count",
-                subtitle = "Feel a subtle vibration on each tap",
-                checked = settings.vibrationOnCount,
-                onCheckedChange = { viewModel.toggleVibrationOnCount(it) }
-            )
-            SettingsToggle(
-                title = "Show Lap Counter",
-                subtitle = "Track completed sets of 33 or 99",
-                checked = settings.showLapCounter,
-                onCheckedChange = { viewModel.toggleShowLapCounter(it) }
-            )
-            SettingsToggle(
-                title = "Dynamic Card Colors",
-                subtitle = "Assign colors automatically based on theme",
+                title = "Dynamic Colors",
+                subtitle = "Apply collection color automatically based on theme",
                 checked = settings.tasbeehDynamicColors,
                 onCheckedChange = { viewModel.toggleTasbeehDynamicColors(it) }
             )
+
+            SectionHeader("String Physics")
+            PhysicsSlider(
+                label = "String Elasticity",
+                value = settings.stringElasticity,
+                range = 1.0f..2.5f,
+                onValueChange = { viewModel.setStringElasticity(it) }
+            )
+            PhysicsSlider(
+                label = "Wobble Stiffness",
+                value = settings.wobbleStiffness,
+                range = 50f..300f,
+                onValueChange = { viewModel.setWobbleStiffness(it) }
+            )
+            PhysicsSlider(
+                label = "Wobble Damping",
+                value = settings.wobbleDampingRatio,
+                range = 0.1f..1.0f,
+                onValueChange = { viewModel.setWobbleDampingRatio(it) }
+            )
+            PhysicsSlider(
+                label = "Bead Micro-Scale",
+                value = settings.beadMicroScale,
+                range = 1.0f..1.5f,
+                onValueChange = { viewModel.setBeadMicroScale(it) }
+            )
+            
             Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun PhysicsSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = String.format("%.2f", value),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = range,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun MenuSectionItem(title: String, detail: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 16.dp)
+        ) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

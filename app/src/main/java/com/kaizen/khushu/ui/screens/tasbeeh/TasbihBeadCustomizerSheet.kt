@@ -142,7 +142,7 @@ fun TasbihBeadCustomizerSheet(
             ) {
                 Text(
                     text = "Design Your Bead",
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     fontFamily = BeVietnamPro,
                     fontWeight = FontWeight.Bold
                 )

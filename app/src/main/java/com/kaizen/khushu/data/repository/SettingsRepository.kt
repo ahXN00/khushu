@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.kaizen.khushu.data.model.CustomBeadStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.IOException
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -49,6 +52,16 @@ class SettingsRepository(private val context: Context) {
         val SELECTED_RECITER_ID = stringPreferencesKey("selected_reciter_id")
         val SELECTED_SCRIPT = stringPreferencesKey("selected_script")
         val TASBEEH_DYNAMIC_COLORS = booleanPreferencesKey("tasbeeh_dynamic_colors")
+
+        // Tasbih Physics
+        val STRING_ELASTICITY = floatPreferencesKey("string_elasticity")
+        val WOBBLE_STIFFNESS = floatPreferencesKey("wobble_stiffness")
+        val WOBBLE_DAMPING_RATIO = floatPreferencesKey("wobble_damping_ratio")
+        val BEAD_MICRO_SCALE = floatPreferencesKey("bead_micro_scale")
+
+        // Custom Bead Styles
+        val CUSTOM_BEAD_STYLES_JSON = stringPreferencesKey("custom_bead_styles_json")
+        val ACTIVE_BEAD_STYLE_ID = stringPreferencesKey("active_bead_style_id")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -59,6 +72,13 @@ class SettingsRepository(private val context: Context) {
                 throw exception
             }
         }.map { preferences ->
+            val customStylesJson = preferences[PreferencesKeys.CUSTOM_BEAD_STYLES_JSON] ?: "[]"
+            val customStyles = try {
+                Json.decodeFromString<List<CustomBeadStyle>>(customStylesJson)
+            } catch (e: Exception) {
+                emptyList()
+            }
+
             UserSettings(
                 hapticsEnabled = preferences[PreferencesKeys.HAPTICS_ENABLED] ?: true,
                 dynamicColor = preferences[PreferencesKeys.DYNAMIC_COLOR] ?: true,
@@ -94,11 +114,42 @@ class SettingsRepository(private val context: Context) {
                 selectedReciterId = preferences[PreferencesKeys.SELECTED_RECITER_ID] ?: "mishari",
                 selectedScript = preferences[PreferencesKeys.SELECTED_SCRIPT] ?: "uthmani",
                 tasbeehDynamicColors = preferences[PreferencesKeys.TASBEEH_DYNAMIC_COLORS] ?: true,
+                stringElasticity = preferences[PreferencesKeys.STRING_ELASTICITY] ?: 1.8f,
+                wobbleStiffness = preferences[PreferencesKeys.WOBBLE_STIFFNESS] ?: 140f,
+                wobbleDampingRatio = preferences[PreferencesKeys.WOBBLE_DAMPING_RATIO] ?: 0.25f,
+                beadMicroScale = preferences[PreferencesKeys.BEAD_MICRO_SCALE] ?: 1.2f,
+                customBeadStyles = customStyles,
+                activeBeadStyleId = preferences[PreferencesKeys.ACTIVE_BEAD_STYLE_ID] ?: "CLASSIC_AMBER"
             )
         }
 
+    suspend fun updateCustomBeadStyles(styles: List<CustomBeadStyle>) {
+        val json = Json.encodeToString(styles)
+        context.dataStore.edit { it[PreferencesKeys.CUSTOM_BEAD_STYLES_JSON] = json }
+    }
+
+    suspend fun updateActiveBeadStyleId(id: String) {
+        context.dataStore.edit { it[PreferencesKeys.ACTIVE_BEAD_STYLE_ID] = id }
+    }
+
     suspend fun updateTasbeehDynamicColors(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.TASBEEH_DYNAMIC_COLORS] = enabled }
+    }
+
+    suspend fun updateStringElasticity(value: Float) {
+        context.dataStore.edit { it[PreferencesKeys.STRING_ELASTICITY] = value }
+    }
+
+    suspend fun updateWobbleStiffness(value: Float) {
+        context.dataStore.edit { it[PreferencesKeys.WOBBLE_STIFFNESS] = value }
+    }
+
+    suspend fun updateWobbleDampingRatio(value: Float) {
+        context.dataStore.edit { it[PreferencesKeys.WOBBLE_DAMPING_RATIO] = value }
+    }
+
+    suspend fun updateBeadMicroScale(value: Float) {
+        context.dataStore.edit { it[PreferencesKeys.BEAD_MICRO_SCALE] = value }
     }
 
     suspend fun updateHaptics(enabled: Boolean) {
@@ -269,4 +320,10 @@ data class UserSettings(
     val selectedReciterId: String = "mishari",
     val selectedScript: String = "uthmani",
     val tasbeehDynamicColors: Boolean = true,
+    val stringElasticity: Float = 1.8f,
+    val wobbleStiffness: Float = 140f,
+    val wobbleDampingRatio: Float = 0.25f,
+    val beadMicroScale: Float = 1.2f,
+    val customBeadStyles: List<CustomBeadStyle> = emptyList(),
+    val activeBeadStyleId: String = "CLASSIC_AMBER"
 )

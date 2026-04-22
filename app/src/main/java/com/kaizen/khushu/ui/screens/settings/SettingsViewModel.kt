@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.kaizen.khushu.data.model.CustomBeadStyle
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.repository.UserSettings
 import com.kaizen.khushu.util.AppIconManager
@@ -115,6 +116,42 @@ class SettingsViewModel(
 
     fun toggleTasbeehDynamicColors(enabled: Boolean) {
         viewModelScope.launch { repository.updateTasbeehDynamicColors(enabled) }
+    }
+
+    fun setStringElasticity(value: Float) {
+        viewModelScope.launch { repository.updateStringElasticity(value) }
+    }
+
+    fun setWobbleStiffness(value: Float) {
+        viewModelScope.launch { repository.updateWobbleStiffness(value) }
+    }
+
+    fun setWobbleDampingRatio(value: Float) {
+        viewModelScope.launch { repository.updateWobbleDampingRatio(value) }
+    }
+
+    fun setBeadMicroScale(value: Float) {
+        viewModelScope.launch { repository.updateBeadMicroScale(value) }
+    }
+
+    fun saveCustomBeadStyle(style: CustomBeadStyle) {
+        val currentList = settings.value.customBeadStyles.toMutableList()
+        val index = currentList.indexOfFirst { it.id == style.id }
+        if (index != -1) {
+            currentList[index] = style
+        } else {
+            currentList.add(style)
+        }
+        viewModelScope.launch { repository.updateCustomBeadStyles(currentList) }
+    }
+
+    fun deleteCustomBeadStyle(id: String) {
+        val newList = settings.value.customBeadStyles.filter { it.id != id }
+        viewModelScope.launch { repository.updateCustomBeadStyles(newList) }
+    }
+
+    fun setActiveBeadStyleId(id: String) {
+        viewModelScope.launch { repository.updateActiveBeadStyleId(id) }
     }
 
     fun setStartupTab(route: String) {

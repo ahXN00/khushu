@@ -69,6 +69,7 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
                     is TasbihWidget.CounterWidget -> widget.copy(width = width, height = height)
                     is TasbihWidget.ProgressCircleWidget -> widget.copy(width = width, height = height)
                     is TasbihWidget.MeaningWidget -> widget.copy(width = width, height = height)
+                    is TasbihWidget.CustomText -> widget.copy(width = width, height = height)
                 }
             }
         }
@@ -85,6 +86,7 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
             is TasbihWidget.CounterWidget -> widget.copy(offsetX = 0.5f, offsetY = 0.5f)
             is TasbihWidget.ProgressCircleWidget -> widget.copy(offsetX = 0.5f, offsetY = 0.5f)
             is TasbihWidget.MeaningWidget -> widget.copy(offsetX = 0.5f, offsetY = 0.25f)
+            is TasbihWidget.CustomText -> widget.copy(offsetX = 0.5f, offsetY = 0.5f)
         }
         _workingWidgets.update { it + centeredWidget }
     }
@@ -147,11 +149,13 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
                     Alignment.Start -> newX = widthPct / 2f
                     Alignment.CenterHorizontally -> newX = 0.5f
                     Alignment.End -> newX = 1f - (widthPct / 2f)
+                    else -> {}
                 }
                 when (vertical) {
                     Alignment.Top -> newY = heightPct / 2f
                     Alignment.CenterVertically -> newY = 0.5f
                     Alignment.Bottom -> newY = 1f - (heightPct / 2f)
+                    else -> {}
                 }
 
                 when (widget) {
@@ -160,6 +164,7 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
                     is TasbihWidget.CounterWidget -> widget.copy(offsetX = newX, offsetY = newY)
                     is TasbihWidget.ProgressCircleWidget -> widget.copy(offsetX = newX, offsetY = newY)
                     is TasbihWidget.MeaningWidget -> widget.copy(offsetX = newX, offsetY = newY)
+                    is TasbihWidget.CustomText -> widget.copy(offsetX = newX, offsetY = newY)
                 }
             }
         }
