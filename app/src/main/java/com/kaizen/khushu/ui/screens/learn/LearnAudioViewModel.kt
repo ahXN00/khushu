@@ -1,7 +1,9 @@
 package com.kaizen.khushu.ui.screens.learn
 
 import android.content.Context
-import android.media.MediaPlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.asFlow
@@ -30,15 +32,37 @@ class LearnAudioViewModel(private val audioRepo: AudioRepository, private val co
     private val _downloadProgress = MutableStateFlow(-1f)
     val downloadProgress: StateFlow<Float> = _downloadProgress.asStateFlow()
 
-    private var mediaPlayer: MediaPlayer? = null
+    private var mediaController: MediaController? = null
     private var currentTopicId: String? = null
     private var downloadObserverJob: Job? = null
+
+    fun setController(controller: MediaController?) {
+        this.mediaController = controller
+        controller?.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                when (state) {
+                    Player.STATE_BUFFERING -> _audioState.value = AudioState.Loading
+                    Player.STATE_READY -> _audioState.value = AudioState.Playing
+                    Player.STATE_ENDED -> {
+                        _audioState.value = AudioState.Idle
+                        currentTopicId = null
+                    }
+                    Player.STATE_IDLE -> _audioState.value = AudioState.Idle
+                }
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (playWhenReady) _audioState.value = AudioState.Playing
+                else _audioState.value = AudioState.Paused
+            }
+        })
+    }
 
     fun play(topic: LearnTopic) {
         val filename = topic.audioFilename ?: return
         
-        if (currentTopicId == topic.id && mediaPlayer != null) {
-            mediaPlayer?.start()
+        if (currentTopicId == topic.id && mediaController != null) {
+            mediaController?.play()
             _audioState.value = AudioState.Playing
             return
         }
@@ -60,36 +84,25 @@ class LearnAudioViewModel(private val audioRepo: AudioRepository, private val co
     }
 
     private fun playFromAsset(filename: String) {
+        val controller = mediaController ?: return
         try {
-            val afd = context.assets.openFd("audio/$filename")
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                prepare()
-                setOnCompletionListener { 
-                    _audioState.value = AudioState.Idle
-                    currentTopicId = null
-                }
-                start()
-            }
-            _audioState.value = AudioState.Playing
-            afd.close()
+            // Media3 handles assets via asset:/// paths
+            val mediaItem = MediaItem.fromUri("asset:///audio/$filename")
+            controller.setMediaItem(mediaItem)
+            controller.prepare()
+            controller.play()
         } catch (e: Exception) {
             _audioState.value = AudioState.Error(e.message ?: "Failed to play asset")
         }
     }
 
     private fun playFromFile(path: String) {
+        val controller = mediaController ?: return
         try {
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(path)
-                prepare()
-                setOnCompletionListener { 
-                    _audioState.value = AudioState.Idle
-                    currentTopicId = null
-                }
-                start()
-            }
-            _audioState.value = AudioState.Playing
+            val mediaItem = MediaItem.fromUri(path)
+            controller.setMediaItem(mediaItem)
+            controller.prepare()
+            controller.play()
         } catch (e: Exception) {
             _audioState.value = AudioState.Error(e.message ?: "Failed to play file")
         }
@@ -123,14 +136,11 @@ class LearnAudioViewModel(private val audioRepo: AudioRepository, private val co
     }
 
     fun pause() {
-        mediaPlayer?.pause()
-        _audioState.value = AudioState.Paused
+        mediaController?.pause()
     }
 
     fun stop() {
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-        mediaPlayer = null
+        mediaController?.stop()
         currentTopicId = null
         _audioState.value = AudioState.Idle
         _downloadProgress.value = -1f

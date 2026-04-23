@@ -21,10 +21,11 @@ android {
 
     defaultConfig {
         applicationId = "com.kaizen.khushu"
-        minSdk = 31
-        targetSdk = 35
-        versionCode = 48
-        versionName = "0.19.2+$gitHash"
+        minSdk = 30
+        targetSdk = 36
+        versionCode = 49
+        versionName = "0.19.3+$gitHash"
+
 
         buildConfigField("String", "AUDIO_BASE_URL", "\"https://example.com/audio/\"")
 
@@ -93,6 +94,9 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.session)
+    implementation(libs.media3.ui)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -2,6 +2,7 @@ package com.kaizen.khushu.ui.screens.tasbeeh
 
 import android.app.Activity
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -54,6 +55,7 @@ fun TasbeehCanvasScreen(
     settingsViewModel: SettingsViewModel,
     onExit: () -> Unit,
 ) {
+    BackHandler(onBack = onExit)
     val view = LocalView.current
     val window = (LocalContext.current as Activity).window
     val context = LocalContext.current

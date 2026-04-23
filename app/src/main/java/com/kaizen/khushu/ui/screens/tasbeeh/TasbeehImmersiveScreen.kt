@@ -1,6 +1,7 @@
 package com.kaizen.khushu.ui.screens.tasbeeh
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -82,6 +83,8 @@ fun TasbeehImmersiveScreen(
     val focusRequester = remember { FocusRequester() }
 
     val layout by canvasViewModel.layout.collectAsStateWithLifecycle()
+
+    BackHandler(onBack = onExit)
 
     // Hide system bars
     DisposableEffect(Unit) {

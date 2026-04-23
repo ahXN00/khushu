@@ -51,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
@@ -295,7 +296,7 @@ internal fun LearnCard(
         "purification" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
         "prayer", "hadith" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f) to MaterialTheme.colorScheme.onPrimaryContainer
         "duas_adhkar", "recitations", "daily_fortification" -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
-        else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
+        else -> color to contentColorFor(color)
     }
 
     Box(

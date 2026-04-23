@@ -137,7 +137,7 @@ fun AppearanceSettingsScreen(
             )
 
             AnimatedVisibility(
-                visible = !settings.dynamicColor,
+                visible = !settings.dynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
@@ -217,6 +217,15 @@ private fun AccentColorChip(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
+        if (color == colorSeeds["default"]) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = Color.White.copy(alpha = 0.8f)
+            )
+        }
+        
         if (selected) {
             Box(
                 modifier = Modifier

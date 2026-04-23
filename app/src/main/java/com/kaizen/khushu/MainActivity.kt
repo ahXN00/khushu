@@ -7,9 +7,21 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import android.Manifest
+import android.content.ComponentName
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.kaizen.khushu.service.PlaybackService
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -68,10 +80,36 @@ class MainActivity : ComponentActivity() {
     private lateinit var quranViewModel: com.kaizen.khushu.ui.screens.quran.QuranViewModel
     private lateinit var hadithViewModel: com.kaizen.khushu.ui.screens.hadith.HadithViewModel
 
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private val media3Controller: MediaController?
+        get() = if (controllerFuture?.isDone == true) controllerFuture?.get() else null
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    override fun onStart() {
+        super.onStart()
+        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        controllerFuture?.let {
+            MediaController.releaseFuture(it)
+        }
+        controllerFuture = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
 
         settingsRepository = SettingsRepository(applicationContext)
         settingsViewModel = SettingsViewModel(settingsRepository, applicationContext)
@@ -155,7 +193,8 @@ class MainActivity : ComponentActivity() {
                         learnAudioViewModel = learnAudioViewModel,
                         quranViewModel = quranViewModel,
                         hadithViewModel = hadithViewModel,
-                        darkTheme = darkTheme
+                        darkTheme = darkTheme,
+                        media3Controller = media3Controller
                     )
                 }
             }
@@ -185,15 +224,9 @@ private fun KhushuApp(
     learnAudioViewModel: LearnAudioViewModel,
     quranViewModel: com.kaizen.khushu.ui.screens.quran.QuranViewModel,
     hadithViewModel: com.kaizen.khushu.ui.screens.hadith.HadithViewModel,
-    darkTheme: Boolean
+    darkTheme: Boolean,
+    media3Controller: MediaController?
 ) {
-    var immersiveRakats by remember { mutableStateOf<Int?>(null) }
-    var immersivePresetId by remember { mutableStateOf("signature") }
-    var activeTasbeehCollection by remember { mutableStateOf<TasbeehCollection?>(null) }
-    var showBeadCustomizer by remember { mutableStateOf(false) }
-    var showTasbihCanvasEditor by remember { mutableStateOf(false) }
-    var showCanvasEditor by remember { mutableStateOf(false) }
-    var canvasEditorRakats by remember { mutableIntStateOf(4) }
     var showCreateSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
     val navController = rememberNavController()
@@ -245,11 +278,10 @@ private fun KhushuApp(
                     ) {
                         SalahPickerScreen(
                             onStartSalah = { rakats, presetId ->
-                                immersiveRakats = rakats
-                                immersivePresetId = presetId ?: "current"
+                                navController.navigate("salah/immersive/$rakats/${presetId ?: "signature"}")
                             },
-                            onSettingsClick = { showSettingsSheet = true },
-                            hazeState = hazeState,
+                            onSettingsClick = { navController.navigate(SETTINGS_ROUTE) },
+                            hazeState = hazeState
                         )
                     }
 
@@ -264,7 +296,7 @@ private fun KhushuApp(
                             viewModel = tasbeehViewModel,
                             settingsViewModel = settingsViewModel,
                             onCollectionTap = { collection ->
-                                activeTasbeehCollection = collection
+                                navController.navigate("tasbeeh/immersive/${collection.id}")
                             },
                             onEditCollection = { showCreateSheet = true },
                             onSettingsClick = { showSettingsSheet = true },
@@ -283,14 +315,12 @@ private fun KhushuApp(
                         route = AppDestinations.LEARN.route,
                         enterTransition = { tabEnter() },
                         exitTransition = {
-                            if (targetState.destination.route?.startsWith("learn_detail") == true)
-                                scaleOut(targetScale = 0.85f, animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)) +
-                                        fadeOut(animationSpec = spring(stiffness = 800f))
-                            else tabExit()
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popEnterTransition = {
-                            fadeIn(animationSpec = spring(stiffness = 800f)) +
-                                    scaleIn(initialScale = 0.85f, animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f))
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = { tabExit() },
                     ) {
@@ -311,7 +341,7 @@ private fun KhushuApp(
                                     navController.navigate("learn_card/$topicId")
                                 }
                             },
-                            onSettingsClick = { showSettingsSheet = true },
+                            onSettingsClick = { navController.navigate(SETTINGS_ROUTE) },
                             hazeState = hazeState,
                             contentPadding = PaddingValues(top = topClearance, bottom = pillClearance),
                             settingsViewModel = settingsViewModel
@@ -320,8 +350,16 @@ private fun KhushuApp(
 
                     composable(
                         route = "quran",
-                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(dampingRatio = 0.8f, stiffness = 400f)) },
-                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(dampingRatio = 0.8f, stiffness = 400f)) },
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(M3Duration, easing = EmphasizedEasing)) },
                     ) {
                         com.kaizen.khushu.ui.screens.quran.QuranSurahListScreen(
                             onSurahTap = { num -> navController.navigate("quran/$num") },
@@ -332,23 +370,40 @@ private fun KhushuApp(
                     composable(
                         route = "quran/{surahNumber}",
                         arguments = listOf(navArgument("surahNumber") { type = NavType.IntType }),
-                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(dampingRatio = 0.8f, stiffness = 400f)) },
-                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(dampingRatio = 0.8f, stiffness = 400f)) },
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(M3Duration, easing = EmphasizedEasing)) },
                     ) { backStackEntry ->
                         val surahNumber = backStackEntry.arguments?.getInt("surahNumber") ?: 1
                         com.kaizen.khushu.ui.screens.quran.QuranReaderScreen(
                             surahNumber = surahNumber,
                             onBack = { navController.popBackStack() },
                             viewModel = quranViewModel,
-                            settingsViewModel = settingsViewModel
+                            settingsViewModel = settingsViewModel,
+                            media3Controller = media3Controller
                         )
                     }
 
                     composable(
                         route = "hadith/{bookId}",
                         arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
-                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(dampingRatio = 0.8f, stiffness = 400f)) },
-                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(dampingRatio = 0.8f, stiffness = 400f)) },
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(M3Duration, easing = EmphasizedEasing)) },
                     ) { backStackEntry ->
                         val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
                         val book = com.kaizen.khushu.data.model.BUNDLED_HADITH_BOOKS.find { it.id == bookId }
@@ -371,8 +426,16 @@ private fun KhushuApp(
                             navArgument("sectionNum") { type = NavType.IntType },
                             navArgument("sectionTitle") { type = NavType.StringType }
                         ),
-                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, spring(dampingRatio = 0.8f, stiffness = 400f)) },
-                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, spring(dampingRatio = 0.8f, stiffness = 400f)) },
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(M3Duration, easing = EmphasizedEasing)) },
                     ) { backStackEntry ->
                         val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
                         val sectionNum = backStackEntry.arguments?.getInt("sectionNum") ?: 0
@@ -395,13 +458,21 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) { backStackEntry ->
@@ -436,13 +507,21 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) { backStackEntry ->
@@ -456,6 +535,7 @@ private fun KhushuApp(
                                 topic = topic,
                                 settingsViewModel = settingsViewModel,
                                 learnAudioViewModel = learnAudioViewModel,
+                                media3Controller = media3Controller,
                                 onBack = { navController.popBackStack() },
                                 initialAyahIndex = ayahIndex
                             )
@@ -467,20 +547,24 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) {
-                        BackHandler {
-                            navController.popBackStack()
-                            showSettingsSheet = true
-                        }
                         SettingsScreen(
                             viewModel = settingsViewModel,
                             onNavigateCounter = {
@@ -491,7 +575,6 @@ private fun KhushuApp(
                             },
                             onBack = {
                                 navController.popBackStack()
-                                showSettingsSheet = true
                             }
                         )
                     }
@@ -501,13 +584,21 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) {
@@ -522,13 +613,21 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) {
@@ -543,20 +642,24 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) {
-                        BackHandler {
-                            navController.popBackStack()
-                            showSettingsSheet = true
-                        }
                         CustomizeScreen(
                             onNavigateBranding = {
                                 navController.navigate(CUSTOMIZE_BRANDING_ROUTE)
@@ -567,7 +670,6 @@ private fun KhushuApp(
                             },
                             onBack = {
                                 navController.popBackStack()
-                                showSettingsSheet = true
                             }
                         )
                     }
@@ -577,21 +679,28 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) {
                         SalahCustomizeScreen(
                             viewModel = settingsViewModel,
                             onCustomizeLayout = { rakats ->
-                                canvasEditorRakats = rakats
-                                showCanvasEditor = true
+                                navController.navigate("salah/canvas/$rakats")
                             },
                             onBack = { navController.popBackStack() }
                         )
@@ -602,20 +711,28 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) {
                         TasbeehCustomizeScreen(
                             viewModel = settingsViewModel,
-                            onPreview = { showTasbihCanvasEditor = true },
-                            onCustomizeBeads = { showBeadCustomizer = true },
+                            onPreview = { navController.navigate(TASBEEH_CANVAS_ROUTE) },
+                            onCustomizeBeads = { navController.navigate(BEAD_CUSTOMIZER_ROUTE) },
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -625,19 +742,128 @@ private fun KhushuApp(
                         enterTransition = {
                             slideIntoContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Left,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+                                    scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing))
                         },
                         popExitTransition = {
                             slideOutOfContainer(
                                 AnimatedContentTransitionScope.SlideDirection.Right,
-                                spring(dampingRatio = 0.8f, stiffness = 400f)
+                                tween(M3Duration, easing = EmphasizedEasing)
                             )
                         },
                     ) {
                         BrandingSettingsScreen(
                             settingsViewModel = settingsViewModel,
                             onBack = { navController.popBackStack() },
+                        )
+                    }
+
+                    // --- NEW IMMERSIVE & EDITOR ROUTES ---
+
+                    composable(
+                        route = TASBEEH_IMMERSIVE_ROUTE,
+                        arguments = listOf(navArgument("collectionId") { type = NavType.StringType }),
+                        enterTransition = { fadeIn(tween(M3Duration, easing = EmphasizedEasing)) + scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = { fadeOut(tween(M3Duration, easing = EmphasizedEasing)) + scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing)) },
+                    ) { backStackEntry ->
+                        val collectionId = backStackEntry.arguments?.getString("collectionId") ?: ""
+                        val collection = tasbeehViewModel.collections.value.find { it.id.toString() == collectionId }
+                        if (collection != null) {
+                            val beadStyle = if (settings.tasbihBeadStyle == "DARK_ONYX") BeadStyle.DARK_ONYX else BeadStyle.CLASSIC_AMBER
+                            TasbeehImmersiveScreen(
+                                viewModel = tasbeehViewModel,
+                                canvasViewModel = tasbeehCanvasViewModel,
+                                collection = collection,
+                                beadStyle = beadStyle,
+                                settings = settings,
+                                onExit = { navController.popBackStack() },
+                            )
+                        }
+                    }
+
+                    composable(
+                        route = SALAH_IMMERSIVE_ROUTE,
+                        arguments = listOf(
+                            navArgument("rakats") { type = NavType.IntType },
+                            navArgument("presetId") { type = NavType.StringType }
+                        ),
+                        enterTransition = { fadeIn(tween(M3Duration, easing = EmphasizedEasing)) + scaleIn(initialScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = { fadeOut(tween(M3Duration, easing = EmphasizedEasing)) + scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing)) },
+                    ) { backStackEntry ->
+                        val rakats = backStackEntry.arguments?.getInt("rakats") ?: 2
+                        val presetId = backStackEntry.arguments?.getString("presetId") ?: "signature"
+                        
+                        val activeLayout by salahCanvasViewModel.layout.collectAsStateWithLifecycle()
+                        val currentCanvasPreset = CanvasPreset(
+                            id = "current",
+                            name = "Current Canvas",
+                            backgroundColor = activeLayout.backgroundColorInt,
+                            widgets = activeLayout.widgets,
+                            isDeletable = false
+                        )
+                        var finalPresetToRender = currentCanvasPreset
+                        if (presetId != "current") {
+                            val dbPreset by salahCanvasViewModel.getPresetFlow(presetId).collectAsStateWithLifecycle(initialValue = null)
+                            if (dbPreset != null) finalPresetToRender = dbPreset!!
+                        }
+
+                        SalahImmersiveScreen(
+                            targetRakats = rakats,
+                            preset = finalPresetToRender,
+                            showExitButton = settings.showExitButton,
+                            showCompletionText = settings.showCompletionText,
+                            completionText = settings.completionText.ifBlank { "الحمد لله" },
+                            onComplete = { navController.popBackStack() },
+                            onExit = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = SALAH_CANVAS_ROUTE,
+                        arguments = listOf(navArgument("rakats") { type = NavType.IntType }),
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = { fadeOut(tween(M3Duration, easing = EmphasizedEasing)) + scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing)) },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(M3Duration, easing = EmphasizedEasing)) },
+                    ) { backStackEntry ->
+                        val rakats = backStackEntry.arguments?.getInt("rakats") ?: 4
+                        SalahCanvasScreen(
+                            targetRakats = rakats,
+                            viewModel = salahCanvasViewModel,
+                            onSave = { navController.popBackStack() },
+                            onExit = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = TASBEEH_CANVAS_ROUTE,
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = { fadeOut(tween(M3Duration, easing = EmphasizedEasing)) + scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing)) },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(M3Duration, easing = EmphasizedEasing)) },
+                    ) {
+                        TasbeehCanvasScreen(
+                            viewModel = tasbeehCanvasViewModel,
+                            settingsViewModel = settingsViewModel,
+                            onExit = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = BEAD_CUSTOMIZER_ROUTE,
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(M3Duration, easing = EmphasizedEasing)) },
+                        exitTransition = { fadeOut(tween(M3Duration, easing = EmphasizedEasing)) + scaleOut(targetScale = 0.92f, animationSpec = tween(M3Duration, easing = EmphasizedEasing)) },
+                        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(M3Duration, easing = EmphasizedEasing)) },
+                    ) {
+                        TasbihBeadCustomizerSheet(
+                            settingsViewModel = settingsViewModel,
+                            onDismiss = { navController.popBackStack() }
                         )
                     }
                 }
@@ -674,6 +900,7 @@ private fun KhushuApp(
             FloatingActionButton(
                 onClick = { showCreateSheet = true },
                 containerColor = MaterialTheme.colorScheme.primary,
+
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = MaterialShapes.Square.toShape(),
                 elevation = FloatingActionButtonDefaults.elevation(),
@@ -684,77 +911,6 @@ private fun KhushuApp(
                     modifier = Modifier.size(24.dp),
                 )
             }
-        }
-
-        immersiveRakats?.let { rakats ->
-            val activeLayout by salahCanvasViewModel.layout.collectAsStateWithLifecycle()
-
-            val currentCanvasPreset =
-                CanvasPreset(
-                    id = "current",
-                    name = "Current Canvas",
-                    backgroundColor = activeLayout.backgroundColorInt,
-                    widgets = activeLayout.widgets,
-                    isDeletable = false
-                )
-
-            var finalPresetToRender = currentCanvasPreset
-
-            if (immersivePresetId != "current") {
-                val dbPreset by
-                salahCanvasViewModel
-                    .getPresetFlow(immersivePresetId)
-                    .collectAsStateWithLifecycle(initialValue = null)
-                if (dbPreset != null) {
-                    finalPresetToRender = dbPreset!!
-                }
-            }
-
-            SalahImmersiveScreen(
-                targetRakats = rakats,
-                preset = finalPresetToRender,
-                showExitButton = settings.showExitButton,
-                showCompletionText = settings.showCompletionText,
-                completionText = settings.completionText.ifBlank { "الحمد لله" },
-                onComplete = { immersiveRakats = null },
-                onExit = { immersiveRakats = null }
-            )
-        }
-
-        activeTasbeehCollection?.let { collection ->
-            val beadStyle = if (settings.tasbihBeadStyle == "DARK_ONYX") BeadStyle.DARK_ONYX else BeadStyle.CLASSIC_AMBER
-            TasbeehImmersiveScreen(
-                viewModel = tasbeehViewModel,
-                canvasViewModel = tasbeehCanvasViewModel,
-                collection = collection,
-                beadStyle = beadStyle,
-                settings = settings,
-                onExit = { activeTasbeehCollection = null },
-            )
-        }
-
-        if (showTasbihCanvasEditor) {
-            TasbeehCanvasScreen(
-                viewModel = tasbeehCanvasViewModel,
-                settingsViewModel = settingsViewModel,
-                onExit = { showTasbihCanvasEditor = false }
-            )
-        }
-
-        if (showBeadCustomizer) {
-            TasbihBeadCustomizerSheet(
-                settingsViewModel = settingsViewModel,
-                onDismiss = { showBeadCustomizer = false },
-            )
-        }
-
-        if (showCanvasEditor) {
-            SalahCanvasScreen(
-                targetRakats = canvasEditorRakats,
-                viewModel = salahCanvasViewModel,
-                onSave = { showCanvasEditor = false },
-                onExit = { showCanvasEditor = false }
-            )
         }
     }
 
@@ -782,12 +938,19 @@ private fun KhushuApp(
     }
 }
 
+private val EmphasizedEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
+private const val M3Duration = 500
+
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabEnter(): EnterTransition =
-    fadeIn(animationSpec = spring(stiffness = 800f)) +
+    fadeIn(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
             scaleIn(
                 initialScale = 0.92f,
-                animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
+                animationSpec = tween(M3Duration, easing = EmphasizedEasing)
             )
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabExit(): ExitTransition =
-    fadeOut(animationSpec = spring(stiffness = 800f))
+    fadeOut(animationSpec = tween(M3Duration, easing = EmphasizedEasing)) +
+            scaleOut(
+                targetScale = 0.92f,
+                animationSpec = tween(M3Duration, easing = EmphasizedEasing)
+            )

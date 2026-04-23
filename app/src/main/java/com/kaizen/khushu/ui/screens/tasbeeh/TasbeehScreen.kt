@@ -299,7 +299,7 @@ private fun CollectionDetailSheet(
                 contentPadding = PaddingValues(start = 28.dp, end = 28.dp, bottom = 8.dp),
             ) {
                 item {
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(10.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -335,13 +335,13 @@ private fun CollectionDetailSheet(
                     Spacer(Modifier.height(20.dp))
                 }
 
-                item {
-                    HorizontalDivider(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                }
+//                item {
+//                    HorizontalDivider(
+//                        modifier = Modifier.fillMaxWidth(),
+//                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+//                    )
+//                    Spacer(Modifier.height(16.dp))
+//                }
 
                 items(collection.items) { item ->
                     Row(

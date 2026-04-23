@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.input.pointer.pointerInput
 import android.app.Activity
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -108,6 +109,7 @@ fun SalahCanvasScreen(
     onSave: () -> Unit,
     onExit: () -> Unit,
 ) {
+    BackHandler(onBack = onExit)
     val view = LocalView.current
     val window = (LocalContext.current as Activity).window
     DisposableEffect(Unit) {

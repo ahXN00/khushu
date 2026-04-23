@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kaizen.khushu.ui.screens.learn.LearnCard
@@ -32,7 +34,7 @@ fun QuranSurahListScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -44,38 +46,47 @@ fun QuranSurahListScreen(
                             text = "Quran",
                             fontFamily = BeVietnamPro,
                             fontSize = 32.sp,
-                            color = Color.White
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     },
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.largeTopAppBarColors(
                         containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Black.copy(alpha = 0.9f),
-                        titleContentColor = Color.White
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
             }
         ) { paddingValues ->
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    top = paddingValues.calculateTopPadding() + 8.dp,
-                    end = 16.dp,
-                    bottom = 100.dp
-                ),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize()
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = paddingValues.calculateTopPadding()),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
             ) {
-                items(chapters) { surah ->
-                    LearnCard(
-                        title = "${surah.id} ${surah.nameSimple}",
-                        subtitle = surah.nameArabic,
-                        color = Color(0xFF43A047),
-                        sectionId = "quran",
-                        onClick = { onSurahTap(surah.id) }
-                    )
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        top = 24.dp,
+                        end = 16.dp,
+                        bottom = 100.dp
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(chapters) { surah ->
+                        LearnCard(
+                            title = "${surah.id} ${surah.nameSimple}",
+                            subtitle = surah.nameArabic,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            sectionId = "quran",
+                            onClick = { onSurahTap(surah.id) }
+                        )
+                    }
                 }
             }
         }

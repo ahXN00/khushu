@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.session.MediaController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kaizen.khushu.data.model.AyahBlock
 import com.kaizen.khushu.data.model.ContentBlock
@@ -73,6 +74,7 @@ fun QuranReaderScreen(
     onBack: () -> Unit,
     viewModel: QuranViewModel,
     settingsViewModel: SettingsViewModel,
+    media3Controller: MediaController?,
     quranAudioViewModel: QuranAudioViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
@@ -88,6 +90,10 @@ fun QuranReaderScreen(
     
     val playingAyahIndex by quranAudioViewModel.playingAyahIndex
     val audioState by quranAudioViewModel.audioState
+    
+    LaunchedEffect(media3Controller) {
+        quranAudioViewModel.setController(media3Controller)
+    }
     
     val scheme = readingColorScheme(settings.readingTheme, settings.dynamicColor)
     

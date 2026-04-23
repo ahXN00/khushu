@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -13,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kaizen.khushu.data.model.HadithBook
@@ -39,7 +41,7 @@ fun HadithSectionListScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -51,7 +53,8 @@ fun HadithSectionListScreen(
                             text = book.name,
                             fontFamily = BeVietnamPro,
                             fontSize = 28.sp,
-                            color = Color.White
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     },
                     navigationIcon = {
@@ -59,43 +62,51 @@ fun HadithSectionListScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
                     },
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.largeTopAppBarColors(
                         containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Black.copy(alpha = 0.9f),
-                        titleContentColor = Color.White
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
             }
         ) { paddingValues ->
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        top = paddingValues.calculateTopPadding() + 8.dp,
-                        end = 16.dp,
-                        bottom = 100.dp
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(sections) { section ->
-                        LearnCard(
-                            title = section.title,
-                            color = Color(0xFF673AB7), // Purple theme for Hadith
-                            sectionId = "hadith",
-                            onClick = { onSectionTap(section.number, section.title) }
-                        )
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = paddingValues.calculateTopPadding()),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+            ) {
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            top = 24.dp,
+                            end = 16.dp,
+                            bottom = 100.dp
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(sections) { section ->
+                            LearnCard(
+                                title = section.title,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                sectionId = "hadith",
+                                onClick = { onSectionTap(section.number, section.title) }
+                            )
+                        }
                     }
                 }
             }

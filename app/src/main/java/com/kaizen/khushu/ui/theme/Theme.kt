@@ -1,6 +1,5 @@
 package com.kaizen.khushu.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -10,52 +9,59 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.materialkolor.dynamicColorScheme
+import com.materialkolor.PaletteStyle
 
-val colorSeeds = listOf(
-    "default" to Color(0xFF6650A4),
-    "teal"    to Color(0xFF00695C),
-    "green"   to Color(0xFF2E7D32),
-    "amber"   to Color(0xFFB45309),
-    "red"     to Color(0xFFC62828),
-    "blue"    to Color(0xFF1565C0),
-    "pink"    to Color(0xFFAD1457),
-    "slate"   to Color(0xFF37474F),
+// Map for O(1) lookups
+val colorSeeds = mapOf(
+    "default" to Color(0xFF424746), // Neutral Charcoal for Default/System fallback
+    "teal"    to Color(0xFF004D40),
+    "green"   to Color(0xFF1B5E20),
+    "amber"   to Color(0xFF795548),
+    "red"     to Color(0xFFB71C1C),
+    "blue"    to Color(0xFF0D47A1),
+    "slate"   to Color(0xFF263238),
 )
 
-fun colorFromSeed(seed: String): Color =
-    colorSeeds.firstOrNull { it.first == seed }?.second ?: Color(0xFF6650A4)
+// The fallback for Android 11 or when dynamic is off
+val DefaultSeedColor = Color(0xFF424746)
 
 @Composable
 fun KhushuTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     pureBlack: Boolean = false,
     colorSeed: String = "default",
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+
     var colorScheme = when {
+        // If Dynamic Color is ON, wallpaper always wins (on supported devices)
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        else -> dynamicColorScheme(
-            seedColor = colorFromSeed(colorSeed),
-            isDark = darkTheme,
-            isAmoled = false
-        )
+        else -> {
+            // Use selected seed with TonalSpot for accurate color matching
+            val seedColor = colorSeeds[colorSeed] ?: DefaultSeedColor
+            dynamicColorScheme(
+                seedColor = seedColor,
+                isDark = darkTheme,
+                isAmoled = pureBlack && darkTheme,
+                style = PaletteStyle.TonalSpot // Standard M3 feel, less color shifting
+            )
+        }
     }
 
-    // Apply Pure Black override if requested and in dark mode
+    // Manual overrides for true OLED black
     if (darkTheme && pureBlack) {
         colorScheme = colorScheme.copy(
-            surface = androidx.compose.ui.graphics.Color.Black,
-            background = androidx.compose.ui.graphics.Color.Black,
-            surfaceContainer = androidx.compose.ui.graphics.Color.Black,
-            surfaceContainerLow = androidx.compose.ui.graphics.Color.Black,
-            surfaceContainerLowest = androidx.compose.ui.graphics.Color.Black,
-            surfaceContainerHigh = androidx.compose.ui.graphics.Color.Black,
-            surfaceContainerHighest = androidx.compose.ui.graphics.Color.Black,
+            surface = Color.Black,
+            background = Color.Black,
+            surfaceContainer = Color.Black,
+            surfaceContainerLow = Color(0xFF080808),
+            surfaceContainerLowest = Color.Black,
+            surfaceContainerHigh = Color(0xFF121212),
+            surfaceContainerHighest = Color(0xFF1A1212),
         )
     }
 

@@ -3,7 +3,9 @@ package com.kaizen.khushu.ui.screens.quran
 import android.app.Application
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.MediaPlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.asFlow
@@ -30,8 +32,26 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
     val currentSurah = mutableStateOf<Int?>(null)
     val playingAyahIndex = mutableStateOf<Int?>(null)
     
-    private var mediaPlayer: MediaPlayer? = null
-    private var nextMediaPlayer: MediaPlayer? = null
+    private var mediaController: MediaController? = null
+    
+    fun setController(controller: MediaController?) {
+        this.mediaController = controller
+        controller?.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                when (state) {
+                    Player.STATE_BUFFERING -> audioState.value = AudioState.Loading
+                    Player.STATE_READY -> audioState.value = AudioState.Playing
+                    Player.STATE_ENDED -> handleAyahCompletion()
+                    Player.STATE_IDLE -> audioState.value = AudioState.Idle
+                }
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (playWhenReady) audioState.value = AudioState.Playing
+                else audioState.value = AudioState.Paused
+            }
+        })
+    }
     
     private val workManager = WorkManager.getInstance(application)
     
@@ -123,84 +143,38 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
         currentReciterId = reciterId
         audioState.value = AudioState.Loading
 
+        val controller = mediaController ?: return
         try {
-            mediaPlayer = createMediaPlayer(dataSource)
-            mediaPlayer?.setOnPreparedListener {
-                it.start()
-                audioState.value = AudioState.Playing
-                if (isSequenceMode) {
-                    prepareNextAyahGapless()
-                }
-            }
-            mediaPlayer?.setOnCompletionListener {
-                handleAyahCompletion()
-            }
-            mediaPlayer?.prepareAsync()
+            val mediaItem = MediaItem.fromUri(dataSource)
+            controller.setMediaItem(mediaItem)
+            controller.prepare()
+            controller.play()
         } catch (e: Exception) {
             audioState.value = AudioState.Error(e.message ?: "Failed to play audio")
         }
     }
 
     private fun handleAyahCompletion() {
-        if (isSequenceMode && nextMediaPlayer != null) {
-            // Transition to the pre-buffered player
-            mediaPlayer?.release()
-            mediaPlayer = nextMediaPlayer
-            nextMediaPlayer = null
-            
-            // Advance the highlighting index
+        if (isSequenceMode) {
             val currentIdx = playingAyahIndex.value ?: -1
             val nextIdx = findNextAyahIndex(currentIdx + 1)
             playingAyahIndex.value = nextIdx
             
             if (nextIdx != null) {
-                audioState.value = AudioState.Playing
-                // Crucial: Set the completion listener for the new primary player
-                mediaPlayer?.setOnCompletionListener { handleAyahCompletion() }
-                prepareNextAyahGapless()
+                val surahNum = currentSurah.value ?: return
+                val reciterId = currentReciterId ?: return
+                val blocks = currentBlocks ?: return
+                val nextUrl = getAyahUrl(surahNum, nextIdx, blocks, reciterId) ?: return
+                
+                val controller = mediaController ?: return
+                controller.setMediaItem(MediaItem.fromUri(nextUrl))
+                controller.prepare()
+                controller.play()
             } else {
                 stop()
             }
         } else {
             stop()
-        }
-    }
-
-    private fun createMediaPlayer(dataSource: String): MediaPlayer {
-        return MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .build()
-            )
-            setDataSource(dataSource)
-            setOnErrorListener { mp, what, extra ->
-                audioState.value = AudioState.Error("Playback error: $what")
-                stop()
-                true
-            }
-        }
-    }
-
-    private fun prepareNextAyahGapless() {
-        val surahNum = currentSurah.value ?: return
-        val reciterId = currentReciterId ?: return
-        val blocks = currentBlocks ?: return
-        val currentIdx = playingAyahIndex.value ?: return
-        
-        val nextIdx = findNextAyahIndex(currentIdx + 1) ?: return
-        val nextUrl = getAyahUrl(surahNum, nextIdx, blocks, reciterId) ?: return
-        
-        try {
-            val next = createMediaPlayer(nextUrl)
-            next.setOnPreparedListener { preparedNext ->
-                mediaPlayer?.setNextMediaPlayer(preparedNext)
-                nextMediaPlayer = preparedNext
-            }
-            next.prepareAsync()
-        } catch (e: Exception) {
-            nextMediaPlayer = null
         }
     }
 
@@ -227,33 +201,15 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun pause() {
-        mediaPlayer?.let {
-            if (it.isPlaying) {
-                it.pause()
-                audioState.value = AudioState.Paused
-            }
-        }
+        mediaController?.pause()
     }
 
     fun resume() {
-        mediaPlayer?.let {
-            it.start()
-            audioState.value = AudioState.Playing
-        }
+        mediaController?.play()
     }
 
     fun stop() {
-        mediaPlayer?.let {
-            try { if (it.isPlaying) it.stop() } catch (e: Exception) {}
-            it.release()
-        }
-        mediaPlayer = null
-        
-        nextMediaPlayer?.let {
-            try { it.release() } catch (e: Exception) {}
-        }
-        nextMediaPlayer = null
-        
+        mediaController?.stop()
         audioState.value = AudioState.Idle
         playingAyahIndex.value = null
         currentSurah.value = null

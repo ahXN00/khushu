@@ -50,11 +50,11 @@ We are constantly dreaming of ways to make Khushu more useful for your daily lif
 
 *   **📅 Prayer Timings & Calendar:** Integrated, beautiful prayer times with a minimalist calendar to help you stay ahead of your schedule.
 *   **🔔 Intelligent Notifications:** Gentle, non-distracting reminders for Sunnah fasts and night prayers (Tahajjud).
+*   **🕌 Widgets:** Beatiful home screen widgets for prayer timing, tasbih.
 *   **🌍 More Languages:** Bringing Khushu to more brothers and sisters globally with community-driven translations.
-
 ---
 
-## 🤝 Sadaqah Jariyah (Contribute)
+## 🤝 Contribution
 
 This project is built by Muslims, for Muslims. We believe that coding, designing, and improving tools for the Ummah is a beautiful form of *Sadaqah Jariyah* (ongoing charity).
 
@@ -68,10 +68,6 @@ Every line of code that helps a fellow Muslim remember Allah is a reward written
 ---
 
 ## 💖 Support the Journey
-
-<p align="center">
-  <i>"Indeed, those who believe and do righteous deeds and establish prayer and give zakah will have their reward with their Lord..." (Quran 2:277)</i>
-</p>
 
 While Khushu is completely free, developing, designing, and maintaining it takes hundreds of hours of love and effort. 
 
