@@ -82,9 +82,6 @@ fun TasbeehImmersiveScreen(
     val focusRequester = remember { FocusRequester() }
 
     val layout by canvasViewModel.layout.collectAsStateWithLifecycle()
-    val activeBeadStyle = remember(settings.activeBeadStyleId, settings.customBeadStyles) {
-        settings.customBeadStyles.find { it.id == settings.activeBeadStyleId }
-    }
 
     // Hide system bars
     DisposableEffect(Unit) {
@@ -119,12 +116,12 @@ fun TasbeehImmersiveScreen(
     )
 
     // --- Bead drag state ---
-    // 1.0 = bottom, 0.0 = top
     val activeBeadProgress = remember { Animatable(1f) }
     var isBeadDragActive by remember { mutableStateOf(false) }
 
-    // --- Gesture / interaction state ---
+    // --- Interaction state ---
     var thumbPosition by remember { mutableStateOf<Offset?>(null) }
+    var widgetsVisible by remember { mutableStateOf(true) }
     
     // --- Reset state ---
     var resetProgress by remember { mutableFloatStateOf(0f) }
@@ -152,19 +149,21 @@ fun TasbeehImmersiveScreen(
     }
 
     fun countDown() {
-        if (currentCount > 0) {
+        if (currentCount > 0 || currentItemIndex > 0) {
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            currentCount--
-        } else if (currentItemIndex > 0) {
-            currentItemIndex--
-            currentCount = items[currentItemIndex].targetCount - 1
-        }
-        
-        // Inverse Twang
-        scope.launch {
-            controlXAnim.animateTo(-15f, spring(stiffness = Spring.StiffnessHigh))
-            controlXAnim.animateTo(10f, spring(stiffness = Spring.StiffnessHigh))
-            controlXAnim.animateTo(0f, wobbleSpring)
+            if (currentCount > 0) {
+                currentCount--
+            } else {
+                currentItemIndex--
+                currentCount = items[currentItemIndex].targetCount - 1
+            }
+            
+            // Inverse Twang
+            scope.launch {
+                controlXAnim.animateTo(-15f, spring(stiffness = Spring.StiffnessHigh))
+                controlXAnim.animateTo(10f, spring(stiffness = Spring.StiffnessHigh))
+                controlXAnim.animateTo(0f, wobbleSpring)
+            }
         }
     }
 
@@ -186,7 +185,7 @@ fun TasbeehImmersiveScreen(
             .focusRequester(focusRequester)
             .focusable()
             .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown) {
+                if (settings.tasbeehVolumeEnabled && event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.VolumeUp -> {
                             countUp()
@@ -207,39 +206,46 @@ fun TasbeehImmersiveScreen(
     ) {
         // --- Widget rendering ---
         if (screenWidth > 0f && screenHeight > 0f) {
-            layout.widgets.sortedBy { it.zIndex }.forEach { widget ->
-                Box(
-                    modifier = Modifier.graphicsLayer {
-                        translationX = (widget.offsetX * screenWidth) - (size.width / 2f)
-                        translationY = (widget.offsetY * screenHeight) - (size.height / 2f)
-                        scaleX = widget.scale
-                        scaleY = widget.scale
-                        transformOrigin = TransformOrigin.Center
-                    }
-                ) {
-                    TasbihWidgetRenderer(
-                        widget = widget,
-                        currentCount = currentCount,
-                        currentItem = currentItem,
-                        stringControlXOffset = controlXAnim.value,
-                        stringControlYFraction = controlYAnim.value,
-                        countedBeads = currentCount,
-                        totalBeads = currentTarget,
-                        beadStyle = beadStyle,
-                        customBeadStyle = activeBeadStyle,
-                        activeBeadProgress = if (widget is TasbihWidget.StringBeadWidget && isBeadDragActive)
-                            activeBeadProgress.value else null,
-                        thumbPosition = if (widget is TasbihWidget.StringBeadWidget) {
-                            thumbPosition?.let { t ->
-                                val widgetScreenX = widget.offsetX * screenWidth
-                                val widgetScreenY = widget.offsetY * screenHeight
-                                Offset(t.x - widgetScreenX, t.y - widgetScreenY)
+            AnimatedVisibility(
+                visible = widgetsVisible,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    layout.widgets.sortedBy { it.zIndex }.forEach { widget ->
+                        Box(
+                            modifier = Modifier.graphicsLayer {
+                                translationX = (widget.offsetX * screenWidth) - (size.width / 2f)
+                                translationY = (widget.offsetY * screenHeight) - (size.height / 2f)
+                                scaleX = widget.scale
+                                scaleY = widget.scale
+                                transformOrigin = TransformOrigin.Center
                             }
-                        } else null,
-                        elasticity = settings.stringElasticity,
-                        microScale = settings.beadMicroScale,
-                        isTouchActive = thumbPosition != null
-                    )
+                        ) {
+                            TasbihWidgetRenderer(
+                                widget = widget,
+                                currentCount = currentCount,
+                                currentItem = currentItem,
+                                stringControlXOffset = controlXAnim.value,
+                                stringControlYFraction = controlYAnim.value,
+                                countedBeads = currentCount,
+                                totalBeads = currentTarget,
+                                beadStyle = beadStyle,
+                                activeBeadProgress = if (widget is TasbihWidget.StringBeadWidget && isBeadDragActive)
+                                    activeBeadProgress.value else null,
+                                thumbPosition = if (widget is TasbihWidget.StringBeadWidget) {
+                                    thumbPosition?.let { t ->
+                                        val widgetScreenX = widget.offsetX * screenWidth
+                                        val widgetScreenY = widget.offsetY * screenHeight
+                                        Offset(t.x - widgetScreenX, t.y - widgetScreenY)
+                                    }
+                                } else null,
+                                elasticity = settings.stringElasticity,
+                                microScale = settings.beadMicroScale,
+                                isTouchActive = thumbPosition != null
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -247,30 +253,26 @@ fun TasbeehImmersiveScreen(
         // --- Interaction zones ---
         if (screenWidth > 0f && screenHeight > 0f) {
             val stringWidget = layout.widgets.filterIsInstance<TasbihWidget.StringBeadWidget>().firstOrNull()
+            val hasString = stringWidget != null
             
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(screenWidth, screenHeight, layout.widgets) {
+                    .pointerInput(screenWidth, screenHeight, layout.widgets, widgetsVisible, settings.tasbeehStealthModeAllowed) {
                         awaitEachGesture {
                             val down = awaitFirstDown()
                             down.consume()
 
-                            val stringScreenX = (stringWidget?.offsetX ?: 0.88f) * screenWidth
                             val touchScreenX = down.position.x
                             val touchScreenY = down.position.y
-                            val dx = touchScreenX - stringScreenX
-
-                            // Detect if we hit the string horizontally
-                            val isStringHit = kotlin.math.abs(dx) < 60f * density
-                            
-                            // 1.0 = bottom anchor, 0.0 = top anchor
-                            // Determine if we are starting drag from bottom half (inc) or top half (dec)
-                            val isStartingFromBottom = touchScreenY > screenHeight * 0.5f
-                            val isBeadHit = isStringHit && !showResetOverlay
-
-                            var dragDirectionIsDown = false
                             val startY = down.position.y
+                            
+                            val stringScreenX = (stringWidget?.offsetX ?: 0.88f) * screenWidth
+                            val dx = touchScreenX - stringScreenX
+                            
+                            // Hit test: only true if string exists AND we hit it
+                            val isBeadHit = hasString && widgetsVisible && kotlin.math.abs(dx) < 60f * density && !showResetOverlay
+
                             var hasSwiped = false
                             var localResetArmed = false
                             var hasFinishedGesture = false
@@ -298,7 +300,6 @@ fun TasbeehImmersiveScreen(
 
                             if (isBeadHit) {
                                 isBeadDragActive = true
-                                // Initialize active bead progress based on where we started
                                 val initialProgress = (touchScreenY - stringTopY) / stringHeightPx
                                 scope.launch { activeBeadProgress.snapTo(initialProgress.coerceIn(0f, 1f)) }
                             }
@@ -345,9 +346,9 @@ fun TasbeehImmersiveScreen(
                                 } else if (overlayWasShown) {
                                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 } else if (isBeadDragActive) {
-                                    // Threshold logic
+                                    // Directional Drag Logic
+                                    val isStartingFromBottom = startY > screenHeight * 0.5f
                                     if (isStartingFromBottom) {
-                                        // Swipe UP: target is top (0.0)
                                         if (activeBeadProgress.value < 0.5f) {
                                             hasFinishedGesture = true
                                             scope.launch {
@@ -363,7 +364,6 @@ fun TasbeehImmersiveScreen(
                                             }
                                         }
                                     } else {
-                                        // Swipe DOWN: target is bottom (1.0)
                                         if (activeBeadProgress.value > 0.5f) {
                                             hasFinishedGesture = true
                                             scope.launch {
@@ -379,6 +379,18 @@ fun TasbeehImmersiveScreen(
                                             }
                                         }
                                     }
+                                } else {
+                                    // TAP LOGIC
+                                    if (!hasString || !widgetsVisible) {
+                                        // Tap to increment if no string OR stealth mode active
+                                        countUp()
+                                    }
+                                    
+                                    // STEALTH TOGGLE
+                                    if (settings.tasbeehStealthModeAllowed) {
+                                        widgetsVisible = !widgetsVisible
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
                                 }
                             }
 
@@ -386,7 +398,7 @@ fun TasbeehImmersiveScreen(
                             showResetOverlay = false
                             if (isBeadDragActive && !hasFinishedGesture) {
                                 scope.launch {
-                                    val target = if (isStartingFromBottom) 1f else 0f
+                                    val target = if (startY > screenHeight * 0.5f) 1f else 0f
                                     activeBeadProgress.animateTo(target, wobbleSpring)
                                     isBeadDragActive = false
                                 }

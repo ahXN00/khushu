@@ -61,6 +61,20 @@ fun TasbeehCustomizeScreen(
                 onCheckedChange = { viewModel.toggleTasbeehDynamicColors(it) }
             )
 
+            SectionHeader("Interaction")
+            SettingsToggle(
+                title = "Stealth Mode",
+                subtitle = "Tap screen to hide all widgets for private use",
+                checked = settings.tasbeehStealthModeAllowed,
+                onCheckedChange = { viewModel.toggleTasbeehStealthModeAllowed(it) }
+            )
+            SettingsToggle(
+                title = "Volume Buttons",
+                subtitle = "Use physical volume keys to count",
+                checked = settings.tasbeehVolumeEnabled,
+                onCheckedChange = { viewModel.toggleTasbeehVolumeEnabled(it) }
+            )
+
             SectionHeader("String Physics")
             PhysicsSlider(
                 label = "String Elasticity",

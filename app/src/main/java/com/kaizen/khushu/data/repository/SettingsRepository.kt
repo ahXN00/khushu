@@ -35,7 +35,6 @@ class SettingsRepository(private val context: Context) {
         val STARTUP_TAB = stringPreferencesKey("startup_tab")
         val TASBIH_BEAD_STYLE = stringPreferencesKey("tasbih_bead_style")
         val LOGO_STYLE = stringPreferencesKey("logo_style")
-        // Reading preferences
         val READING_THEME = stringPreferencesKey("reading_theme")
         val ARABIC_SIZE_SP = floatPreferencesKey("arabic_size_sp")
         val TRANSLATION_SIZE_SP = floatPreferencesKey("translation_size_sp")
@@ -62,6 +61,10 @@ class SettingsRepository(private val context: Context) {
         // Custom Bead Styles
         val CUSTOM_BEAD_STYLES_JSON = stringPreferencesKey("custom_bead_styles_json")
         val ACTIVE_BEAD_STYLE_ID = stringPreferencesKey("active_bead_style_id")
+
+        // Tasbeeh Interaction
+        val TASBEEH_STEALTH_MODE_ALLOWED = booleanPreferencesKey("tasbeeh_stealth_mode_allowed")
+        val TASBEEH_VOLUME_ENABLED = booleanPreferencesKey("tasbeeh_volume_enabled")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -119,9 +122,19 @@ class SettingsRepository(private val context: Context) {
                 wobbleDampingRatio = preferences[PreferencesKeys.WOBBLE_DAMPING_RATIO] ?: 0.25f,
                 beadMicroScale = preferences[PreferencesKeys.BEAD_MICRO_SCALE] ?: 1.2f,
                 customBeadStyles = customStyles,
-                activeBeadStyleId = preferences[PreferencesKeys.ACTIVE_BEAD_STYLE_ID] ?: "CLASSIC_AMBER"
+                activeBeadStyleId = preferences[PreferencesKeys.ACTIVE_BEAD_STYLE_ID] ?: "CLASSIC_AMBER",
+                tasbeehStealthModeAllowed = preferences[PreferencesKeys.TASBEEH_STEALTH_MODE_ALLOWED] ?: false,
+                tasbeehVolumeEnabled = preferences[PreferencesKeys.TASBEEH_VOLUME_ENABLED] ?: true
             )
         }
+
+    suspend fun updateTasbeehStealthModeAllowed(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.TASBEEH_STEALTH_MODE_ALLOWED] = enabled }
+    }
+
+    suspend fun updateTasbeehVolumeEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.TASBEEH_VOLUME_ENABLED] = enabled }
+    }
 
     suspend fun updateCustomBeadStyles(styles: List<CustomBeadStyle>) {
         val json = Json.encodeToString(styles)
@@ -325,5 +338,7 @@ data class UserSettings(
     val wobbleDampingRatio: Float = 0.25f,
     val beadMicroScale: Float = 1.2f,
     val customBeadStyles: List<CustomBeadStyle> = emptyList(),
-    val activeBeadStyleId: String = "CLASSIC_AMBER"
+    val activeBeadStyleId: String = "CLASSIC_AMBER",
+    val tasbeehStealthModeAllowed: Boolean = false,
+    val tasbeehVolumeEnabled: Boolean = true
 )

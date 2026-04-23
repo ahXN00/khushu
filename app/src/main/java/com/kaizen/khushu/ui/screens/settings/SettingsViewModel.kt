@@ -118,6 +118,14 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateTasbeehDynamicColors(enabled) }
     }
 
+    fun toggleTasbeehStealthModeAllowed(enabled: Boolean) {
+        viewModelScope.launch { repository.updateTasbeehStealthModeAllowed(enabled) }
+    }
+
+    fun toggleTasbeehVolumeEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.updateTasbeehVolumeEnabled(enabled) }
+    }
+
     fun setStringElasticity(value: Float) {
         viewModelScope.launch { repository.updateStringElasticity(value) }
     }

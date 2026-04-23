@@ -43,6 +43,11 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
     private val _canvasWidth = MutableStateFlow(0f)
     private val _canvasHeight = MutableStateFlow(0f)
 
+    private val _guidanceEvent = MutableSharedFlow<GuidanceType>()
+    val guidanceEvent = _guidanceEvent.asSharedFlow()
+
+    enum class GuidanceType { STRING_REMOVED, BLIND_MODE_WARNING }
+
     init {
         viewModelScope.launch {
             layout.collectLatest { 
@@ -96,7 +101,7 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
             list.map { 
                 if (it.id == updated.id) {
                     if (updated is TasbihWidget.StringBeadWidget) {
-                        updated.copy(offsetY = 0.5f) // Horizontal lock
+                        updated.copy(offsetY = 0.5f)
                     } else updated
                 } else it 
             } 
@@ -108,12 +113,34 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
     }
 
     fun clearWidgets() {
+        val oldList = _workingWidgets.value
         _workingWidgets.value = emptyList()
+        checkGuidance(emptyList(), oldList)
     }
 
     fun removeWidget(id: String) {
-        _workingWidgets.update { it.filter { w -> w.id != id } }
+        val oldList = _workingWidgets.value
+        val newList = oldList.filter { w -> w.id != id }
+        _workingWidgets.value = newList
         if (_selectedWidgetId.value == id) _selectedWidgetId.value = null
+        
+        checkGuidance(newList, oldList)
+    }
+
+    private fun checkGuidance(newList: List<TasbihWidget>, oldList: List<TasbihWidget>) {
+        val hadString = oldList.any { it is TasbihWidget.StringBeadWidget }
+        val hasString = newList.any { it is TasbihWidget.StringBeadWidget }
+        val hasCounter = newList.any { it is TasbihWidget.CounterWidget }
+
+        viewModelScope.launch {
+            if (hadString && !hasString) {
+                if (!hasCounter) {
+                    _guidanceEvent.emit(GuidanceType.BLIND_MODE_WARNING)
+                } else {
+                    _guidanceEvent.emit(GuidanceType.STRING_REMOVED)
+                }
+            }
+        }
     }
 
     fun selectWidget(id: String?) {
@@ -135,7 +162,7 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
         _workingWidgets.update { list ->
             list.map { widget ->
                 if (widget.id != selectedId) return@map widget
-                if (widget is TasbihWidget.StringBeadWidget && vertical != null) return@map widget // Ignore vertical for string
+                if (widget is TasbihWidget.StringBeadWidget && vertical != null) return@map widget 
 
                 val scaledWidth = widget.width * widget.scale
                 val scaledHeight = widget.height * widget.scale

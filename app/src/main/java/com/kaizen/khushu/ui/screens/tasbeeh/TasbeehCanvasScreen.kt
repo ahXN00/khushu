@@ -3,6 +3,7 @@ package com.kaizen.khushu.ui.screens.tasbeeh
 import android.app.Activity
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,8 +41,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kaizen.khushu.data.model.CustomBeadStyle
 import com.kaizen.khushu.data.model.TasbeehCanvasPresetDomain
+import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.BeVietnamPro
 import com.kaizen.khushu.ui.theme.KhushuColors
@@ -49,7 +50,7 @@ import com.kaizen.khushu.ui.theme.KhushuColors
 @Composable
 fun TasbeehCanvasScreen(
     viewModel: TasbeehCanvasViewModel,
-    settingsViewModel: com.kaizen.khushu.ui.screens.settings.SettingsViewModel,
+    settingsViewModel: SettingsViewModel,
     onExit: () -> Unit,
 ) {
     val view = LocalView.current
@@ -71,14 +72,16 @@ fun TasbeehCanvasScreen(
     val selectedWidgetId by viewModel.selectedWidgetId.collectAsStateWithLifecycle()
     val isUiVisible by viewModel.isUiVisible.collectAsStateWithLifecycle()
     val presets by viewModel.presets.collectAsStateWithLifecycle()
-    val settings by settingsViewModel.settings.collectAsState()
-    val activeBeadStyle = remember(settings.activeBeadStyleId, settings.customBeadStyles) {
-        settings.customBeadStyles.find { it.id == settings.activeBeadStyleId }
-    }
 
     var showAddMenu by remember { mutableStateOf(false) }
     var showPresetsMenu by remember { mutableStateOf(false) }
     var showBackgroundMenu by remember { mutableStateOf(false) }
+    var guidanceToShow by remember { mutableStateOf<TasbeehCanvasViewModel.GuidanceType?>(null) }
+
+    // Listen for guidance events
+    LaunchedEffect(Unit) {
+        viewModel.guidanceEvent.collect { guidanceToShow = it }
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -109,7 +112,6 @@ fun TasbeehCanvasScreen(
                 isSelected = widget.id == selectedWidgetId,
                 screenWidth = screenWidth,
                 screenHeight = screenHeight,
-                customBeadStyle = activeBeadStyle,
                 onUpdate = { viewModel.updateWidget(it) },
                 onTap = {
                     viewModel.selectWidget(widget.id)
@@ -155,20 +157,21 @@ fun TasbeehCanvasScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 24.dp)
         ) {
+            val isWhite = Color(workingBackground.toLong()) == Color.White
             Surface(
-                color = if (Color(workingBackground.toLong()) == Color.White) Color.Black.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.7f),
+                color = if (isWhite) Color.Black.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.7f),
                 shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, if (Color(workingBackground.toLong()) == Color.White) Color.Black.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.15f)),
+                border = BorderStroke(1.dp, if (isWhite) Color.Black.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.15f)),
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    EditorMenuAction(icon = Icons.Default.Add, label = "Add", dark = Color(workingBackground.toLong()) == Color.White, onClick = { showAddMenu = true })
-                    EditorMenuAction(icon = Icons.Default.Style, label = "Presets", dark = Color(workingBackground.toLong()) == Color.White, onClick = { showPresetsMenu = true })
-                    EditorMenuAction(icon = Icons.Default.Palette, label = "BG", dark = Color(workingBackground.toLong()) == Color.White, onClick = { showBackgroundMenu = true })
-                    EditorMenuAction(icon = Icons.Default.RestartAlt, label = "Reset", dark = Color(workingBackground.toLong()) == Color.White, onClick = { viewModel.resetToDefault() })
+                    EditorMenuAction(icon = Icons.Default.Add, label = "Add", dark = isWhite, onClick = { showAddMenu = true })
+                    EditorMenuAction(icon = Icons.Default.Style, label = "Presets", dark = isWhite, onClick = { showPresetsMenu = true })
+                    EditorMenuAction(icon = Icons.Default.Palette, label = "BG", dark = isWhite, onClick = { showBackgroundMenu = true })
+                    EditorMenuAction(icon = Icons.Default.RestartAlt, label = "Reset", dark = isWhite, onClick = { viewModel.resetToDefault() })
                 }
             }
         }
@@ -198,6 +201,27 @@ fun TasbeehCanvasScreen(
                 currentColor = Color(workingBackground.toLong()),
                 onSelect = { viewModel.updateBackgroundColor(it.toArgb()) },
                 onDismiss = { showBackgroundMenu = false }
+            )
+        }
+
+        // Guidance Dialogs
+        guidanceToShow?.let { type ->
+            AlertDialog(
+                onDismissRequest = { guidanceToShow = null },
+                confirmButton = { Button(onClick = { guidanceToShow = null }) { Text("Got it") } },
+                title = { Text(if (type == TasbeehCanvasViewModel.GuidanceType.STRING_REMOVED) "String Removed" else "Trackers Removed") },
+                text = {
+                    Text(
+                        when (type) {
+                            TasbeehCanvasViewModel.GuidanceType.STRING_REMOVED -> 
+                                "Since String widget is removed, for counting tasbih you have to use volume up/down buttons now for doing tasbih."
+                            TasbeehCanvasViewModel.GuidanceType.BLIND_MODE_WARNING -> 
+                                "If you remove string and counter then you won't be able to track the count and would have to rely on volume up/down. Consider adding some widget to track count, or if you wanted a minimal look try the Stealth Mode (save the canvas and stealth mode toggle is right outside)."
+                        }
+                    )
+                },
+                shape = RoundedCornerShape(24.dp),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
             )
         }
 
@@ -237,7 +261,6 @@ fun TasbeehCanvasWidgetItem(
     isSelected: Boolean,
     screenWidth: Float,
     screenHeight: Float,
-    customBeadStyle: CustomBeadStyle? = null,
     onUpdate: (TasbihWidget) -> Unit,
     onTap: () -> Unit,
     onSizeMeasured: (String, Float, Float) -> Unit,
@@ -301,7 +324,6 @@ fun TasbeehCanvasWidgetItem(
                 countedBeads = 12,
                 totalBeads = 33,
                 beadStyle = BeadStyle.CLASSIC_AMBER,
-                customBeadStyle = customBeadStyle,
                 activeBeadProgress = null,
                 thumbPosition = null
             )
