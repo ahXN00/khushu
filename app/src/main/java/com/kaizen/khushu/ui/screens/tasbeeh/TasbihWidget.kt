@@ -10,14 +10,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.*
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.Density
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kaizen.khushu.data.model.CustomBeadStyle
@@ -38,6 +41,8 @@ sealed interface TasbihWidget {
     val zIndex: Float
     val width: Float
     val height: Float
+    val color: Long
+    val alpha: Float
 
     /** The vertical string of beads. Renders center-right. */
     @Serializable
@@ -49,7 +54,16 @@ sealed interface TasbihWidget {
         override val zIndex: Float = 0f,
         override val width: Float = 0f,
         override val height: Float = 0f,
+        override val color: Long = 0xFFFFFFFF,
+        override val alpha: Float = 1f,
         val beadStyle: BeadStyle = BeadStyle.CLASSIC_AMBER,
+        val topStackLimit: Int = 3,
+        val bottomStackLimit: Int = 7,
+        val beadSizeScale: Float = 1.0f,
+        val stringElasticity: Float = 1.8f,
+        val wobbleStiffness: Float = 140f,
+        val wobbleDampingRatio: Float = 0.25f,
+        val beadMicroScale: Float = 1.2f,
     ) : TasbihWidget
 
     /** Shows the name of the current dhikr. Renders top-left. */
@@ -62,6 +76,10 @@ sealed interface TasbihWidget {
         override val zIndex: Float = 1f,
         override val width: Float = 0f,
         override val height: Float = 0f,
+        override val color: Long = 0xFFFFFFFF,
+        override val alpha: Float = 1f,
+        val isBold: Boolean = true,
+        val hasOutline: Boolean = false,
     ) : TasbihWidget
 
     /** Shows count + "out of N". Renders center-left. */
@@ -74,6 +92,10 @@ sealed interface TasbihWidget {
         override val zIndex: Float = 1f,
         override val width: Float = 0f,
         override val height: Float = 0f,
+        override val color: Long = 0xFFFFFFFF,
+        override val alpha: Float = 1f,
+        val isBold: Boolean = false,
+        val hasOutline: Boolean = false,
     ) : TasbihWidget
 
     /** A circular progress indicator. Renders around counter. */
@@ -86,7 +108,8 @@ sealed interface TasbihWidget {
         override val zIndex: Float = 0.5f,
         override val width: Float = 0f,
         override val height: Float = 0f,
-        val color: Long? = null,
+        override val color: Long = 0xFFFFFFFF,
+        override val alpha: Float = 1f,
     ) : TasbihWidget
 
     /** Shows current dhikr meaning/translation. Renders below name. */
@@ -99,6 +122,9 @@ sealed interface TasbihWidget {
         override val zIndex: Float = 1f,
         override val width: Float = 0f,
         override val height: Float = 0f,
+        override val color: Long = 0xFFFFFFFF,
+        override val alpha: Float = 0.6f,
+        val isBold: Boolean = false,
     ) : TasbihWidget
 
     /** A customizable text widget. */
@@ -111,9 +137,12 @@ sealed interface TasbihWidget {
         override val zIndex: Float = 1f,
         override val width: Float = 0f,
         override val height: Float = 0f,
+        override val color: Long = 0xFFFFFFFF,
+        override val alpha: Float = 1f,
         val text: String = "Custom Text",
-        val color: Long = 0xFFFFFFFF,
         val fontSize: Float = 18f,
+        val isBold: Boolean = false,
+        val hasOutline: Boolean = false,
     ) : TasbihWidget
 }
 
@@ -133,9 +162,7 @@ val DefaultTasbihPreset = TasbihCanvasPreset(
     )
 )
 
-private const val BEAD_RADIUS = 18f
-private const val BOTTOM_VISIBLE_BEADS = 7
-private const val TOP_GATHERED_MAX = 3
+private const val BEAD_RADIUS_BASE = 18f
 
 @Composable
 fun TasbihWidgetRenderer(
@@ -147,7 +174,6 @@ fun TasbihWidgetRenderer(
     countedBeads: Int = 0,
     totalBeads: Int = 33,
     beadStyle: BeadStyle = BeadStyle.CLASSIC_AMBER,
-    customBeadStyle: CustomBeadStyle? = null,
     activeBeadProgress: Float? = null,
     thumbPosition: Offset? = null,
     elasticity: Float = 1.8f,
@@ -155,49 +181,34 @@ fun TasbihWidgetRenderer(
     isTouchActive: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val baseModifier = modifier.graphicsLayer { alpha = widget.alpha }
+
     when (widget) {
         is TasbihWidget.StringBeadWidget -> {
-            val layoutDirection = LocalLayoutDirection.current
-            val composeDensity = androidx.compose.ui.platform.LocalDensity.current
-            val pathSizePx = BEAD_RADIUS * composeDensity.density * 2f
-            val noiseShader = remember { createNoiseShader(128) }
-            // beadShapeTypeToShape is @Composable so must be called directly, not inside remember lambda
-            val beadShape: Shape? = if (customBeadStyle != null) beadShapeTypeToShape(customBeadStyle.shapeType) else null
-            val baseBeadPath: Path? = remember(beadShape, pathSizePx) {
-                beadShape?.let {
-                    createBeadPath(it, Size(pathSizePx, pathSizePx), layoutDirection, Density(density = composeDensity.density, fontScale = 1f))
-                }
-            }
-            val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
-            val brushCache: BeadBrushCache? = remember(customBeadStyle, pathSizePx) {
-                if (customBeadStyle == null || baseBeadPath == null) null
-                else BeadBrushCache(
-                    noiseBrush = if (customBeadStyle.textureStyle != com.kaizen.khushu.data.model.BeadTextureStyle.SOLID) noiseBrush else null,
-                    specularBrush = buildSpecularBrush(customBeadStyle, Size(pathSizePx, pathSizePx)),
-                    metallicBrush = buildMetallicBrush(customBeadStyle, Size(pathSizePx, pathSizePx)),
-                )
-            }
-            val stringPath = remember { Path() }
+            val topLimit = widget.topStackLimit
+            val bottomLimit = widget.bottomStackLimit
+            val beadRadiusBase = BEAD_RADIUS_BASE * widget.beadSizeScale
+            
             Canvas(
-                modifier = modifier
+                modifier = baseModifier
                     .fillMaxHeight(0.9f)
                     .width(120.dp)
             ) {
                 val density = this.density
-                val beadRadius = BEAD_RADIUS * density
+                val beadRadius = beadRadiusBase * density
 
                 val cx = size.width / 2f
                 val controlX = cx + stringControlXOffset
                 val controlY = size.height * stringControlYFraction
 
-                stringPath.reset()
-                stringPath.moveTo(cx, 0f)
-                stringPath.quadraticTo(controlX, controlY, cx, size.height)
-                val path = stringPath
+                val path = Path().apply {
+                    moveTo(cx, 0f)
+                    quadraticTo(controlX, controlY, cx, size.height)
+                }
 
                 drawPath(
                     path = path,
-                    color = Color.White.copy(alpha = 0.35f),
+                    color = Color.White.copy(alpha = 0.35f * widget.alpha),
                     style = Stroke(
                         width = 2 * density,
                         cap = StrokeCap.Round,
@@ -225,44 +236,26 @@ fun TasbihWidgetRenderer(
                 val fisheyeCenter: Offset? = activeCenter ?: thumbPosition
 
                 val topPoolAdjustment = if (activeBeadProgress != null && activeBeadProgress < 0.5f) 1 else 0
-                val topCount = (minOf(countedBeads, TOP_GATHERED_MAX) - topPoolAdjustment).coerceAtLeast(0)
+                val topCount = (minOf(countedBeads, topLimit) - topPoolAdjustment).coerceAtLeast(0)
                 
                 val topSpacing = beadRadius * 2.4f
                 for (i in 0 until topCount) {
                     val dist = beadRadius + i * topSpacing
                     pm.getPosTan(dist, pos, tan)
                     val center = Offset(pos[0], pos[1])
-                    val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, microScale)
-                    if (customBeadStyle != null && baseBeadPath != null && brushCache != null) {
-                        withTransform({
-                            translate(left = center.x - beadRadius, top = center.y - beadRadius)
-                            scale(scaleX = scale, scaleY = scale, pivot = Offset(beadRadius, beadRadius))
-                        }) {
-                            drawPremiumBead(baseBeadPath, customBeadStyle, brushCache)
-                        }
-                    } else {
-                        drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
-                    }
+                    val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
+                    drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
                 }
 
                 if (activeCenter != null) {
-                    val scale = fisheyeScale(activeCenter, fisheyeCenter, fisheyeRadius, microScale)
-                    if (customBeadStyle != null && baseBeadPath != null && brushCache != null) {
-                        withTransform({
-                            translate(left = activeCenter.x - beadRadius, top = activeCenter.y - beadRadius)
-                            scale(scaleX = scale, scaleY = scale, pivot = Offset(beadRadius, beadRadius))
-                        }) {
-                            drawPremiumBead(baseBeadPath, customBeadStyle, brushCache)
-                        }
-                    } else {
-                        drawBead(activeCenter, beadRadius * scale, alpha = 1f, style = beadStyle)
-                    }
+                    val scale = fisheyeScale(activeCenter, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
+                    drawBead(activeCenter, beadRadius * scale, alpha = 1f, style = beadStyle)
                 }
 
                 val remaining = (totalBeads - countedBeads).coerceAtLeast(0)
                 val bottomPoolAdjustment = if (activeBeadProgress != null && activeBeadProgress >= 0.5f) 1 else 0
                 val poolSize = (remaining - bottomPoolAdjustment).coerceAtLeast(0)
-                val visibleBottom = minOf(poolSize, BOTTOM_VISIBLE_BEADS)
+                val visibleBottom = minOf(poolSize, bottomLimit)
                 
                 val baseSpacing = beadRadius * 2.4f
                 var currentDistance = 0f
@@ -276,7 +269,7 @@ fun TasbihWidgetRenderer(
                         val influenceRange = size.height * 0.25f
                         if (distToThumb < influenceRange) {
                             val normalizedDist = distToThumb / influenceRange
-                            1f + (elasticity - 1f) * exp(-normalizedDist * normalizedDist * 4f)
+                            1f + (widget.stringElasticity - 1f) * exp(-normalizedDist * normalizedDist * 4f)
                         } else 1f
                     } else 1f
                     
@@ -285,57 +278,59 @@ fun TasbihWidgetRenderer(
                     pm.getPosTan(dynamicDist, pos, tan)
                     val center = Offset(pos[0], pos[1])
                     
-                    val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, microScale)
-                    if (customBeadStyle != null && baseBeadPath != null && brushCache != null) {
-                        withTransform({
-                            translate(left = center.x - beadRadius, top = center.y - beadRadius)
-                            scale(scaleX = scale, scaleY = scale, pivot = Offset(beadRadius, beadRadius))
-                        }) {
-                            drawPremiumBead(baseBeadPath, customBeadStyle, brushCache)
-                        }
-                    } else {
-                        drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
-                    }
-
+                    val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
+                    drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
+                    
                     currentDistance += baseSpacing * stretchFactor
                 }
             }
         }
 
         is TasbihWidget.DhikrNameWidget -> {
-            Text(
-                text = currentItem?.name ?: "سُبْحَانَ اللَّهِ",
-                style = MaterialTheme.typography.headlineLarge,
-                color = Color.White,
-                modifier = modifier
-            )
+            Box(modifier = baseModifier) {
+                Text(
+                    text = currentItem?.name ?: "سُبْحَانَ اللَّهِ",
+                    style = TextStyle(
+                        color = Color(widget.color),
+                        fontSize = MaterialTheme.typography.headlineLarge.fontSize,
+                        fontWeight = if (widget.isBold) FontWeight.Bold else FontWeight.Normal,
+                        drawStyle = if (widget.hasOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
+                )
+            }
         }
 
         is TasbihWidget.CounterWidget -> {
-            Column(modifier = modifier) {
+            Column(modifier = baseModifier) {
                 Text(
                     text = currentCount.toString(),
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 96.sp),
-                    color = Color.White.copy(alpha = 0.5f),
+                    style = TextStyle(
+                        color = Color(widget.color),
+                        fontSize = 96.sp,
+                        fontWeight = if (widget.isBold) FontWeight.Bold else FontWeight.Normal,
+                        drawStyle = if (widget.hasOutline) Stroke(width = 6f, join = StrokeJoin.Round) else Fill,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
                 )
                 Text(
                     text = "out of ${currentItem?.targetCount ?: 0}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.3f),
+                    color = Color(widget.color).copy(alpha = 0.5f),
                 )
             }
         }
 
         is TasbihWidget.ProgressCircleWidget -> {
             val progress = currentCount.toFloat() / (currentItem?.targetCount?.toFloat() ?: 1f)
-            Canvas(modifier = modifier.size(240.dp)) {
+            Canvas(modifier = baseModifier.size(240.dp)) {
                 drawCircle(
-                    color = Color.White.copy(alpha = 0.05f),
+                    color = Color.White.copy(alpha = 0.05f * widget.alpha),
                     radius = size.minDimension / 2f,
                     style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
                 )
                 drawArc(
-                    color = widget.color?.let { Color(it) } ?: Color.White.copy(alpha = 0.3f),
+                    color = Color(widget.color),
                     startAngle = -90f,
                     sweepAngle = 360f * progress,
                     useCenter = false,
@@ -347,37 +342,80 @@ fun TasbihWidgetRenderer(
         is TasbihWidget.MeaningWidget -> {
             Text(
                 text = "Glorified is Allah", 
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.6f),
-                modifier = modifier,
+                style = TextStyle(
+                    color = Color(widget.color).copy(alpha = 0.6f),
+                    fontSize = MaterialTheme.typography.bodyLarge.fontSize,
+                    fontWeight = if (widget.isBold) FontWeight.Bold else FontWeight.Normal,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+                ),
+                modifier = baseModifier,
             )
         }
 
         is TasbihWidget.CustomText -> {
             Text(
                 text = widget.text,
-                style = MaterialTheme.typography.bodyLarge.copy(
+                style = TextStyle(
+                    color = Color(widget.color),
                     fontSize = widget.fontSize.sp,
-                    color = Color(widget.color)
+                    fontWeight = if (widget.isBold) FontWeight.Bold else FontWeight.Normal,
+                    drawStyle = if (widget.hasOutline) Stroke(width = 4f, join = StrokeJoin.Round) else Fill,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false)
                 ),
-                modifier = modifier,
+                modifier = baseModifier
             )
         }
     }
 }
 
-// --- Bead Effects Orchestrator ---
-internal fun DrawScope.drawPremiumBead(
-    path: Path,
-    style: CustomBeadStyle,
-    brushCache: BeadBrushCache,
-) {
-    if (style.is3dEnabled) drawBeadExtrusion(path, style)
-    drawBeadBaseColor(path, style)
-    drawBeadTexture(path, style, brushCache.noiseBrush)
-    drawBeadSpecular(path, brushCache.specularBrush)
-    drawBeadChromaticAberration(path, style)
-    drawBeadMetallicSheen(path, brushCache.metallicBrush)
+fun DrawScope.drawPremiumBead(path: Path, style: CustomBeadStyle) {
+    val bounds = path.getBounds()
+    
+    if (style.is3dEnabled && style.depthMode == com.kaizen.khushu.data.model.BeadDepthMode.EMBOSS) {
+        translate(left = 4f, top = 8f) {
+            drawPath(path, Color.Black.copy(alpha = 0.3f))
+        }
+    }
+
+    drawPath(path, Color(style.baseColor))
+
+    if (style.is3dEnabled) {
+        withTransform({
+            clipPath(path)
+        }) {
+            drawRect(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.4f), Color.Transparent),
+                    center = Offset(bounds.left + bounds.width * 0.25f, bounds.top + bounds.height * 0.25f),
+                    radius = bounds.width * 0.8f
+                )
+            )
+
+            if (style.depthMode == com.kaizen.khushu.data.model.BeadDepthMode.DEBOSS) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color.Black.copy(alpha = 0.4f), Color.Transparent),
+                        startY = bounds.top,
+                        endY = bounds.top + bounds.height * 0.3f
+                    )
+                )
+            }
+            
+            when (style.textureStyle) {
+                com.kaizen.khushu.data.model.BeadTextureStyle.FROSTED -> drawRect(Color.White.copy(alpha = 0.15f))
+                com.kaizen.khushu.data.model.BeadTextureStyle.RESIN -> {
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color.White.copy(alpha = 0.2f), Color.Transparent, Color.Black.copy(alpha = 0.1f)),
+                            start = Offset(bounds.left, bounds.top),
+                            end = Offset(bounds.right, bounds.bottom)
+                        )
+                    )
+                }
+                else -> {}
+            }
+        }
+    }
 }
 
 private fun DrawScope.drawBead(
@@ -386,7 +424,6 @@ private fun DrawScope.drawBead(
     alpha: Float,
     style: BeadStyle = BeadStyle.CLASSIC_AMBER,
 ) {
-    // Legacy renderer for default styles
     when (style) {
         BeadStyle.CLASSIC_AMBER -> {
             val lightCenter = center + Offset(-radius * 0.28f, -radius * 0.28f)

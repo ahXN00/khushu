@@ -1,6 +1,7 @@
 package com.kaizen.khushu.ui.screens.tasbeeh
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +37,7 @@ import com.kaizen.khushu.data.model.*
 import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.BeVietnamPro
+import com.kaizen.khushu.ui.theme.KhushuColors
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -157,30 +159,31 @@ fun TasbihBeadCustomizerSheet(
                 )
             }
 
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .height(150.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                contentAlignment = Alignment.Center
+            ) {
+                val beadShape = allShapes[workingStyle.shapeType] ?: CircleShape
+                BeadPreview(
+                    style = workingStyle,
+                    beadShape = beadShape,
+                    onUpdate = { workingStyle = it }
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val beadShape = allShapes[workingStyle.shapeType] ?: CircleShape
-                    BeadPreview(
-                        style = workingStyle,
-                        beadShape = beadShape,
-                        onUpdate = { workingStyle = it }
-                    )
-                }
-
-                Spacer(Modifier.height(24.dp))
-
                 SectionHeader("Quick Presets")
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -315,71 +318,6 @@ fun TasbihBeadCustomizerSheet(
 
                 Spacer(Modifier.height(24.dp))
 
-                SectionHeader("Effects")
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    FilterChip(
-                        selected = workingStyle.chromaticAberration,
-                        onClick = {
-                            workingStyle = workingStyle.copy(
-                                chromaticAberration = !workingStyle.chromaticAberration,
-                                preset = BeadPreset.NONE
-                            )
-                        },
-                        label = { Text("Chromatic", fontFamily = BeVietnamPro) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterChip(
-                        selected = workingStyle.metallicSheen,
-                        onClick = {
-                            workingStyle = workingStyle.copy(
-                                metallicSheen = !workingStyle.metallicSheen,
-                                preset = BeadPreset.NONE
-                            )
-                        },
-                        label = { Text("Metallic", fontFamily = BeVietnamPro) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterChip(
-                        selected = workingStyle.is3dEnabled,
-                        onClick = {
-                            workingStyle = workingStyle.copy(
-                                is3dEnabled = !workingStyle.is3dEnabled,
-                                preset = BeadPreset.NONE
-                            )
-                        },
-                        label = { Text("3D Depth", fontFamily = BeVietnamPro) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Light",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(40.dp)
-                    )
-                    Slider(
-                        value = workingStyle.specularity,
-                        onValueChange = {
-                            workingStyle = workingStyle.copy(specularity = it, preset = BeadPreset.NONE)
-                        },
-                        valueRange = 0f..1f,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(Modifier.height(24.dp))
-
                 SectionHeader("Engraving")
                 OutlinedTextField(
                     value = workingStyle.engravingText,
@@ -448,10 +386,8 @@ fun SimpleColorPickerSheet(
     var hue by remember { mutableFloatStateOf(0f) }
     var saturation by remember { mutableFloatStateOf(1f) }
     var value by remember { mutableFloatStateOf(1f) }
-
     var hexString by remember { mutableStateOf("") }
 
-    // Sync HSV from initial color
     LaunchedEffect(initialColor) {
         val hsv = FloatArray(3)
         android.graphics.Color.colorToHSV(initialColor.toArgb(), hsv)
@@ -463,7 +399,6 @@ fun SimpleColorPickerSheet(
 
     val currentColor = Color.hsv(hue, saturation, value)
 
-    // Sync Hex text when HSV sliders are moved
     LaunchedEffect(hue, saturation, value) {
         hexString = String.format("#%06X", 0xFFFFFF and currentColor.toArgb())
     }
@@ -472,11 +407,8 @@ fun SimpleColorPickerSheet(
         Column(Modifier.padding(24.dp).padding(bottom = 32.dp)) {
             Text("Custom Color", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(24.dp))
-
             Box(Modifier.size(100.dp).align(Alignment.CenterHorizontally).background(currentColor, RoundedCornerShape(16.dp)))
-
             Spacer(Modifier.height(32.dp))
-
             OutlinedTextField(
                 value = hexString,
                 onValueChange = { newHex ->
@@ -489,27 +421,20 @@ fun SimpleColorPickerSheet(
                             hue = hsv[0]
                             saturation = hsv[1]
                             value = hsv[2]
-                        } catch (e: Exception) {
-                            // Ignore bad hex typing
-                        }
+                        } catch (_: Exception) {}
                     }
                 },
                 label = { Text("HEX Code") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
-
             Spacer(Modifier.height(16.dp))
-
             Text("Hue: ${hue.toInt()}", style = MaterialTheme.typography.labelMedium)
             Slider(value = hue, onValueChange = { hue = it }, valueRange = 0f..360f)
-
             Text("Saturation", style = MaterialTheme.typography.labelMedium)
             Slider(value = saturation, onValueChange = { saturation = it }, valueRange = 0f..1f)
-
             Text("Brightness", style = MaterialTheme.typography.labelMedium)
             Slider(value = value, onValueChange = { value = it }, valueRange = 0f..1f)
-
             Spacer(Modifier.height(24.dp))
             Button(
                 onClick = { onColorSelected(currentColor); onDismiss() },
@@ -541,43 +466,9 @@ private fun BeadPreview(
     onUpdate: (CustomBeadStyle) -> Unit
 ) {
     val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-
-    // Keep gesture lambdas reading the latest style/callback without restarting the coroutine.
     val styleRef by rememberUpdatedState(style)
     val onUpdateRef by rememberUpdatedState(onUpdate)
 
-    // Hit-testing region: Maps the exact mathematical curves of the shape
-    val shapeRegion = remember(beadShape, density, layoutDirection) {
-        val sizePx = with(density) { Size(100.dp.toPx(), 100.dp.toPx()) }
-        val outline = beadShape.createOutline(sizePx, layoutDirection, density)
-        val path = android.graphics.Path()
-
-        when (outline) {
-            is Outline.Rectangle -> path.addRect(outline.rect.left, outline.rect.top, outline.rect.right, outline.rect.bottom, android.graphics.Path.Direction.CW)
-            is Outline.Rounded -> {
-                val r = outline.roundRect
-                path.addRoundRect(r.left, r.top, r.right, r.bottom, r.topLeftCornerRadius.x, r.topLeftCornerRadius.y, android.graphics.Path.Direction.CW)
-            }
-            is Outline.Generic -> path.set(outline.path.asAndroidPath())
-        }
-
-        val bounds = android.graphics.RectF()
-        path.computeBounds(bounds, true)
-        val region = android.graphics.Region()
-        region.setPath(path, android.graphics.Region(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt()))
-        region
-    }
-
-    // Check if the center of the text has left the shape
-    val textCenterXPx = with(density) { 50.dp.toPx() + style.textOffsetX.dp.toPx() }
-    val textCenterYPx = with(density) { 50.dp.toPx() + style.textOffsetY.dp.toPx() }
-    val isInsideShape = shapeRegion.contains(textCenterXPx.toInt(), textCenterYPx.toInt())
-
-    // The Unclipped Gesture Arena — single pointerInput to avoid competing nodes.
-    // styleRef/onUpdateRef via rememberUpdatedState so the long-lived coroutine always
-    // reads the latest values (fixes the stale-closure bug that made gestures feel
-    // restricted to the original position/scale).
     Box(
         modifier = Modifier
             .size(100.dp)
@@ -601,36 +492,33 @@ private fun BeadPreview(
             },
         contentAlignment = Alignment.Center
     ) {
-        // LAYER 1: Canvas with full premium effects
-        val noiseShader = remember { createNoiseShader(128) }
-        val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
         val previewSizePx = with(density) { 100.dp.toPx() }
-        val previewPathSize = remember(previewSizePx) { Size(previewSizePx, previewSizePx) }
         val previewBeadPath = remember(beadShape, previewSizePx) {
-            createBeadPath(beadShape, Size(previewSizePx, previewSizePx), layoutDirection, density)
+            val layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr
+            val size = Size(previewSizePx, previewSizePx)
+            val outline = beadShape.createOutline(size, layoutDirection, density)
+            val path = Path()
+            when (outline) {
+                is Outline.Rectangle -> path.addRect(outline.rect)
+                is Outline.Rounded -> path.addRoundRect(outline.roundRect)
+                is Outline.Generic -> path.addPath(outline.path)
+            }
+            path
         }
-        val previewBrushCache = remember(styleRef, previewSizePx) {
-            BeadBrushCache(
-                noiseBrush = if (styleRef.textureStyle != BeadTextureStyle.SOLID) noiseBrush else null,
-                specularBrush = buildSpecularBrush(styleRef, previewPathSize),
-                metallicBrush = buildMetallicBrush(styleRef, previewPathSize),
-            )
-        }
+        
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawPremiumBead(previewBeadPath, styleRef, previewBrushCache)
+            drawPremiumBead(previewBeadPath, styleRef)
         }
 
-        // LAYER 2: The floating, GPU-accelerated text
         Text(
             text = style.engravingText,
-            color = if (isInsideShape) Color.White.copy(alpha = 0.85f) else Color.Red.copy(alpha = 0.6f),
+            color = Color.White.copy(alpha = 0.85f),
             style = MaterialTheme.typography.headlineLarge.copy(
-                fontSize = 24.sp, // CRITICAL FIX: Static font size stops the lag.
+                fontSize = 24.sp,
                 fontFamily = Antonio,
                 textAlign = TextAlign.Center
             ),
             modifier = Modifier
-                // CRITICAL FIX: graphicsLayer bypasses layout constraints, allowing free movement.
                 .graphicsLayer {
                     translationX = style.textOffsetX * density.density
                     translationY = style.textOffsetY * density.density
@@ -644,36 +532,19 @@ private fun BeadPreview(
 @Composable
 private fun BeadRenderer(style: CustomBeadStyle, shape: Shape, size: Float) {
     val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
     val sizePx = with(density) { size.dp.toPx() }
-    val noiseShader = remember { createNoiseShader(64) }
-    val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
-    val pathSize = remember(sizePx) { Size(sizePx, sizePx) }
     val beadPath = remember(shape, sizePx) {
-        createBeadPath(shape, Size(sizePx, sizePx), layoutDirection, density)
-    }
-    val brushCache = remember(style, sizePx) {
-        BeadBrushCache(
-            noiseBrush = if (style.textureStyle != BeadTextureStyle.SOLID) noiseBrush else null,
-            specularBrush = buildSpecularBrush(style, pathSize),
-            metallicBrush = buildMetallicBrush(style, pathSize),
-        )
+        val layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr
+        val outline = shape.createOutline(Size(sizePx, sizePx), layoutDirection, density)
+        val path = Path()
+        when (outline) {
+            is Outline.Rectangle -> path.addRect(outline.rect)
+            is Outline.Rounded -> path.addRoundRect(outline.roundRect)
+            is Outline.Generic -> path.addPath(outline.path)
+        }
+        path
     }
     Canvas(modifier = Modifier.size(size.dp)) {
-        drawPremiumBead(beadPath, style, brushCache)
-        // Show first character of engraving as a small overlay
-        if (style.engravingText.isNotBlank()) {
-            drawContext.canvas.nativeCanvas.drawText(
-                style.engravingText.take(1),
-                sizePx / 2f,
-                sizePx / 2f + sizePx * 0.12f,
-                android.graphics.Paint().apply {
-                    color = android.graphics.Color.argb(200, 255, 255, 255)
-                    textSize = sizePx * 0.4f
-                    textAlign = android.graphics.Paint.Align.CENTER
-                    isAntiAlias = true
-                }
-            )
-        }
+        drawPremiumBead(beadPath, style)
     }
 }

@@ -1,6 +1,7 @@
 package com.kaizen.khushu.ui.screens.tasbeeh
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -77,10 +78,17 @@ fun TasbeehCanvasScreen(
     var showPresetsMenu by remember { mutableStateOf(false) }
     var showBackgroundMenu by remember { mutableStateOf(false) }
     var guidanceToShow by remember { mutableStateOf<TasbeehCanvasViewModel.GuidanceType?>(null) }
+    var showColorPickerForWidget by remember { mutableStateOf<TasbihWidget?>(null) }
 
     // Listen for guidance events
     LaunchedEffect(Unit) {
-        viewModel.guidanceEvent.collect { guidanceToShow = it }
+        viewModel.guidanceEvent.collect { event ->
+            if (event == TasbeehCanvasViewModel.GuidanceType.STRING_ALREADY_EXISTS) {
+                Toast.makeText(context, "Bead String is already on the canvas", Toast.LENGTH_SHORT).show()
+            } else {
+                guidanceToShow = event
+            }
+        }
     }
 
     BoxWithConstraints(
@@ -138,7 +146,7 @@ fun TasbeehCanvasScreen(
                 Button(
                     onClick = {
                         viewModel.saveLayout()
-                        android.widget.Toast.makeText(context, "Tasbeeh Layout Saved", android.widget.Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Tasbeeh Layout Saved", Toast.LENGTH_SHORT).show()
                     },
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -209,7 +217,7 @@ fun TasbeehCanvasScreen(
             AlertDialog(
                 onDismissRequest = { guidanceToShow = null },
                 confirmButton = { Button(onClick = { guidanceToShow = null }) { Text("Got it") } },
-                title = { Text(if (type == TasbeehCanvasViewModel.GuidanceType.STRING_REMOVED) "String Removed" else "Trackers Removed") },
+                title = { Text(if (type == TasbeehCanvasViewModel.GuidanceType.STRING_REMOVED) "String Removed" else if (type == TasbeehCanvasViewModel.GuidanceType.BLIND_MODE_WARNING) "Trackers Removed" else "") },
                 text = {
                     Text(
                         when (type) {
@@ -217,6 +225,7 @@ fun TasbeehCanvasScreen(
                                 "Since String widget is removed, for counting tasbih you have to use volume up/down buttons now for doing tasbih."
                             TasbeehCanvasViewModel.GuidanceType.BLIND_MODE_WARNING -> 
                                 "If you remove string and counter then you won't be able to track the count and would have to rely on volume up/down. Consider adding some widget to track count, or if you wanted a minimal look try the Stealth Mode (save the canvas and stealth mode toggle is right outside)."
+                            else -> ""
                         }
                     )
                 },
@@ -234,8 +243,28 @@ fun TasbeehCanvasScreen(
                     onDelete = { viewModel.removeWidget(id) },
                     onDismiss = { viewModel.selectWidget(null) },
                     onAlign = { h, v -> viewModel.alignSelectedWidget(h, v) },
+                    onPickColor = { showColorPickerForWidget = selectedWidget }
                 )
             }
+        }
+
+        showColorPickerForWidget?.let { widget ->
+            val currentColorLong = widget.color
+            SimpleColorPickerSheet(
+                initialColor = Color(currentColorLong),
+                onColorSelected = { color ->
+                    val updated = when(widget) {
+                        is TasbihWidget.DhikrNameWidget -> widget.copy(color = color.toArgb().toLong())
+                        is TasbihWidget.CounterWidget -> widget.copy(color = color.toArgb().toLong())
+                        is TasbihWidget.MeaningWidget -> widget.copy(color = color.toArgb().toLong())
+                        is TasbihWidget.CustomText -> widget.copy(color = color.toArgb().toLong())
+                        is TasbihWidget.ProgressCircleWidget -> widget.copy(color = color.toArgb().toLong())
+                        is TasbihWidget.StringBeadWidget -> widget.copy(color = color.toArgb().toLong())
+                    }
+                    viewModel.updateWidget(updated)
+                },
+                onDismiss = { showColorPickerForWidget = null }
+            )
         }
     }
 }
@@ -276,6 +305,7 @@ fun TasbeehCanvasWidgetItem(
                 translationY = (widget.offsetY * screenHeight) - (size.height / 2f)
                 scaleX = widget.scale
                 scaleY = widget.scale
+                alpha = widget.alpha
                 transformOrigin = TransformOrigin.Center
             }
             .then(
@@ -558,6 +588,7 @@ private fun TasbihWidgetConfigSheet(
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
     onAlign: (Alignment.Horizontal?, Alignment.Vertical?) -> Unit,
+    onPickColor: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -568,7 +599,7 @@ private fun TasbihWidgetConfigSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.7f)
+                .fillMaxHeight(0.85f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
@@ -585,6 +616,7 @@ private fun TasbihWidgetConfigSheet(
             }
             Spacer(Modifier.height(24.dp))
 
+            // 1. Content (for CustomText)
             if (widget is TasbihWidget.CustomText) {
                 OutlinedTextField(
                     value = widget.text,
@@ -592,18 +624,115 @@ private fun TasbihWidgetConfigSheet(
                     label = { Text("Text Content") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(Modifier.height(16.dp))
-                
-                Text("Font Size", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Slider(
-                    value = widget.fontSize,
-                    onValueChange = { onUpdate(widget.copy(fontSize = it)) },
-                    valueRange = 12f..120f
-                )
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(24.dp))
             }
 
-            SliderControl("Scale", widget.scale, 0.5f, 3f) { onUpdate(
+            // 2. Color Palette (Presets & Custom)
+            Text("COLORS", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val palette = KhushuColors.Palette.take(5)
+                palette.forEach { color ->
+                    val isSelected = widget.color == color.toArgb().toLong()
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f), CircleShape)
+                            .clickable { onUpdate(when(widget) {
+                                is TasbihWidget.StringBeadWidget -> widget.copy(color = color.toArgb().toLong())
+                                is TasbihWidget.DhikrNameWidget -> widget.copy(color = color.toArgb().toLong())
+                                is TasbihWidget.CounterWidget -> widget.copy(color = color.toArgb().toLong())
+                                is TasbihWidget.ProgressCircleWidget -> widget.copy(color = color.toArgb().toLong())
+                                is TasbihWidget.MeaningWidget -> widget.copy(color = color.toArgb().toLong())
+                                is TasbihWidget.CustomText -> widget.copy(color = color.toArgb().toLong())
+                            }) }
+                    )
+                }
+                // Custom Color Wheel
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Brush.sweepGradient(listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)))
+                        .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                        .clickable { onPickColor() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Palette, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(24.dp))
+
+            // 3. Style & Format
+            Text("STYLE & FORMAT", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (widget is TasbihWidget.CounterWidget || widget is TasbihWidget.DhikrNameWidget || widget is TasbihWidget.CustomText) {
+                    val isBold = when(widget) {
+                        is TasbihWidget.CounterWidget -> widget.isBold
+                        is TasbihWidget.DhikrNameWidget -> widget.isBold
+                        is TasbihWidget.CustomText -> widget.isBold
+                        else -> false
+                    }
+                    val hasOutline = when(widget) {
+                        is TasbihWidget.CounterWidget -> widget.hasOutline
+                        is TasbihWidget.DhikrNameWidget -> widget.hasOutline
+                        is TasbihWidget.CustomText -> widget.hasOutline
+                        else -> false
+                    }
+                    FilterChip(
+                        selected = isBold,
+                        onClick = {
+                            onUpdate(when(widget) {
+                                is TasbihWidget.CounterWidget -> widget.copy(isBold = !isBold)
+                                is TasbihWidget.DhikrNameWidget -> widget.copy(isBold = !isBold)
+                                is TasbihWidget.CustomText -> widget.copy(isBold = !isBold)
+                                else -> widget
+                            })
+                        },
+                        label = { Text("Bold") }
+                    )
+                    FilterChip(
+                        selected = hasOutline,
+                        onClick = {
+                            onUpdate(when(widget) {
+                                is TasbihWidget.CounterWidget -> widget.copy(hasOutline = !hasOutline)
+                                is TasbihWidget.DhikrNameWidget -> widget.copy(hasOutline = !hasOutline)
+                                is TasbihWidget.CustomText -> widget.copy(hasOutline = !hasOutline)
+                                else -> widget
+                            })
+                        },
+                        label = { Text("Outline") }
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+
+            // 4. Sliders (Size, Scale, Opacity)
+            if (widget is TasbihWidget.CustomText) {
+                SliderControl("FONT SIZE", widget.fontSize, 12f, 120f) { onUpdate(widget.copy(fontSize = it)) }
+                Spacer(Modifier.height(16.dp))
+            }
+            SliderControl("OPACITY (${(widget.alpha * 100).toInt()}%)", widget.alpha, 0.1f, 1.0f) { onUpdate(
+                when(widget) {
+                    is TasbihWidget.StringBeadWidget -> widget.copy(alpha = it)
+                    is TasbihWidget.DhikrNameWidget -> widget.copy(alpha = it)
+                    is TasbihWidget.CounterWidget -> widget.copy(alpha = it)
+                    is TasbihWidget.ProgressCircleWidget -> widget.copy(alpha = it)
+                    is TasbihWidget.MeaningWidget -> widget.copy(alpha = it)
+                    is TasbihWidget.CustomText -> widget.copy(alpha = it)
+                }
+            )}
+            Spacer(Modifier.height(16.dp))
+            SliderControl("GLOBAL SCALE", widget.scale, 0.5f, 3f) { onUpdate(
                 when(widget) {
                     is TasbihWidget.StringBeadWidget -> widget.copy(scale = it)
                     is TasbihWidget.DhikrNameWidget -> widget.copy(scale = it)
@@ -613,11 +742,31 @@ private fun TasbihWidgetConfigSheet(
                     is TasbihWidget.CustomText -> widget.copy(scale = it)
                 }
             )}
-
             Spacer(Modifier.height(24.dp))
-            Text("Alignment", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(24.dp))
 
+            // 5. String Specific
+            if (widget is TasbihWidget.StringBeadWidget) {
+                Text("STRING & PHYSICS", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(12.dp))
+                SliderControl("BEAD SIZE", widget.beadSizeScale, 0.5f, 2.5f) { onUpdate(widget.copy(beadSizeScale = it)) }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SliderControl("TOP STACK", widget.topStackLimit.toFloat(), 0f, 10f, Modifier.weight(1f)) { onUpdate(widget.copy(topStackLimit = it.toInt())) }
+                    SliderControl("BOTTOM POOL", widget.bottomStackLimit.toFloat(), 0f, 15f, Modifier.weight(1f)) { onUpdate(widget.copy(bottomStackLimit = it.toInt())) }
+                }
+                Spacer(Modifier.height(16.dp))
+                SliderControl("ELASTICITY", widget.stringElasticity, 1.0f, 3.0f) { onUpdate(widget.copy(stringElasticity = it)) }
+                SliderControl("STIFFNESS", widget.wobbleStiffness, 50f, 500f) { onUpdate(widget.copy(wobbleStiffness = it)) }
+                SliderControl("DAMPING", widget.wobbleDampingRatio, 0.1f, 1.0f) { onUpdate(widget.copy(wobbleDampingRatio = it)) }
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(24.dp))
+            }
+
+            // 6. Alignment
+            Text("ALIGNMENT", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     Alignment.Start to Icons.AutoMirrored.Filled.AlignHorizontalLeft,
@@ -629,7 +778,6 @@ private fun TasbihWidgetConfigSheet(
                     }
                 }
             }
-            
             if (widget !is TasbihWidget.StringBeadWidget) {
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -649,9 +797,12 @@ private fun TasbihWidgetConfigSheet(
 }
 
 @Composable
-private fun SliderControl(label: String, value: Float, min: Float, max: Float, onUpdate: (Float) -> Unit) {
-    Column {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun SliderControl(label: String, value: Float, min: Float, max: Float, modifier: Modifier = Modifier, onUpdate: (Float) -> Unit) {
+    Column(modifier = modifier) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (value % 1 == 0f) value.toInt().toString() else String.format("%.2f", value), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        }
         Slider(value = value, onValueChange = onUpdate, valueRange = min..max)
     }
 }

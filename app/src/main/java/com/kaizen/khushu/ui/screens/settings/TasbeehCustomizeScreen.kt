@@ -74,71 +74,9 @@ fun TasbeehCustomizeScreen(
                 checked = settings.tasbeehVolumeEnabled,
                 onCheckedChange = { viewModel.toggleTasbeehVolumeEnabled(it) }
             )
-
-            SectionHeader("String Physics")
-            PhysicsSlider(
-                label = "String Elasticity",
-                value = settings.stringElasticity,
-                range = 1.0f..2.5f,
-                onValueChange = { viewModel.setStringElasticity(it) }
-            )
-            PhysicsSlider(
-                label = "Wobble Stiffness",
-                value = settings.wobbleStiffness,
-                range = 50f..300f,
-                onValueChange = { viewModel.setWobbleStiffness(it) }
-            )
-            PhysicsSlider(
-                label = "Wobble Damping",
-                value = settings.wobbleDampingRatio,
-                range = 0.1f..1.0f,
-                onValueChange = { viewModel.setWobbleDampingRatio(it) }
-            )
-            PhysicsSlider(
-                label = "Bead Micro-Scale",
-                value = settings.beadMicroScale,
-                range = 1.0f..1.5f,
-                onValueChange = { viewModel.setBeadMicroScale(it) }
-            )
             
             Spacer(Modifier.height(32.dp))
         }
-    }
-}
-
-@Composable
-private fun PhysicsSlider(
-    label: String,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    onValueChange: (Float) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = String.format("%.2f", value),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = range,
-            modifier = Modifier.padding(top = 4.dp)
-        )
     }
 }
 

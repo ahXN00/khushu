@@ -43,10 +43,11 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
     private val _canvasWidth = MutableStateFlow(0f)
     private val _canvasHeight = MutableStateFlow(0f)
 
+    // Guidance events
     private val _guidanceEvent = MutableSharedFlow<GuidanceType>()
     val guidanceEvent = _guidanceEvent.asSharedFlow()
 
-    enum class GuidanceType { STRING_REMOVED, BLIND_MODE_WARNING }
+    enum class GuidanceType { STRING_REMOVED, BLIND_MODE_WARNING, STRING_ALREADY_EXISTS }
 
     init {
         viewModelScope.launch {
@@ -81,10 +82,18 @@ class TasbeehCanvasViewModel(private val dao: CanvasDao) : ViewModel() {
     }
 
     fun addWidget(widget: TasbihWidget) {
+        if (widget is TasbihWidget.StringBeadWidget && _workingWidgets.value.any { it is TasbihWidget.StringBeadWidget }) {
+            viewModelScope.launch { _guidanceEvent.emit(GuidanceType.STRING_ALREADY_EXISTS) }
+            return
+        }
         _workingWidgets.update { it + widget }
     }
 
     fun addNewWidgetFromMenu(widget: TasbihWidget) {
+        if (widget is TasbihWidget.StringBeadWidget && _workingWidgets.value.any { it is TasbihWidget.StringBeadWidget }) {
+            viewModelScope.launch { _guidanceEvent.emit(GuidanceType.STRING_ALREADY_EXISTS) }
+            return
+        }
         val centeredWidget = when (widget) {
             is TasbihWidget.StringBeadWidget -> widget.copy(offsetX = 0.88f, offsetY = 0.5f)
             is TasbihWidget.DhikrNameWidget -> widget.copy(offsetX = 0.5f, offsetY = 0.2f)
