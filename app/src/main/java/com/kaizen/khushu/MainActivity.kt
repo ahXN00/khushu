@@ -594,7 +594,6 @@ private fun KhushuApp(
                         TasbeehCustomizeScreen(
                             viewModel = settingsViewModel,
                             onPreview = { navController.navigate(TASBEEH_CANVAS_ROUTE) },
-                            onCustomizeBeads = { navController.navigate(BEAD_CUSTOMIZER_ROUTE) },
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -710,18 +709,7 @@ private fun KhushuApp(
                         )
                     }
 
-                    composable(
-                        route = BEAD_CUSTOMIZER_ROUTE,
-                        enterTransition = { EnterTransition.None },
-                        exitTransition = { ExitTransition.None },
-                        popEnterTransition = { EnterTransition.None },
-                        popExitTransition = { ExitTransition.None },
-                    ) {
-                        TasbihBeadCustomizerSheet(
-                            settingsViewModel = settingsViewModel,
-                            onDismiss = { navController.popBackStack() }
-                        )
-                    }
+
                 }
             }
         }

@@ -18,7 +18,7 @@ const val TASBEEH_IMMERSIVE_ROUTE = "tasbeeh/immersive/{collectionId}"
 const val SALAH_IMMERSIVE_ROUTE = "salah/immersive/{rakats}/{presetId}"
 const val SALAH_CANVAS_ROUTE = "salah/canvas/{rakats}"
 const val TASBEEH_CANVAS_ROUTE = "tasbeeh/canvas"
-const val BEAD_CUSTOMIZER_ROUTE = "tasbeeh/beads"
+
 
 enum class AppDestinations(val label: String, val icon: Int, val route: String) {
     SALAH("Salah", R.drawable.ic_salah, "salah"),

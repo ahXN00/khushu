@@ -11,16 +11,18 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+import com.kaizen.khushu.ui.screens.tasbeeh.TasbihBeadCustomizerSheet
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasbeehCustomizeScreen(
     viewModel: SettingsViewModel,
     onPreview: () -> Unit,
-    onCustomizeBeads: () -> Unit,
     onBack: () -> Unit
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showBeadSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -50,7 +52,7 @@ fun TasbeehCustomizeScreen(
             MenuSectionItem(
                 title = "Bead Style",
                 detail = "Choose Classic Amber or Dark Onyx",
-                onClick = onCustomizeBeads
+                onClick = { showBeadSheet = true }
             )
 
             SectionHeader("Visual Effects")
@@ -85,6 +87,13 @@ fun TasbeehCustomizeScreen(
             
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showBeadSheet) {
+        TasbihBeadCustomizerSheet(
+            settingsViewModel = viewModel,
+            onDismiss = { showBeadSheet = false }
+        )
     }
 }
 
