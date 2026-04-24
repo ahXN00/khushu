@@ -29,7 +29,6 @@ import com.kaizen.khushu.data.model.DhikrItem
 import kotlinx.serialization.Serializable
 import kotlin.math.abs
 import kotlin.math.exp
-import kotlin.math.sqrt
 
 enum class BeadStyle { CLASSIC_AMBER, DARK_ONYX }
 
@@ -163,7 +162,7 @@ val DefaultTasbihPreset = TasbihCanvasPreset(
     )
 )
 
-private const val BEAD_RADIUS_BASE = 18f
+internal const val BEAD_RADIUS_BASE = 18f
 
 @Composable
 fun TasbihWidgetRenderer(
@@ -176,15 +175,12 @@ fun TasbihWidgetRenderer(
     totalBeads: Int = 33,
     beadStyle: BeadStyle = BeadStyle.CLASSIC_AMBER,
     customBeadStyle: CustomBeadStyle? = null,
-    activeBeadProgress: Float? = null,
     thumbPosition: Offset? = null,
-    elasticity: Float = 1.8f,
-    microScale: Float = 1.2f,
     isTouchActive: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val baseModifier = modifier.graphicsLayer { alpha = widget.alpha }
-    
+
     // Shader/Brush cache for custom beads
     val noiseShader = remember { createNoiseShader() }
     val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
@@ -199,122 +195,75 @@ fun TasbihWidgetRenderer(
             val topLimit = widget.topStackLimit
             val bottomLimit = widget.bottomStackLimit
             val beadRadiusBase = BEAD_RADIUS_BASE * widget.beadSizeScale
-            
+
             Canvas(
                 modifier = baseModifier
                     .fillMaxHeight(0.9f)
                     .width(120.dp)
             ) {
-                val density = this.density
                 val beadRadius = beadRadiusBase * density
-
+                val gap = beadRadius * 0.4f
                 val cx = size.width / 2f
+
+                // String curve
                 val controlX = cx + stringControlXOffset
                 val controlY = size.height * stringControlYFraction
-
-                val path = Path().apply {
+                val stringPath = Path().apply {
                     moveTo(cx, 0f)
                     quadraticTo(controlX, controlY, cx, size.height)
                 }
+                drawPath(stringPath, Color.White.copy(alpha = 0.35f * widget.alpha),
+                    style = Stroke(width = 2 * density, cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-                drawPath(
-                    path = path,
-                    color = Color.White.copy(alpha = 0.35f * widget.alpha),
-                    style = Stroke(
-                        width = 2 * density,
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round,
-                    )
-                )
+                val topCount = minOf(countedBeads, topLimit).coerceAtLeast(0)
+                val bottomCount = minOf(totalBeads - countedBeads, bottomLimit).coerceAtLeast(0)
 
-                val androidPath = path.asAndroidPath()
-                val pm = android.graphics.PathMeasure(androidPath, false)
-                val pathLength = pm.length
-                if (pathLength <= 0f) return@Canvas
+                // Fisheye scale
+                val thumbY = thumbPosition?.y
+                val sigma = beadRadius * 2f
+                fun beadScale(naturalY: Float): Float {
+                    if (!isTouchActive || thumbY == null) return 1f
+                    val dist = kotlin.math.abs(naturalY - thumbY)
+                    return 1f + (widget.beadMicroScale - 1f) *
+                        kotlin.math.exp(-(dist * dist) / (2f * sigma * sigma)).toFloat()
+                }
 
-                val pos = FloatArray(2)
-                val tan = FloatArray(2)
-                val fisheyeRadius = size.height * 0.15f
-
-                var activeCenter: Offset? = null
-                if (activeBeadProgress != null) {
-                    val activeDist = (activeBeadProgress * pathLength).coerceIn(0f, pathLength)
-                    if (pm.getPosTan(activeDist, pos, tan)) {
-                        activeCenter = Offset(pos[0], pos[1])
+                // ── Top stack ─────────────────────────────────────────────────────
+                // Slot 0 = highest. Slot topCount-1 = lowest (newest arrival).
+                val topScales = FloatArray(topCount) { i ->
+                    val naturalY = beadRadius + i * (beadRadius * 2f + gap)
+                    beadScale(naturalY)
+                }
+                val topCenterYs = FloatArray(topCount)
+                if (topCount > 0) {
+                    topCenterYs[0] = beadRadius * topScales[0]
+                    for (i in 1 until topCount) {
+                        val prevBottom = topCenterYs[i - 1] + beadRadius * topScales[i - 1]
+                        topCenterYs[i] = prevBottom + gap + beadRadius * topScales[i]
                     }
                 }
-
-                val fisheyeCenter: Offset? = activeCenter ?: thumbPosition
-
-                val topPoolAdjustment = if (activeBeadProgress != null && activeBeadProgress < 0.5f) 1 else 0
-                val topCount = (minOf(countedBeads, topLimit) - topPoolAdjustment).coerceAtLeast(0)
-                
-                val topSpacing = beadRadius * 2.4f
                 for (i in 0 until topCount) {
-                    val dist = beadRadius + i * topSpacing
-                    pm.getPosTan(dist, pos, tan)
-                    val center = Offset(pos[0], pos[1])
-                    val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
-                    
-                    drawBeadWrapper(
-                        center = center,
-                        radius = beadRadius * scale,
-                        legacyStyle = beadStyle,
-                        customStyle = customBeadStyle,
-                        customShape = customShape,
-                        noiseBrush = noiseBrush
-                    )
+                    drawBeadWrapper(Offset(cx, topCenterYs[i]), beadRadius * topScales[i],
+                        beadStyle, customBeadStyle, customShape, noiseBrush)
                 }
 
-                if (activeCenter != null) {
-                    val scale = fisheyeScale(activeCenter, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
-                    drawBeadWrapper(
-                        center = activeCenter,
-                        radius = beadRadius * scale,
-                        legacyStyle = beadStyle,
-                        customStyle = customBeadStyle,
-                        customShape = customShape,
-                        noiseBrush = noiseBrush
-                    )
+                // ── Bottom stack ───────────────────────────────────────────────────
+                // Slot 0 = topmost. Slot bottomCount-1 = anchored at bottom.
+                val bottomScales = FloatArray(bottomCount) { i ->
+                    val naturalY = size.height - beadRadius - (bottomCount - 1 - i) * (beadRadius * 2f + gap)
+                    beadScale(naturalY)
                 }
-
-                val remaining = (totalBeads - countedBeads).coerceAtLeast(0)
-                val bottomPoolAdjustment = if (activeBeadProgress != null && activeBeadProgress >= 0.5f) 1 else 0
-                val poolSize = (remaining - bottomPoolAdjustment).coerceAtLeast(0)
-                val visibleBottom = minOf(poolSize, bottomLimit)
-                
-                val baseSpacing = beadRadius * 2.4f
-                var currentDistance = 0f
-                for (i in 0 until visibleBottom) {
-                    val staticDist = pathLength - beadRadius - (i * baseSpacing)
-                    pm.getPosTan(staticDist, pos, tan)
-                    val staticCenter = Offset(pos[0], pos[1])
-                    
-                    val stretchFactor = if (isTouchActive && thumbPosition != null) {
-                        val distToThumb = abs(staticCenter.y - thumbPosition.y)
-                        val influenceRange = size.height * 0.25f
-                        if (distToThumb < influenceRange) {
-                            val normalizedDist = distToThumb / influenceRange
-                            1f + (widget.stringElasticity - 1f) * exp(-normalizedDist * normalizedDist * 4f)
-                        } else 1f
-                    } else 1f
-                    
-                    val dynamicDist = pathLength - beadRadius - currentDistance
-                    if (dynamicDist <= 0f) break
-                    pm.getPosTan(dynamicDist, pos, tan)
-                    val center = Offset(pos[0], pos[1])
-                    
-                    val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
-                    drawBeadWrapper(
-                        center = center,
-                        radius = beadRadius * scale,
-                        legacyStyle = beadStyle,
-                        customStyle = customBeadStyle,
-                        customShape = customShape,
-                        noiseBrush = noiseBrush
-                    )
-
-                    currentDistance += baseSpacing * stretchFactor
+                val bottomCenterYs = FloatArray(bottomCount)
+                if (bottomCount > 0) {
+                    bottomCenterYs[bottomCount - 1] = size.height - beadRadius * bottomScales[bottomCount - 1]
+                    for (i in bottomCount - 2 downTo 0) {
+                        val nextTop = bottomCenterYs[i + 1] - beadRadius * bottomScales[i + 1]
+                        bottomCenterYs[i] = nextTop - gap - beadRadius * bottomScales[i]
+                    }
+                }
+                for (i in 0 until bottomCount) {
+                    drawBeadWrapper(Offset(cx, bottomCenterYs[i]), beadRadius * bottomScales[i],
+                        beadStyle, customBeadStyle, customShape, noiseBrush)
                 }
             }
         }
@@ -374,7 +323,7 @@ fun TasbihWidgetRenderer(
 
         is TasbihWidget.MeaningWidget -> {
             Text(
-                text = "Glorified is Allah", 
+                text = "Glorified is Allah",
                 style = TextStyle(
                     color = Color(widget.color).copy(alpha = 0.6f),
                     fontSize = MaterialTheme.typography.bodyLarge.fontSize,
@@ -520,19 +469,4 @@ private fun DrawScope.drawBead(
             )
         }
     }
-}
-
-private fun fisheyeScale(
-    beadCenter: Offset,
-    thumb: Offset?,
-    radiusPx: Float,
-    maxScale: Float,
-): Float {
-    if (thumb == null) return 1f
-    val dx = beadCenter.x - thumb.x
-    val dy = beadCenter.y - thumb.y
-    val dist = sqrt(dx * dx + dy * dy)
-    if (dist >= radiusPx) return 1f
-    val t = dist / radiusPx
-    return 1f + (maxScale - 1f) * (1f - t * t)
 }

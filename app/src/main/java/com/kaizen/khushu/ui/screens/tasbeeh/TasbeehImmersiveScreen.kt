@@ -48,7 +48,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -59,31 +58,6 @@ import com.kaizen.khushu.data.model.TasbeehCollection
 import com.kaizen.khushu.data.repository.UserSettings
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-
-private data class StringBeadMetrics(
-    val beadRadius: Float,
-    val topBottomY: Float,      // canvas-local Y of bottommost top bead (decrement source)
-    val bottomTopY: Float,      // canvas-local Y of topmost bottom bead (increment source)
-    val incrementLandY: Float,  // canvas-local Y where increment bead lands
-    val decrementLandY: Float,  // canvas-local Y where decrement bead lands
-)
-
-private fun stringBeadMetrics(
-    widget: TasbihWidget.StringBeadWidget,
-    canvasHeightPx: Float,
-    topCount: Int,
-    bottomCount: Int,
-    density: Float,
-): StringBeadMetrics {
-    val beadRadius = BEAD_RADIUS_BASE * widget.beadSizeScale * density
-    val gap = beadRadius * 0.4f
-    val spacing = beadRadius * 2f + gap
-    val topBottomY = beadRadius + (topCount - 1).coerceAtLeast(0) * spacing
-    val bottomTopY = canvasHeightPx - beadRadius - (bottomCount - 1).coerceAtLeast(0) * spacing
-    val incrementLandY = beadRadius + topCount * spacing
-    val decrementLandY = canvasHeightPx - beadRadius - (bottomCount - 1).coerceAtLeast(0) * spacing
-    return StringBeadMetrics(beadRadius, topBottomY, bottomTopY, incrementLandY, decrementLandY)
-}
 
 @Composable
 fun TasbeehImmersiveScreen(
@@ -120,19 +94,11 @@ fun TasbeehImmersiveScreen(
     var screenHeight by remember { mutableFloatStateOf(0f) }
 
     val scope = rememberCoroutineScope()
-    val density = LocalDensity.current.density
-
-    // New drag-based bead state
-    val dragBeadY = remember { Animatable(0f) }
-    var isDragging by remember { mutableStateOf(false) }
-    var dragIsIncrement by remember { mutableStateOf(true) }
 
     // String wobble control point
     val controlXAnim = remember { Animatable(0f) }
     val controlYAnim = remember { Animatable(0.5f) }
     val stringSnapSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 1500f)
-    val beadSnapSpring = spring<Float>(dampingRatio = 0.7f, stiffness = 2000f)
-    val beadLandSpring = spring<Float>(dampingRatio = 0.45f, stiffness = 600f)
 
     var thumbPosition by remember { mutableStateOf<Offset?>(null) }
     var widgetsVisible by remember { mutableStateOf(true) }
@@ -160,52 +126,8 @@ fun TasbeehImmersiveScreen(
         }
     }
 
-    fun getStringMetrics(): Pair<TasbihWidget.StringBeadWidget, StringBeadMetrics>? {
-        val sw = layout.widgets.filterIsInstance<TasbihWidget.StringBeadWidget>().firstOrNull() ?: return null
-        val canvasH = screenHeight * 0.9f * sw.scale
-        val tc = minOf(currentCount, sw.topStackLimit).coerceAtLeast(0)
-        val bc = minOf(currentTarget - currentCount, sw.bottomStackLimit).coerceAtLeast(0)
-        return sw to stringBeadMetrics(sw, canvasH, tc, bc, density)
-    }
-
-    fun fireVolumeIncrement() {
-        if (isDragging) return
-        if (!settings.tasbeehVolumeAnimation) { registerIncrement(); return }
-        val pair = getStringMetrics()
-        if (pair == null) { registerIncrement(); return }
-        val (sw, metrics) = pair
-        val bc = minOf(currentTarget - currentCount, sw.bottomStackLimit).coerceAtLeast(0)
-        if (bc == 0) { registerIncrement(); return }
-        scope.launch {
-            isDragging = true; dragIsIncrement = true
-            dragBeadY.snapTo(metrics.bottomTopY)
-            dragBeadY.animateTo(metrics.incrementLandY, beadLandSpring)
-            registerIncrement()
-            kotlinx.coroutines.delay(80)
-            isDragging = false
-        }
-    }
-
-    fun fireVolumeDecrement() {
-        if (isDragging) return
-        if (!settings.tasbeehVolumeAnimation) { registerDecrement(); return }
-        val pair = getStringMetrics()
-        if (pair == null) { registerDecrement(); return }
-        val (sw, metrics) = pair
-        val tc = minOf(currentCount, sw.topStackLimit).coerceAtLeast(0)
-        if (tc == 0) { registerDecrement(); return }
-        scope.launch {
-            isDragging = true; dragIsIncrement = false
-            dragBeadY.snapTo(metrics.topBottomY)
-            dragBeadY.animateTo(metrics.decrementLandY, beadLandSpring)
-            registerDecrement()
-            kotlinx.coroutines.delay(80)
-            isDragging = false
-        }
-    }
-
     LaunchedEffect(viewModel.countIncrementSignal) {
-        viewModel.countIncrementSignal.collect { fireVolumeIncrement() }
+        viewModel.countIncrementSignal.collect { registerIncrement() }
     }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -219,8 +141,8 @@ fun TasbeehImmersiveScreen(
             .onKeyEvent { event ->
                 if (settings.tasbeehVolumeEnabled && event.type == KeyEventType.KeyDown) {
                     when (event.key) {
-                        Key.VolumeUp -> { fireVolumeIncrement(); true }
-                        Key.VolumeDown -> { fireVolumeDecrement(); true }
+                        Key.VolumeUp -> { registerIncrement(); true }
+                        Key.VolumeDown -> { registerDecrement(); true }
                         else -> false
                     }
                 } else false
@@ -253,14 +175,15 @@ fun TasbeehImmersiveScreen(
                                 totalBeads = currentTarget,
                                 beadStyle = beadStyle,
                                 customBeadStyle = customBeadStyle,
-                                dragBeadY = if (widget is TasbihWidget.StringBeadWidget && isDragging) dragBeadY.value else null,
-                                dragIsIncrement = dragIsIncrement,
                                 thumbPosition = if (widget is TasbihWidget.StringBeadWidget) {
                                     thumbPosition?.let { t ->
-                                        Offset(t.x - (widget.offsetX * screenWidth), t.y - (widget.offsetY * screenHeight))
+                                        Offset(
+                                            t.x - (widget.offsetX * screenWidth),
+                                            t.y - (widget.offsetY * screenHeight),
+                                        )
                                     }
                                 } else null,
-                                isTouchActive = thumbPosition != null
+                                isTouchActive = thumbPosition != null,
                             )
                         }
                     }
@@ -277,7 +200,7 @@ fun TasbeehImmersiveScreen(
                     .fillMaxSize()
                     .pointerInput(screenWidth, screenHeight, layout.widgets, widgetsVisible, settings.tasbeehStealthModeAllowed) {
                         awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val down = awaitFirstDown()
                             down.consume()
 
                             val startScreenX = down.position.x
@@ -287,39 +210,10 @@ fun TasbeehImmersiveScreen(
                             val isNearString = hasString && widgetsVisible &&
                                 kotlin.math.abs(startScreenX - stringScreenX) < 70f * density && !showResetOverlay
 
-                            // Canvas Y helpers
-                            val sw = stringWidget
-                            val canvasH = screenHeight * 0.9f * (sw?.scale ?: 1f)
-                            val canvasTopScreenY = (sw?.offsetY ?: 0.5f) * screenHeight - canvasH / 2f
-                            fun screenToCanvasY(sy: Float) = sy - canvasTopScreenY
-
-                            val topCountAtStart = minOf(currentCount, sw?.topStackLimit ?: 3).coerceAtLeast(0)
-                            val bottomCountAtStart = minOf(currentTarget - currentCount, sw?.bottomStackLimit ?: 7).coerceAtLeast(0)
-                            val metricsAtStart = sw?.let {
-                                stringBeadMetrics(it, canvasH, topCountAtStart, bottomCountAtStart, density)
-                            }
-
-                            val startCanvasY = screenToCanvasY(startScreenY)
-                            val hitRadius = (metricsAtStart?.beadRadius ?: 0f) * 2.5f
-
-                            val isIncrementHit = isNearString && metricsAtStart != null && bottomCountAtStart > 0 &&
-                                kotlin.math.abs(startCanvasY - metricsAtStart.bottomTopY) < hitRadius
-                            val isDecrementHit = isNearString && metricsAtStart != null && topCountAtStart > 0 &&
-                                kotlin.math.abs(startCanvasY - metricsAtStart.topBottomY) < hitRadius
-
-                            val startedDrag = !isDragging && (isIncrementHit || isDecrementHit)
-                            var dragStarted = false
-                            var hasSwiped = false
                             var localResetArmed = false
+                            var hasMoved = false
 
-                            if (startedDrag) {
-                                dragStarted = true
-                                isDragging = true
-                                dragIsIncrement = isIncrementHit
-                                val startCanvasYLocal = if (isIncrementHit) metricsAtStart!!.bottomTopY else metricsAtStart!!.topBottomY
-                                scope.launch { dragBeadY.snapTo(startCanvasYLocal) }
-                            }
-
+                            // Hold-to-reset: only fires when not near the string.
                             val holdJob = if (!isNearString) {
                                 scope.launch {
                                     kotlinx.coroutines.delay(500)
@@ -331,9 +225,6 @@ fun TasbeehImmersiveScreen(
                                 }
                             } else null
 
-                            var prevY = startScreenY
-                            var velocity = 0f
-
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull() ?: break
@@ -341,91 +232,50 @@ fun TasbeehImmersiveScreen(
 
                                 val currentX = change.position.x
                                 val currentY = change.position.y
-                                velocity = currentY - prevY
-                                prevY = currentY
                                 thumbPosition = Offset(currentX, currentY)
 
+                                // String wobble follows finger.
                                 val targetX = (currentX - stringScreenX).coerceIn(-100f, 100f)
                                 scope.launch { controlXAnim.animateTo(targetX, spring(stiffness = androidx.compose.animation.core.Spring.StiffnessHigh)) }
                                 scope.launch { controlYAnim.animateTo((currentY / screenHeight).coerceIn(0.1f, 0.9f), spring(stiffness = androidx.compose.animation.core.Spring.StiffnessHigh)) }
 
-                                if (dragStarted) {
-                                    val canvasY = screenToCanvasY(currentY).coerceIn(0f, canvasH)
-                                    scope.launch { dragBeadY.snapTo(canvasY) }
-                                }
-
-                                if (!hasSwiped && !isNearString && kotlin.math.abs(currentY - startScreenY) > 120f) {
-                                    hasSwiped = true
-                                    holdJob?.cancel()
-                                }
-
+                                if (kotlin.math.abs(currentY - startScreenY) > 20f) hasMoved = true
                                 if (change.positionChanged()) change.consume()
                             }
 
                             holdJob?.cancel()
 
-                            if (dragStarted && metricsAtStart != null) {
-                                val curY = dragBeadY.value
-                                val midY = canvasH / 2f
-                                if (dragIsIncrement) {
-                                    val committed = curY < midY || velocity < -3f
-                                    scope.launch {
-                                        if (committed) {
-                                            dragBeadY.animateTo(metricsAtStart.incrementLandY, beadLandSpring)
-                                            registerIncrement()
-                                        } else {
-                                            dragBeadY.animateTo(metricsAtStart.bottomTopY, beadSnapSpring)
-                                        }
-                                        kotlinx.coroutines.delay(80)
-                                        isDragging = false
+                            if (!hasMoved) {
+                                when {
+                                    localResetArmed -> {
+                                        currentCount = 0
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     }
-                                } else {
-                                    val committed = curY > midY || velocity > 3f
-                                    scope.launch {
-                                        if (committed) {
-                                            dragBeadY.animateTo(metricsAtStart.decrementLandY, beadLandSpring)
-                                            registerDecrement()
-                                        } else {
-                                            dragBeadY.animateTo(metricsAtStart.topBottomY, beadSnapSpring)
-                                        }
-                                        kotlinx.coroutines.delay(80)
-                                        isDragging = false
+                                    showResetOverlay -> {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     }
-                                }
-                            } else if (!dragStarted) {
-                                val didMove = kotlin.math.abs(prevY - startScreenY) > 20f
-                                if (!didMove) {
-                                    when {
-                                        localResetArmed -> {
-                                            currentCount = 0
-                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        }
-                                        showResetOverlay -> {
-                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        }
-                                        !hasString || !widgetsVisible -> {
-                                            // In stealth or no-string mode: double-tap toggles stealth, single tap counts.
-                                            if (settings.tasbeehStealthModeAllowed) {
-                                                val secondTap = withTimeoutOrNull(300L) { awaitFirstDown(requireUnconsumed = false) }
-                                                if (secondTap != null) {
-                                                    secondTap.consume()
-                                                    widgetsVisible = !widgetsVisible
-                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                } else {
-                                                    fireVolumeIncrement()
-                                                }
-                                            } else {
-                                                fireVolumeIncrement()
-                                            }
-                                        }
-                                        settings.tasbeehStealthModeAllowed && !isNearString -> {
-                                            // Normal visible mode, not near string: double-tap to enter stealth.
+                                    // No string or stealth mode: single tap counts, double-tap toggles stealth.
+                                    !hasString || !widgetsVisible -> {
+                                        if (settings.tasbeehStealthModeAllowed) {
                                             val secondTap = withTimeoutOrNull(300L) { awaitFirstDown(requireUnconsumed = false) }
                                             if (secondTap != null) {
                                                 secondTap.consume()
                                                 widgetsVisible = !widgetsVisible
                                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            } else {
+                                                registerIncrement()
                                             }
+                                        } else {
+                                            registerIncrement()
+                                        }
+                                    }
+                                    // String present and visible: double-tap not near string → toggle stealth.
+                                    settings.tasbeehStealthModeAllowed && !isNearString -> {
+                                        val secondTap = withTimeoutOrNull(300L) { awaitFirstDown(requireUnconsumed = false) }
+                                        if (secondTap != null) {
+                                            secondTap.consume()
+                                            widgetsVisible = !widgetsVisible
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         }
                                     }
                                 }
