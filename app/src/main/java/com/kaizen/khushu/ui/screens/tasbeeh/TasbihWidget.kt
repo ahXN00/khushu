@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
@@ -174,6 +175,7 @@ fun TasbihWidgetRenderer(
     countedBeads: Int = 0,
     totalBeads: Int = 33,
     beadStyle: BeadStyle = BeadStyle.CLASSIC_AMBER,
+    customBeadStyle: CustomBeadStyle? = null,
     activeBeadProgress: Float? = null,
     thumbPosition: Offset? = null,
     elasticity: Float = 1.8f,
@@ -182,6 +184,15 @@ fun TasbihWidgetRenderer(
     modifier: Modifier = Modifier,
 ) {
     val baseModifier = modifier.graphicsLayer { alpha = widget.alpha }
+    
+    // Shader/Brush cache for custom beads
+    val noiseShader = remember { createNoiseShader() }
+    val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
+
+    // beadShapeTypeToShape is @Composable — call it at composable scope directly (Compose caches internally)
+    val customShape: Shape? = if (customBeadStyle != null) {
+        beadShapeTypeToShape(customBeadStyle.shapeType)
+    } else null
 
     when (widget) {
         is TasbihWidget.StringBeadWidget -> {
@@ -244,12 +255,27 @@ fun TasbihWidgetRenderer(
                     pm.getPosTan(dist, pos, tan)
                     val center = Offset(pos[0], pos[1])
                     val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
-                    drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
+                    
+                    drawBeadWrapper(
+                        center = center,
+                        radius = beadRadius * scale,
+                        legacyStyle = beadStyle,
+                        customStyle = customBeadStyle,
+                        customShape = customShape,
+                        noiseBrush = noiseBrush
+                    )
                 }
 
                 if (activeCenter != null) {
                     val scale = fisheyeScale(activeCenter, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
-                    drawBead(activeCenter, beadRadius * scale, alpha = 1f, style = beadStyle)
+                    drawBeadWrapper(
+                        center = activeCenter,
+                        radius = beadRadius * scale,
+                        legacyStyle = beadStyle,
+                        customStyle = customBeadStyle,
+                        customShape = customShape,
+                        noiseBrush = noiseBrush
+                    )
                 }
 
                 val remaining = (totalBeads - countedBeads).coerceAtLeast(0)
@@ -279,8 +305,15 @@ fun TasbihWidgetRenderer(
                     val center = Offset(pos[0], pos[1])
                     
                     val scale = fisheyeScale(center, fisheyeCenter, fisheyeRadius, widget.beadMicroScale)
-                    drawBead(center, beadRadius * scale, alpha = 1f, style = beadStyle)
-                    
+                    drawBeadWrapper(
+                        center = center,
+                        radius = beadRadius * scale,
+                        legacyStyle = beadStyle,
+                        customStyle = customBeadStyle,
+                        customShape = customShape,
+                        noiseBrush = noiseBrush
+                    )
+
                     currentDistance += baseSpacing * stretchFactor
                 }
             }
@@ -368,54 +401,53 @@ fun TasbihWidgetRenderer(
     }
 }
 
-fun DrawScope.drawPremiumBead(path: Path, style: CustomBeadStyle) {
+internal fun DrawScope.drawBeadWrapper(
+    center: Offset,
+    radius: Float,
+    legacyStyle: BeadStyle,
+    customStyle: CustomBeadStyle?,
+    customShape: Shape?,
+    noiseBrush: ShaderBrush?,
+) {
+    if (customStyle != null && customShape != null) {
+        val sizePx = radius * 2f
+        val path = createBeadPath(
+            customShape,
+            androidx.compose.ui.geometry.Size(sizePx, sizePx),
+            layoutDirection,
+            androidx.compose.ui.unit.Density(density)
+        )
+        translate(left = center.x - radius, top = center.y - radius) {
+            drawPremiumBead(path, customStyle, noiseBrush)
+        }
+    } else {
+        drawBead(center, radius, 1f, legacyStyle)
+    }
+}
+
+fun DrawScope.drawPremiumBead(path: Path, style: CustomBeadStyle, noiseBrush: ShaderBrush?) {
     val bounds = path.getBounds()
-    
-    if (style.is3dEnabled && style.depthMode == com.kaizen.khushu.data.model.BeadDepthMode.EMBOSS) {
-        translate(left = 4f, top = 8f) {
-            drawPath(path, Color.Black.copy(alpha = 0.3f))
-        }
-    }
+    val pathSize = androidx.compose.ui.geometry.Size(bounds.width, bounds.height)
 
-    drawPath(path, Color(style.baseColor))
+    // 1. Extrusion
+    if (style.is3dEnabled) drawBeadExtrusion(path, style)
 
-    if (style.is3dEnabled) {
-        withTransform({
-            clipPath(path)
-        }) {
-            drawRect(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.4f), Color.Transparent),
-                    center = Offset(bounds.left + bounds.width * 0.25f, bounds.top + bounds.height * 0.25f),
-                    radius = bounds.width * 0.8f
-                )
-            )
+    // 2. Base color
+    drawBeadBaseColor(path, style)
 
-            if (style.depthMode == com.kaizen.khushu.data.model.BeadDepthMode.DEBOSS) {
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.Black.copy(alpha = 0.4f), Color.Transparent),
-                        startY = bounds.top,
-                        endY = bounds.top + bounds.height * 0.3f
-                    )
-                )
-            }
-            
-            when (style.textureStyle) {
-                com.kaizen.khushu.data.model.BeadTextureStyle.FROSTED -> drawRect(Color.White.copy(alpha = 0.15f))
-                com.kaizen.khushu.data.model.BeadTextureStyle.RESIN -> {
-                    drawRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(Color.White.copy(alpha = 0.2f), Color.Transparent, Color.Black.copy(alpha = 0.1f)),
-                            start = Offset(bounds.left, bounds.top),
-                            end = Offset(bounds.right, bounds.bottom)
-                        )
-                    )
-                }
-                else -> {}
-            }
-        }
-    }
+    // 3. Texture
+    drawBeadTexture(path, style, noiseBrush)
+
+    // 4. Specular highlight
+    val specularBrush = buildSpecularBrush(style, pathSize)
+    drawBeadSpecular(path, specularBrush)
+
+    // 5. Chromatic aberration
+    drawBeadChromaticAberration(path, style)
+
+    // 6. Metallic sheen
+    val metallicBrush = buildMetallicBrush(style, pathSize)
+    drawBeadMetallicSheen(path, metallicBrush)
 }
 
 private fun DrawScope.drawBead(

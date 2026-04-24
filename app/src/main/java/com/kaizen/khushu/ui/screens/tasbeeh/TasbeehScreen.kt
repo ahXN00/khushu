@@ -21,7 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -181,6 +181,7 @@ fun TasbeehScreen(
                     isListMode = isListMode,
                     containerColor = resolvedBg,
                     contentColor = resolvedContent,
+                    settings = settings,
                     onTap = { selectedCollection = collection },
                     modifier = Modifier.graphicsLayer {
                         this.alpha = alpha
@@ -451,68 +452,164 @@ private fun CollectionCard(
     isListMode: Boolean,
     containerColor: Color,
     contentColor: Color,
+    settings: com.kaizen.khushu.data.repository.UserSettings,
     onTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val customBeadStyle = settings.customBeadStyles.find { it.id == settings.activeBeadStyleId }
+    val legacyBeadStyle = if (settings.tasbihBeadStyle == "DARK_ONYX") BeadStyle.DARK_ONYX else BeadStyle.CLASSIC_AMBER
+
     if (isListMode) {
-        Row(
+        Box(
             modifier = modifier
                 .fillMaxWidth()
                 .height(150.dp)
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(24.dp))
                 .background(containerColor)
                 .clickable(onClick = onTap)
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.Top,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                if (!collection.title.isNullOrBlank()) {
-                    Text(
-                        text = collection.title,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontFamily = BeVietnamPro,
-                        color = contentColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(3.dp))
-                }
-                Text(
-                    text = "${collection.items.size} dhikr",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = contentColor.copy(alpha = 0.6f),
+            // --- Islamic Background Pattern ---
+            Canvas(modifier = Modifier.size(200.dp).align(Alignment.CenterEnd).offset(x = 60.dp, y = 30.dp)) {
+                val starSize = size.minDimension
+                val squareSize = starSize * 0.707f
+                val starColor = contentColor
+                val starAlpha = 0.1f
+
+                drawContext.canvas.save()
+                drawContext.transform.rotate(0f, center)
+                drawRect(
+                    color = starColor,
+                    topLeft = androidx.compose.ui.geometry.Offset(center.x - squareSize/2, center.y - squareSize/2),
+                    size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()),
+                    alpha = starAlpha
                 )
-                if (collection.items.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    collection.items.take(2).forEach { item ->
+                drawContext.canvas.restore()
+                drawContext.canvas.save()
+                drawContext.transform.rotate(45f, center)
+                drawRect(
+                    color = starColor,
+                    topLeft = androidx.compose.ui.geometry.Offset(center.x - squareSize/2, center.y - squareSize/2),
+                    size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()),
+                    alpha = starAlpha
+                )
+                drawContext.canvas.restore()
+            }
+
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    if (!collection.title.isNullOrBlank()) {
                         Text(
-                            text = "· ${item.name}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = contentColor.copy(alpha = 0.8f),
+                            text = collection.title,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontFamily = BeVietnamPro,
+                            color = contentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                    Text(
+                        text = "${collection.items.size} dhikr",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentColor.copy(alpha = 0.6f),
+                    )
+                    if (collection.items.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        collection.items.take(2).forEach { item ->
+                            Text(
+                                text = "· ${item.name}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = contentColor.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
-            }
-            if (collection.items.isNotEmpty()) {
-                Text(
-                    text = collection.items.first().targetCount.toString(),
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor.copy(alpha = 0.18f),
-                )
+
+                // --- The Physical Sidebar (String + 3 Beads) ---
+                Box(
+                    modifier = Modifier
+                        .width(48.dp)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // The String
+                    Canvas(modifier = Modifier.fillMaxHeight().width(6.dp)) {
+                        // Drop Shadow
+                        drawLine(
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.2f), Color.Transparent)
+                            ),
+                            start = androidx.compose.ui.geometry.Offset(size.width / 2 + 1.dp.toPx(), 0f),
+                            end = androidx.compose.ui.geometry.Offset(size.width / 2 + 1.dp.toPx(), size.height),
+                            strokeWidth = 2.dp.toPx()
+                        )
+                        // Main Thread
+                        drawLine(
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, contentColor.copy(alpha = 0.4f), Color.Transparent)
+                            ),
+                            start = androidx.compose.ui.geometry.Offset(size.width / 2, 0f),
+                            end = androidx.compose.ui.geometry.Offset(size.width / 2, size.height),
+                            strokeWidth = 2.dp.toPx()
+                        )
+                    }
+
+                    // 3 Beads
+                    Column(
+                        modifier = Modifier.fillMaxHeight(),
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        repeat(3) {
+                            PreviewBead(
+                                baseColor = contentColor,
+                                legacyStyle = legacyBeadStyle,
+                                customStyle = customBeadStyle,
+                                modifier = Modifier.size(if (settings.tasbihBeadStyle == "DARK_ONYX" && customBeadStyle == null) 14.dp else 16.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     } else {
         Box(
             modifier = modifier
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(24.dp))
                 .background(containerColor)
                 .clickable(onClick = onTap)
                 .padding(12.dp),
         ) {
+            // --- Islamic Pattern (Mini) ---
+            Canvas(modifier = Modifier.size(100.dp).align(Alignment.BottomEnd).offset(x = 20.dp, y = 20.dp)) {
+                val squareSize = size.minDimension * 0.707f
+                drawContext.canvas.save()
+                drawRect(
+                    color = contentColor,
+                    topLeft = androidx.compose.ui.geometry.Offset(center.x - squareSize/2, center.y - squareSize/2),
+                    size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()),
+                    alpha = 0.08f
+                )
+                drawContext.transform.rotate(45f, center)
+                drawRect(
+                    color = contentColor,
+                    topLeft = androidx.compose.ui.geometry.Offset(center.x - squareSize/2, center.y - squareSize/2),
+                    size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()),
+                    alpha = 0.08f
+                )
+                drawContext.canvas.restore()
+            }
+
             Column {
                 if (!collection.title.isNullOrBlank()) {
                     Text(
@@ -556,5 +653,32 @@ private fun CollectionCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PreviewBead(
+    baseColor: Color,
+    legacyStyle: BeadStyle,
+    customStyle: com.kaizen.khushu.data.model.CustomBeadStyle?,
+    modifier: Modifier = Modifier
+) {
+    val noiseShader = remember { createNoiseShader() }
+    val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
+    val customShape: androidx.compose.ui.graphics.Shape? = if (customStyle != null) {
+        beadShapeTypeToShape(customStyle.shapeType)
+    } else null
+
+    Canvas(modifier = modifier) {
+        val radius = size.minDimension / 2f
+
+        drawBeadWrapper(
+            center = androidx.compose.ui.geometry.Offset(radius, radius),
+            radius = radius,
+            legacyStyle = legacyStyle,
+            customStyle = customStyle,
+            customShape = customShape,
+            noiseBrush = noiseBrush
+        )
     }
 }
