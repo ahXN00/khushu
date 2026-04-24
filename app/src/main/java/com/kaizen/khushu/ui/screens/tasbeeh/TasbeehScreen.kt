@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -90,11 +89,8 @@ fun TasbeehScreen(
         progress = listProgress
     )
 
-    val gridState = rememberLazyGridState()
-
     Box(modifier = modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            state = gridState,
             columns = GridCells.Fixed(if (isListMode) 1 else 2),
             contentPadding = PaddingValues(
                 start = 20.dp,
@@ -180,18 +176,12 @@ fun TasbeehScreen(
                     Color(collection.colorInt) to Color.White
                 }
 
-                val scrollSway = if (isListMode) {
-                    val rawSway = gridState.firstVisibleItemScrollOffset * 0.04f
-                    if (index % 2 == 0) rawSway else -rawSway
-                } else 0f
-
                 CollectionCard(
                     collection = collection,
                     isListMode = isListMode,
                     containerColor = resolvedBg,
                     contentColor = resolvedContent,
                     settings = settings,
-                    scrollSway = scrollSway,
                     onTap = { selectedCollection = collection },
                     modifier = Modifier.graphicsLayer {
                         this.alpha = alpha
@@ -463,7 +453,6 @@ private fun CollectionCard(
     containerColor: Color,
     contentColor: Color,
     settings: com.kaizen.khushu.data.repository.UserSettings,
-    scrollSway: Float = 0f,
     onTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -508,100 +497,102 @@ private fun CollectionCard(
                 drawContext.canvas.restore()
             }
 
-            Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalAlignment = Alignment.Top,
+            // Text content — leaves 70dp on the right for the sidebar
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(start = 20.dp, end = 78.dp, top = 18.dp, bottom = 18.dp),
+                verticalArrangement = Arrangement.Top,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    if (!collection.title.isNullOrBlank()) {
+                if (!collection.title.isNullOrBlank()) {
+                    Text(
+                        text = collection.title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontFamily = BeVietnamPro,
+                        color = contentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                Text(
+                    text = "${collection.items.size} dhikr",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.6f),
+                )
+                if (collection.items.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    collection.items.take(2).forEach { item ->
                         Text(
-                            text = collection.title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontFamily = BeVietnamPro,
-                            color = contentColor,
+                            text = "· ${item.name}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = contentColor.copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(Modifier.height(4.dp))
-                    }
-                    Text(
-                        text = "${collection.items.size} dhikr",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = contentColor.copy(alpha = 0.6f),
-                    )
-                    if (collection.items.isNotEmpty()) {
-                        Spacer(Modifier.height(12.dp))
-                        collection.items.take(2).forEach { item ->
-                            Text(
-                                text = "· ${item.name}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = contentColor.copy(alpha = 0.8f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
                     }
                 }
+            }
 
-                // --- The Physical Sidebar (String + 3 Beads) ---
-                Box(
-                    modifier = Modifier
-                        .width(60.dp)
-                        .fillMaxHeight()
-                        .graphicsLayer { translationX = scrollSway },
-                    contentAlignment = Alignment.Center
+            // --- The Physical Sidebar (String + 3 Beads) ---
+            // Placed directly in the outer Box so the string spans the full card height
+            Box(
+                modifier = Modifier
+                    .width(100.dp)
+                    .fillMaxHeight()
+                    .align(Alignment.CenterEnd),
+                contentAlignment = Alignment.Center
+            ) {
+                // The String — full card height, no padding clipping
+                Canvas(modifier = Modifier.fillMaxHeight().width(8.dp)) {
+                    val centerX = size.width / 2f
+                    // Drop shadow
+                    drawLine(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.25f),
+                                Color.Black.copy(alpha = 0.25f),
+                                Color.Transparent
+                            ),
+                            startY = 0f,
+                            endY = size.height
+                        ),
+                        start = androidx.compose.ui.geometry.Offset(centerX + 1.5.dp.toPx(), 0f),
+                        end = androidx.compose.ui.geometry.Offset(centerX + 1.5.dp.toPx(), size.height),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                    // Main thread
+                    drawLine(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                contentColor.copy(alpha = 0.4f),
+                                contentColor.copy(alpha = 0.7f),
+                                contentColor.copy(alpha = 0.7f),
+                                contentColor.copy(alpha = 0.4f)
+                            ),
+                            startY = 0f,
+                            endY = size.height
+                        ),
+                        start = androidx.compose.ui.geometry.Offset(centerX, 0f),
+                        end = androidx.compose.ui.geometry.Offset(centerX, size.height),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                }
+
+                // 3 Beads
+                Column(
+                    modifier = Modifier.fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // The String
-                    Canvas(modifier = Modifier.fillMaxHeight().width(8.dp)) {
-                        val centerX = size.width / 2f
-                        // Drop Shadow
-                        drawLine(
-                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent, 
-                                    Color.Black.copy(alpha = 0.25f), 
-                                    Color.Black.copy(alpha = 0.25f), 
-                                    Color.Transparent
-                                ),
-                                startY = 0f,
-                                endY = size.height
-                            ),
-                            start = androidx.compose.ui.geometry.Offset(centerX + 1.5.dp.toPx(), 0f),
-                            end = androidx.compose.ui.geometry.Offset(centerX + 1.5.dp.toPx(), size.height),
-                            strokeWidth = 2.dp.toPx()
+                    repeat(3) {
+                        PreviewBead(
+                            baseColor = contentColor,
+                            legacyStyle = legacyBeadStyle,
+                            customStyle = customBeadStyle,
+                            modifier = Modifier.size(32.dp)
                         )
-                        // Main Thread
-                        drawLine(
-                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                colors = listOf(
-                                    contentColor.copy(alpha = 0.4f),
-                                    contentColor.copy(alpha = 0.7f),
-                                    contentColor.copy(alpha = 0.7f),
-                                    contentColor.copy(alpha = 0.4f)
-                                ),
-                                startY = 0f,
-                                endY = size.height
-                            ),
-                            start = androidx.compose.ui.geometry.Offset(centerX, 0f),
-                            end = androidx.compose.ui.geometry.Offset(centerX, size.height),
-                            strokeWidth = 2.dp.toPx()
-                        )
-                    }
-
-                    // 3 Beads
-                    Column(
-                        modifier = Modifier.fillMaxHeight(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        repeat(3) {
-                            PreviewBead(
-                                baseColor = contentColor,
-                                legacyStyle = legacyBeadStyle,
-                                customStyle = customBeadStyle,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -692,9 +683,10 @@ private fun PreviewBead(
 ) {
     val noiseShader = remember { createNoiseShader() }
     val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
-    // Override the bead color with the card's onContainer color, keep user's shape
+    // Override color with card's onContainer color; strip engraving for card display
     val resolvedStyle = customStyle?.copy(
-        baseColor = baseColor.toArgb().toLong() and 0xFFFFFFFFL
+        baseColor = baseColor.toArgb().toLong() and 0xFFFFFFFFL,
+        engravingText = ""
     )
     val customShape: androidx.compose.ui.graphics.Shape? = if (resolvedStyle != null) {
         beadShapeTypeToShape(resolvedStyle.shapeType)
