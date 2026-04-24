@@ -74,6 +74,14 @@ fun TasbeehCustomizeScreen(
                 checked = settings.tasbeehVolumeEnabled,
                 onCheckedChange = { viewModel.toggleTasbeehVolumeEnabled(it) }
             )
+            if (settings.tasbeehVolumeEnabled) {
+                SettingsToggle(
+                    title = "Animate Volume Keys",
+                    subtitle = "Show bead animation when counting with volume keys",
+                    checked = settings.tasbeehVolumeAnimation,
+                    onCheckedChange = { viewModel.toggleTasbeehVolumeAnimation(it) }
+                )
+            }
             
             Spacer(Modifier.height(32.dp))
         }

@@ -1,0 +1,27 @@
+name: "🚀 Feature Request"
+description: "Suggest a new idea or improvement for Khushu."
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Have a vision for Khushu?** We would love to hear how we can make the app more useful for your spiritual journey.
+  - type: textarea
+    id: idea
+    attributes:
+      label: "The Big Idea"
+      placeholder: "What feature would you like to see?"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: "The Why"
+      placeholder: "How will this help your Khushu or daily worship?"
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: "Design Ideas"
+      placeholder: "Describe how it should look or feel (remember our Pure Black aesthetic!)"

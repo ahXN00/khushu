@@ -1,0 +1,37 @@
+name: "🐛 Bug Report"
+description: "Help us improve Khushu by reporting a technical issue."
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **JazakAllah Khair for reporting this bug!** Your help ensures Khushu remains a reliable tool for the Ummah.
+  - type: textarea
+    id: description
+    attributes:
+      label: "What happened?"
+      placeholder: "Describe the bug in detail..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to Reproduce"
+      placeholder: "1. Open the app\n2. Go to Salah screen\n3. Tap on..."
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: "Device Info"
+      placeholder: "e.g. Samsung S23, Pixel 7"
+  - type: input
+    id: version
+    attributes:
+      label: "Android Version"
+      placeholder: "e.g. Android 13, API 33"
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots/Logs"
+      placeholder: "Drag and drop any images or paste logs here."

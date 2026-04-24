@@ -65,6 +65,7 @@ class SettingsRepository(private val context: Context) {
         // Tasbeeh Interaction
         val TASBEEH_STEALTH_MODE_ALLOWED = booleanPreferencesKey("tasbeeh_stealth_mode_allowed")
         val TASBEEH_VOLUME_ENABLED = booleanPreferencesKey("tasbeeh_volume_enabled")
+        val TASBEEH_VOLUME_ANIMATION = booleanPreferencesKey("tasbeeh_volume_animation")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
 
@@ -125,7 +126,8 @@ class SettingsRepository(private val context: Context) {
                 customBeadStyles = customStyles,
                 activeBeadStyleId = preferences[PreferencesKeys.ACTIVE_BEAD_STYLE_ID] ?: "CLASSIC_AMBER",
                 tasbeehStealthModeAllowed = preferences[PreferencesKeys.TASBEEH_STEALTH_MODE_ALLOWED] ?: false,
-                tasbeehVolumeEnabled = preferences[PreferencesKeys.TASBEEH_VOLUME_ENABLED] ?: true
+                tasbeehVolumeEnabled = preferences[PreferencesKeys.TASBEEH_VOLUME_ENABLED] ?: true,
+                tasbeehVolumeAnimation = preferences[PreferencesKeys.TASBEEH_VOLUME_ANIMATION] ?: true
             )
         }
 
@@ -135,6 +137,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTasbeehVolumeEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.TASBEEH_VOLUME_ENABLED] = enabled }
+    }
+
+    suspend fun setTasbeehVolumeAnimation(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.TASBEEH_VOLUME_ANIMATION] = enabled }
     }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
@@ -347,5 +353,6 @@ data class UserSettings(
     val activeBeadStyleId: String = "CLASSIC_AMBER",
     val tasbeehStealthModeAllowed: Boolean = false,
     val tasbeehVolumeEnabled: Boolean = true,
+    val tasbeehVolumeAnimation: Boolean = true,
     val onboardingCompleted: Boolean = false
 )

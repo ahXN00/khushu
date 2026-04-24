@@ -126,6 +126,10 @@ class SettingsViewModel(
         viewModelScope.launch { repository.setTasbeehVolumeEnabled(enabled) }
     }
 
+    fun toggleTasbeehVolumeAnimation(enabled: Boolean) {
+        viewModelScope.launch { repository.setTasbeehVolumeAnimation(enabled) }
+    }
+
     fun setOnboardingCompleted(completed: Boolean) {
         viewModelScope.launch { repository.setOnboardingCompleted(completed) }
     }

@@ -75,6 +75,9 @@ fun TasbeehCanvasScreen(
     val selectedWidgetId by viewModel.selectedWidgetId.collectAsStateWithLifecycle()
     val isUiVisible by viewModel.isUiVisible.collectAsStateWithLifecycle()
     val presets by viewModel.presets.collectAsStateWithLifecycle()
+    val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
+    val customBeadStyle = settings.customBeadStyles.find { it.id == settings.activeBeadStyleId }
+    val legacyBeadStyle = if (settings.tasbihBeadStyle == "DARK_ONYX") BeadStyle.DARK_ONYX else BeadStyle.CLASSIC_AMBER
 
     var showAddMenu by remember { mutableStateOf(false) }
     var showPresetsMenu by remember { mutableStateOf(false) }
@@ -122,6 +125,8 @@ fun TasbeehCanvasScreen(
                 isSelected = widget.id == selectedWidgetId,
                 screenWidth = screenWidth,
                 screenHeight = screenHeight,
+                legacyBeadStyle = legacyBeadStyle,
+                customBeadStyle = customBeadStyle,
                 onUpdate = { viewModel.updateWidget(it) },
                 onTap = {
                     viewModel.selectWidget(widget.id)
@@ -292,6 +297,8 @@ fun TasbeehCanvasWidgetItem(
     isSelected: Boolean,
     screenWidth: Float,
     screenHeight: Float,
+    legacyBeadStyle: BeadStyle,
+    customBeadStyle: com.kaizen.khushu.data.model.CustomBeadStyle?,
     onUpdate: (TasbihWidget) -> Unit,
     onTap: () -> Unit,
     onSizeMeasured: (String, Float, Float) -> Unit,
@@ -355,9 +362,8 @@ fun TasbeehCanvasWidgetItem(
                 stringControlYFraction = 0.5f,
                 countedBeads = 12,
                 totalBeads = 33,
-                beadStyle = BeadStyle.CLASSIC_AMBER,
-                activeBeadProgress = null,
-                thumbPosition = null
+                beadStyle = legacyBeadStyle,
+                customBeadStyle = customBeadStyle,
             )
         }
     }

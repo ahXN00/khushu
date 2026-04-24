@@ -391,6 +391,11 @@ private fun KhushuApp(
                         com.kaizen.khushu.ui.screens.quran.QuranReaderScreen(
                             surahNumber = surahNumber,
                             onBack = { navController.popBackStack() },
+                            onNextSurah = { next ->
+                                navController.navigate("quran/$next") {
+                                    popUpTo("quran/$surahNumber") { inclusive = true }
+                                }
+                            },
                             viewModel = quranViewModel,
                             settingsViewModel = settingsViewModel,
                             media3Controller = media3Controller
@@ -630,11 +635,14 @@ private fun KhushuApp(
                         val collection = tasbeehViewModel.collections.value.find { it.id.toString() == collectionId }
                         if (collection != null) {
                             val beadStyle = if (settings.tasbihBeadStyle == "DARK_ONYX") BeadStyle.DARK_ONYX else BeadStyle.CLASSIC_AMBER
+                            val customBeadStyle = settings.customBeadStyles.find { it.id == settings.activeBeadStyleId }
+                            
                             TasbeehImmersiveScreen(
                                 viewModel = tasbeehViewModel,
                                 canvasViewModel = tasbeehCanvasViewModel,
                                 collection = collection,
                                 beadStyle = beadStyle,
+                                customBeadStyle = customBeadStyle,
                                 settings = settings,
                                 onExit = { navController.popBackStack() },
                             )
@@ -713,10 +721,10 @@ private fun KhushuApp(
 
                     composable(
                         route = BEAD_CUSTOMIZER_ROUTE,
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None },
                     ) {
                         TasbihBeadCustomizerSheet(
                             settingsViewModel = settingsViewModel,

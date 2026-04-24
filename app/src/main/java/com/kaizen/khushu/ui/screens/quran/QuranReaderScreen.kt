@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -21,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -92,6 +94,7 @@ private fun readingColorScheme(readingTheme: String, dynamicColor: Boolean): Col
 fun QuranReaderScreen(
     surahNumber: Int,
     onBack: () -> Unit,
+    onNextSurah: (Int) -> Unit,
     viewModel: QuranViewModel,
     settingsViewModel: SettingsViewModel,
     media3Controller: MediaController?,
@@ -106,17 +109,82 @@ fun QuranReaderScreen(
     val settings by settingsViewModel.settings.collectAsState()
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
     val listState = rememberLazyListState()
-    
+
     val playingAyahIndex by quranAudioViewModel.playingAyahIndex
     val audioState by quranAudioViewModel.audioState
-    
+
+    // --- Overscroll / Next Surah Logic ---
+    val thresholdPx = with(density) { 240.dp.toPx() }
+    val overscrollState = remember { mutableFloatStateOf(0f) }
+    val fillProgress = (overscrollState.floatValue / thresholdPx).coerceIn(0f, 1f)
+
+    val nextSurah = remember(surahNumber, chapters) {
+        if (surahNumber < 114) chapters.find { it.id == surahNumber + 1 } else null
+    }
+
+    val nestedScrollConnection = remember(listState, nextSurah) {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (nextSurah == null) return androidx.compose.ui.geometry.Offset.Zero
+                if (source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) return androidx.compose.ui.geometry.Offset.Zero
+
+                // Only detect upward drag when at the very bottom
+                if (available.y < 0f && !listState.canScrollForward) {
+                    val prev = overscrollState.floatValue
+                    overscrollState.floatValue = (prev - available.y).coerceAtMost(thresholdPx)
+
+                    if (overscrollState.floatValue >= thresholdPx && prev < thresholdPx) {
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    }
+                    return androidx.compose.ui.geometry.Offset(0f, available.y)
+                }
+                
+                // INSTANT ABORT: If user swipes down while bar is showing, reset to 0
+                if (available.y > 0f && overscrollState.floatValue > 0f) {
+                    overscrollState.floatValue = 0f
+                    return androidx.compose.ui.geometry.Offset(0f, available.y)
+                }
+
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: androidx.compose.ui.geometry.Offset,
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput && available.y > 0f && !listState.canScrollForward) {
+                    // Safety reset
+                    overscrollState.floatValue = 0f
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+
+            override suspend fun onPostFling(
+                consumed: androidx.compose.ui.unit.Velocity,
+                available: androidx.compose.ui.unit.Velocity
+            ): androidx.compose.ui.unit.Velocity {
+                if (overscrollState.floatValue >= thresholdPx) {
+                    onNextSurah(surahNumber + 1)
+                }
+                overscrollState.floatValue = 0f
+                return androidx.compose.ui.unit.Velocity.Zero
+            }
+        }
+    }
+    // --------------------------------------
+
     LaunchedEffect(media3Controller) {
         quranAudioViewModel.setController(media3Controller)
     }
-    
+
     val scheme = readingColorScheme(settings.readingTheme, settings.dynamicColor)
-    
+
     var showSettings by remember { mutableStateOf(false) }
     var showTranslationPicker by remember { mutableStateOf(false) }
 
@@ -152,7 +220,7 @@ fun QuranReaderScreen(
     val blocks = remember(ayahs, translations, surah) {
         ayahs.map { (num, text) ->
             val plainText = text.replace(Regex("<[^>]*>"), "")
-            
+
             AyahBlock(
                 surah = surahNumber,
                 ayah = num,
@@ -180,7 +248,9 @@ fun QuranReaderScreen(
 
             Scaffold(
                 containerColor = Color.Transparent,
-                modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                modifier = modifier
+                    .nestedScroll(nestedScrollConnection)
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
                 topBar = {
                     LargeTopAppBar(
                         title = {
@@ -269,7 +339,7 @@ fun QuranReaderScreen(
 
                         LazyColumn(
                             state = listState,
-                            contentPadding = PaddingValues(bottom = 100.dp),
+                            contentPadding = PaddingValues(bottom = 32.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
                             if (surahNumber != 9 && surahNumber != 1) {
@@ -303,8 +373,68 @@ fun QuranReaderScreen(
                                     modifier = Modifier.padding(vertical = 4.dp)
                                 )
                             }
-                        }
 
+                            item {
+                                val isArmed = fillProgress >= 1f
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 64.dp, top = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "--- End of Surah ---",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = fg.copy(alpha = 0.15f)
+                                    )
+
+                                    if (nextSurah != null) {
+                                        Spacer(Modifier.height(24.dp))
+
+                                        // Circle hidden until swiping
+                                        if (overscrollState.floatValue > 0f) {
+                                            Box(
+                                                modifier = Modifier.size(36.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                CircularProgressIndicator(
+                                                    progress = { fillProgress },
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    color = if (isArmed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                                    strokeWidth = 3.dp,
+                                                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                                                )
+                                                if (isArmed) {
+                                                    Icon(
+                                                        imageVector = androidx.compose.material.icons.Icons.Default.KeyboardArrowUp,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(20.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+                                            Spacer(Modifier.height(12.dp))
+                                        }
+
+                                        Text(
+                                            text = if (isArmed) "Release for Next Surah" else "Swipe up for Next Surah",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = if (isArmed) MaterialTheme.colorScheme.primary else fg.copy(alpha = 0.3f)
+                                        )
+
+                                        // Only show next surah name after threshold is met
+                                        if (isArmed) {
+                                            Text(
+                                                text = nextSurah.nameSimple,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         if (activeBlock != null) {
                             val (block, index) = activeBlock!!
                             val topicId = "quran_surah_$surahNumber"

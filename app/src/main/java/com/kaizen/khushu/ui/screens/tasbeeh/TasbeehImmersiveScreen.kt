@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -15,10 +16,10 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,7 +46,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -95,12 +95,17 @@ fun TasbeehImmersiveScreen(
 
     val scope = rememberCoroutineScope()
 
-    // String wobble control point
-    val controlXAnim = remember { Animatable(0f) }
-    val controlYAnim = remember { Animatable(0.5f) }
-    val stringSnapSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 1500f)
-
-    var thumbPosition by remember { mutableStateOf<Offset?>(null) }
+    // Finger Y on the string canvas — drives the live fisheye wave.
+    // Written directly from pointer events; read at Canvas draw-phase via the provider lambda.
+    var fingerYOnString by remember { mutableStateOf<Float?>(null) }
+    // fisheyeAlpha fades 0→1 on touch-down and 1→0 on lift — smooth fisheye release.
+    val fisheyeAlpha = remember { Animatable(0f) }
+    // Transit bead state — tracks a bead being dragged across the gap between stacks.
+    val transitYAnim      = remember { Animatable(0f) }
+    var isInTransit       by remember { mutableStateOf(false) }
+    var transitFromBottom by remember { mutableStateOf(true) }
+    // Conveyor-belt scroll: snapped to ±beadStep then animated to 0 on each successful transit.
+    val scrollOffsetAnim  = remember { Animatable(0f) }
     var widgetsVisible by remember { mutableStateOf(true) }
     var resetProgress by remember { mutableFloatStateOf(0f) }
     var resetArmed by remember { mutableStateOf(false) }
@@ -169,21 +174,30 @@ fun TasbeehImmersiveScreen(
                                 widget = widget,
                                 currentCount = currentCount,
                                 currentItem = currentItem,
-                                stringControlXOffset = controlXAnim.value,
-                                stringControlYFraction = controlYAnim.value,
+                                stringControlXOffset = 0f,
+                                stringControlYFraction = 0.5f,
                                 countedBeads = currentCount,
                                 totalBeads = currentTarget,
                                 beadStyle = beadStyle,
                                 customBeadStyle = customBeadStyle,
-                                thumbPosition = if (widget is TasbihWidget.StringBeadWidget) {
-                                    thumbPosition?.let { t ->
-                                        Offset(
-                                            t.x - (widget.offsetX * screenWidth),
-                                            t.y - (widget.offsetY * screenHeight),
-                                        )
-                                    }
-                                } else null,
-                                isTouchActive = thumbPosition != null,
+                                thumbPositionProvider = if (widget is TasbihWidget.StringBeadWidget) {
+                                    val offsetY = widget.offsetY
+                                    { fingerYOnString?.let { fy -> Offset(0f, fy - offsetY * screenHeight) } }
+                                } else { { null } },
+                                // Reads fisheyeAlpha at draw-phase: strength fades smoothly on lift.
+                                fisheyeStrengthProvider = if (widget is TasbihWidget.StringBeadWidget) {
+                                    { fisheyeAlpha.value }
+                                } else { { 1f } },
+                                transitBeadProvider = if (widget is TasbihWidget.StringBeadWidget) {
+                                    val offsetY  = widget.offsetY
+                                    val canvasH  = screenHeight * 0.9f
+                                    { if (isInTransit) transitYAnim.value - offsetY * screenHeight + canvasH / 2f else null }
+                                } else { { null } },
+                                transitFromBottom = transitFromBottom,
+                                // Reads scrollOffsetAnim at draw-phase: drives the slide animation.
+                                scrollOffsetProvider = if (widget is TasbihWidget.StringBeadWidget) {
+                                    { scrollOffsetAnim.value }
+                                } else { { 0f } },
                             )
                         }
                     }
@@ -205,7 +219,6 @@ fun TasbeehImmersiveScreen(
 
                             val startScreenX = down.position.x
                             val startScreenY = down.position.y
-
                             val stringScreenX = (stringWidget?.offsetX ?: 0.88f) * screenWidth
                             val isNearString = hasString && widgetsVisible &&
                                 kotlin.math.abs(startScreenX - stringScreenX) < 70f * density && !showResetOverlay
@@ -225,27 +238,105 @@ fun TasbeehImmersiveScreen(
                                 }
                             } else null
 
+                            // Snap fisheye strength to full on touch-down near string.
+                            if (isNearString) scope.launch { fisheyeAlpha.snapTo(1f) }
+
+                            // ── Boundary-bead positions in screen space ──────────────
+                            // These are natural (no-zoom) positions; close enough for trigger detection.
+                            val sw = stringWidget
+                            val beadR    = BEAD_RADIUS_BASE * (sw?.beadSizeScale ?: 1f) * density
+                            val beadGap  = beadR * 0.4f
+                            val canvasH  = screenHeight * 0.9f
+                            val canvasTopScreen = (sw?.offsetY ?: 0.5f) * screenHeight - canvasH / 2f
+                            val topCount    = minOf(currentCount,          sw?.topStackLimit    ?: 0).coerceAtLeast(0)
+                            val bottomCount = minOf(currentTarget - currentCount, sw?.bottomStackLimit ?: 0).coerceAtLeast(0)
+
+                            // Bottom-most bead of the TOP stack (screen Y)
+                            val topBoundaryY = canvasTopScreen + beadR +
+                                (topCount - 1).coerceAtLeast(0) * (2f * beadR + beadGap)
+                            // Top-most bead of the BOTTOM stack (screen Y)
+                            val bottomBoundaryY = canvasTopScreen + canvasH - beadR -
+                                (bottomCount - 1).coerceAtLeast(0) * (2f * beadR + beadGap)
+                            // Midpoint of the gap — crossing this commits the transit.
+                            val gapMidY = (topBoundaryY + bottomBoundaryY) / 2f
+                            val triggerZone = beadR * 2.5f  // how close the finger must start
+                            val triggerMove = beadR * 1.5f  // how far it must move to begin transit
+
+                            val isNearTopBoundary    = topCount    > 0 && kotlin.math.abs(startScreenY - topBoundaryY)    < triggerZone
+                            val isNearBottomBoundary = bottomCount > 0 && kotlin.math.abs(startScreenY - bottomBoundaryY) < triggerZone
+
+                            // Track finger Y and handle transit activation.
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull() ?: break
                                 if (!change.pressed) break
+                                val dy = change.position.y - startScreenY
+                                if (isNearString) fingerYOnString = change.position.y
+                                if (kotlin.math.abs(dy) > 20f) hasMoved = true
 
-                                val currentX = change.position.x
-                                val currentY = change.position.y
-                                thumbPosition = Offset(currentX, currentY)
-
-                                // String wobble follows finger.
-                                val targetX = (currentX - stringScreenX).coerceIn(-100f, 100f)
-                                scope.launch { controlXAnim.animateTo(targetX, spring(stiffness = androidx.compose.animation.core.Spring.StiffnessHigh)) }
-                                scope.launch { controlYAnim.animateTo((currentY / screenHeight).coerceIn(0.1f, 0.9f), spring(stiffness = androidx.compose.animation.core.Spring.StiffnessHigh)) }
-
-                                if (kotlin.math.abs(currentY - startScreenY) > 20f) hasMoved = true
-                                if (change.positionChanged()) change.consume()
+                                // Check proximity to boundary bead using CURRENT finger position
+                                // (not startScreenY) so swiping through the stack naturally triggers transit.
+                                if (isNearString && !isInTransit) {
+                                    val curY = change.position.y
+                                    val currentlyNearBottom = bottomCount > 0 && kotlin.math.abs(curY - bottomBoundaryY) < triggerZone
+                                    val currentlyNearTop    = topCount    > 0 && kotlin.math.abs(curY - topBoundaryY)    < triggerZone
+                                    val canGoUp   = dy < -triggerMove && currentlyNearBottom
+                                    val canGoDown = dy >  triggerMove && currentlyNearTop
+                                    if (canGoUp || canGoDown) {
+                                        isInTransit    = true
+                                        transitFromBottom = canGoUp
+                                        scope.launch { transitYAnim.snapTo(change.position.y) }
+                                    }
+                                }
+                                if (isInTransit) scope.launch { transitYAnim.snapTo(change.position.y) }
+                                change.consume()
                             }
 
                             holdJob?.cancel()
 
-                            if (!hasMoved) {
+                            // Fisheye fade-out: keep fingerYOnString set while strength fades to 0,
+                            // then null it. Beads return to natural size smoothly.
+                            if (isNearString) {
+                                scope.launch {
+                                    fisheyeAlpha.animateTo(0f, tween(200))
+                                    fingerYOnString = null
+                                }
+                            } else {
+                                fingerYOnString = null
+                            }
+
+                            // ── Transit resolution ───────────────────────────────────
+                            if (isInTransit) {
+                                val currentY = transitYAnim.value
+                                val committed = (transitFromBottom && currentY < gapMidY) ||
+                                               (!transitFromBottom && currentY > gapMidY)
+                                if (committed) {
+                                    // Animate transit bead to landing, register count, then slide stacks.
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val destY = if (transitFromBottom)
+                                        topBoundaryY + 2f * beadR + beadGap
+                                    else
+                                        bottomBoundaryY - 2f * beadR - beadGap
+                                    scope.launch {
+                                        transitYAnim.animateTo(destY, spring(stiffness = 500f, dampingRatio = 0.85f))
+                                        // Displace stacks to new post-count positions, then slide into place.
+                                        val beadStep = beadR * 2.4f  // 2r + 0.4r gap in canvas pixels
+                                        val slideDir = if (transitFromBottom) beadStep else -beadStep
+                                        scrollOffsetAnim.snapTo(slideDir)
+                                        if (transitFromBottom) registerIncrement() else registerDecrement()
+                                        isInTransit = false
+                                        scrollOffsetAnim.animateTo(0f, spring(stiffness = 220f, dampingRatio = 0.88f))
+                                    }
+                                } else {
+                                    // Didn't cross midpoint → spring back to source position.
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    val snapTarget = if (transitFromBottom) bottomBoundaryY else topBoundaryY
+                                    scope.launch {
+                                        transitYAnim.animateTo(snapTarget, spring(stiffness = 300f, dampingRatio = 0.7f))
+                                        isInTransit = false
+                                    }
+                                }
+                            } else if (!hasMoved) {
                                 when {
                                     localResetArmed -> {
                                         currentCount = 0
@@ -254,7 +345,7 @@ fun TasbeehImmersiveScreen(
                                     showResetOverlay -> {
                                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     }
-                                    // No string or stealth mode: single tap counts, double-tap toggles stealth.
+                                    // No string or stealth hidden: single tap counts, double-tap toggles stealth.
                                     !hasString || !widgetsVisible -> {
                                         if (settings.tasbeehStealthModeAllowed) {
                                             val secondTap = withTimeoutOrNull(300L) { awaitFirstDown(requireUnconsumed = false) }
@@ -269,7 +360,7 @@ fun TasbeehImmersiveScreen(
                                             registerIncrement()
                                         }
                                     }
-                                    // String present and visible: double-tap not near string → toggle stealth.
+                                    // String visible, not near string: double-tap → stealth toggle.
                                     settings.tasbeehStealthModeAllowed && !isNearString -> {
                                         val secondTap = withTimeoutOrNull(300L) { awaitFirstDown(requireUnconsumed = false) }
                                         if (secondTap != null) {
@@ -278,13 +369,13 @@ fun TasbeehImmersiveScreen(
                                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         }
                                     }
+                                    // Tap off-string with no stealth allowed → increment.
+                                    !isNearString -> { registerIncrement() }
+                                    // Tap on string with no move → do nothing (Step 3 handles swipe).
                                 }
                             }
 
-                            thumbPosition = null
                             showResetOverlay = false
-                            scope.launch { controlXAnim.animateTo(0f, stringSnapSpring) }
-                            scope.launch { controlYAnim.animateTo(0.5f, stringSnapSpring) }
                         }
                     }
             )
