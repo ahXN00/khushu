@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -89,8 +90,11 @@ fun TasbeehScreen(
         progress = listProgress
     )
 
+    val gridState = rememberLazyGridState()
+
     Box(modifier = modifier.fillMaxSize()) {
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(if (isListMode) 1 else 2),
             contentPadding = PaddingValues(
                 start = 20.dp,
@@ -176,12 +180,18 @@ fun TasbeehScreen(
                     Color(collection.colorInt) to Color.White
                 }
 
+                val scrollSway = if (isListMode) {
+                    val rawSway = gridState.firstVisibleItemScrollOffset * 0.04f
+                    if (index % 2 == 0) rawSway else -rawSway
+                } else 0f
+
                 CollectionCard(
                     collection = collection,
                     isListMode = isListMode,
                     containerColor = resolvedBg,
                     contentColor = resolvedContent,
                     settings = settings,
+                    scrollSway = scrollSway,
                     onTap = { selectedCollection = collection },
                     modifier = Modifier.graphicsLayer {
                         this.alpha = alpha
@@ -453,6 +463,7 @@ private fun CollectionCard(
     containerColor: Color,
     contentColor: Color,
     settings: com.kaizen.khushu.data.repository.UserSettings,
+    scrollSway: Float = 0f,
     onTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -535,28 +546,44 @@ private fun CollectionCard(
                 // --- The Physical Sidebar (String + 3 Beads) ---
                 Box(
                     modifier = Modifier
-                        .width(48.dp)
-                        .fillMaxHeight(),
+                        .width(60.dp)
+                        .fillMaxHeight()
+                        .graphicsLayer { translationX = scrollSway },
                     contentAlignment = Alignment.Center
                 ) {
                     // The String
-                    Canvas(modifier = Modifier.fillMaxHeight().width(6.dp)) {
+                    Canvas(modifier = Modifier.fillMaxHeight().width(8.dp)) {
+                        val centerX = size.width / 2f
                         // Drop Shadow
                         drawLine(
                             brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.2f), Color.Transparent)
+                                colors = listOf(
+                                    Color.Transparent, 
+                                    Color.Black.copy(alpha = 0.25f), 
+                                    Color.Black.copy(alpha = 0.25f), 
+                                    Color.Transparent
+                                ),
+                                startY = 0f,
+                                endY = size.height
                             ),
-                            start = androidx.compose.ui.geometry.Offset(size.width / 2 + 1.dp.toPx(), 0f),
-                            end = androidx.compose.ui.geometry.Offset(size.width / 2 + 1.dp.toPx(), size.height),
+                            start = androidx.compose.ui.geometry.Offset(centerX + 1.5.dp.toPx(), 0f),
+                            end = androidx.compose.ui.geometry.Offset(centerX + 1.5.dp.toPx(), size.height),
                             strokeWidth = 2.dp.toPx()
                         )
                         // Main Thread
                         drawLine(
                             brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, contentColor.copy(alpha = 0.4f), Color.Transparent)
+                                colors = listOf(
+                                    contentColor.copy(alpha = 0.4f),
+                                    contentColor.copy(alpha = 0.7f),
+                                    contentColor.copy(alpha = 0.7f),
+                                    contentColor.copy(alpha = 0.4f)
+                                ),
+                                startY = 0f,
+                                endY = size.height
                             ),
-                            start = androidx.compose.ui.geometry.Offset(size.width / 2, 0f),
-                            end = androidx.compose.ui.geometry.Offset(size.width / 2, size.height),
+                            start = androidx.compose.ui.geometry.Offset(centerX, 0f),
+                            end = androidx.compose.ui.geometry.Offset(centerX, size.height),
                             strokeWidth = 2.dp.toPx()
                         )
                     }
@@ -564,7 +591,7 @@ private fun CollectionCard(
                     // 3 Beads
                     Column(
                         modifier = Modifier.fillMaxHeight(),
-                        verticalArrangement = Arrangement.SpaceEvenly,
+                        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         repeat(3) {
@@ -572,7 +599,7 @@ private fun CollectionCard(
                                 baseColor = contentColor,
                                 legacyStyle = legacyBeadStyle,
                                 customStyle = customBeadStyle,
-                                modifier = Modifier.size(if (settings.tasbihBeadStyle == "DARK_ONYX" && customBeadStyle == null) 14.dp else 16.dp)
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
@@ -665,8 +692,12 @@ private fun PreviewBead(
 ) {
     val noiseShader = remember { createNoiseShader() }
     val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
-    val customShape: androidx.compose.ui.graphics.Shape? = if (customStyle != null) {
-        beadShapeTypeToShape(customStyle.shapeType)
+    // Override the bead color with the card's onContainer color, keep user's shape
+    val resolvedStyle = customStyle?.copy(
+        baseColor = baseColor.toArgb().toLong() and 0xFFFFFFFFL
+    )
+    val customShape: androidx.compose.ui.graphics.Shape? = if (resolvedStyle != null) {
+        beadShapeTypeToShape(resolvedStyle.shapeType)
     } else null
 
     Canvas(modifier = modifier) {
@@ -676,7 +707,7 @@ private fun PreviewBead(
             center = androidx.compose.ui.geometry.Offset(radius, radius),
             radius = radius,
             legacyStyle = legacyStyle,
-            customStyle = customStyle,
+            customStyle = resolvedStyle,
             customShape = customShape,
             noiseBrush = noiseBrush
         )
