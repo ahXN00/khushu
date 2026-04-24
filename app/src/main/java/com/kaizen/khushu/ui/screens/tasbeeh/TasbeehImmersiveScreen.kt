@@ -4,7 +4,6 @@ import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,6 +48,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -57,11 +57,33 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaizen.khushu.data.model.TasbeehCollection
 import com.kaizen.khushu.data.repository.UserSettings
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
-private const val BEAD_RADIUS_DP = 18f
+private data class StringBeadMetrics(
+    val beadRadius: Float,
+    val topBottomY: Float,      // canvas-local Y of bottommost top bead (decrement source)
+    val bottomTopY: Float,      // canvas-local Y of topmost bottom bead (increment source)
+    val incrementLandY: Float,  // canvas-local Y where increment bead lands
+    val decrementLandY: Float,  // canvas-local Y where decrement bead lands
+)
+
+private fun stringBeadMetrics(
+    widget: TasbihWidget.StringBeadWidget,
+    canvasHeightPx: Float,
+    topCount: Int,
+    bottomCount: Int,
+    density: Float,
+): StringBeadMetrics {
+    val beadRadius = BEAD_RADIUS_BASE * widget.beadSizeScale * density
+    val gap = beadRadius * 0.4f
+    val spacing = beadRadius * 2f + gap
+    val topBottomY = beadRadius + (topCount - 1).coerceAtLeast(0) * spacing
+    val bottomTopY = canvasHeightPx - beadRadius - (bottomCount - 1).coerceAtLeast(0) * spacing
+    val incrementLandY = beadRadius + topCount * spacing
+    val decrementLandY = canvasHeightPx - beadRadius - (bottomCount - 1).coerceAtLeast(0) * spacing
+    return StringBeadMetrics(beadRadius, topBottomY, bottomTopY, incrementLandY, decrementLandY)
+}
 
 @Composable
 fun TasbeehImmersiveScreen(
@@ -71,6 +93,7 @@ fun TasbeehImmersiveScreen(
     settings: UserSettings,
     onExit: () -> Unit,
     beadStyle: BeadStyle = BeadStyle.CLASSIC_AMBER,
+    customBeadStyle: com.kaizen.khushu.data.model.CustomBeadStyle? = null,
 ) {
     val context = LocalContext.current
     val window = (context as? Activity)?.window
@@ -96,15 +119,20 @@ fun TasbeehImmersiveScreen(
     var screenWidth by remember { mutableFloatStateOf(0f) }
     var screenHeight by remember { mutableFloatStateOf(0f) }
 
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current.density
+
+    // New drag-based bead state
+    val dragBeadY = remember { Animatable(0f) }
+    var isDragging by remember { mutableStateOf(false) }
+    var dragIsIncrement by remember { mutableStateOf(true) }
+
+    // String wobble control point
     val controlXAnim = remember { Animatable(0f) }
     val controlYAnim = remember { Animatable(0.5f) }
-    val scope = rememberCoroutineScope()
-
     val stringSnapSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 1500f)
-    val beadCollisionSpring = spring<Float>(dampingRatio = 0.45f, stiffness = 800f)
-
-    val activeBeadProgress = remember { Animatable(1f) }
-    var isBeadDragActive by remember { mutableStateOf(false) }
+    val beadSnapSpring = spring<Float>(dampingRatio = 0.7f, stiffness = 2000f)
+    val beadLandSpring = spring<Float>(dampingRatio = 0.45f, stiffness = 600f)
 
     var thumbPosition by remember { mutableStateOf<Offset?>(null) }
     var widgetsVisible by remember { mutableStateOf(true) }
@@ -127,36 +155,57 @@ fun TasbeehImmersiveScreen(
     fun registerDecrement() {
         if (currentCount > 0 || currentItemIndex > 0) {
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            if (currentCount > 0) {
-                currentCount--
-            } else {
-                currentItemIndex--
-                currentCount = items[currentItemIndex].targetCount - 1
-            }
+            if (currentCount > 0) currentCount--
+            else { currentItemIndex--; currentCount = items[currentItemIndex].targetCount - 1 }
         }
     }
 
-    fun fireKineticBead(directionUp: Boolean) {
-        if (isBeadDragActive) return
+    fun getStringMetrics(): Pair<TasbihWidget.StringBeadWidget, StringBeadMetrics>? {
+        val sw = layout.widgets.filterIsInstance<TasbihWidget.StringBeadWidget>().firstOrNull() ?: return null
+        val canvasH = screenHeight * 0.9f * sw.scale
+        val tc = minOf(currentCount, sw.topStackLimit).coerceAtLeast(0)
+        val bc = minOf(currentTarget - currentCount, sw.bottomStackLimit).coerceAtLeast(0)
+        return sw to stringBeadMetrics(sw, canvasH, tc, bc, density)
+    }
+
+    fun fireVolumeIncrement() {
+        if (isDragging) return
+        if (!settings.tasbeehVolumeAnimation) { registerIncrement(); return }
+        val pair = getStringMetrics()
+        if (pair == null) { registerIncrement(); return }
+        val (sw, metrics) = pair
+        val bc = minOf(currentTarget - currentCount, sw.bottomStackLimit).coerceAtLeast(0)
+        if (bc == 0) { registerIncrement(); return }
         scope.launch {
-            isBeadDragActive = true
-            val target = if (directionUp) 0f else 1f
-            activeBeadProgress.snapTo(if (directionUp) 1f else 0f)
+            isDragging = true; dragIsIncrement = true
+            dragBeadY.snapTo(metrics.bottomTopY)
+            dragBeadY.animateTo(metrics.incrementLandY, beadLandSpring)
+            registerIncrement()
+            kotlinx.coroutines.delay(80)
+            isDragging = false
+        }
+    }
 
-            launch { activeBeadProgress.animateTo(target, beadCollisionSpring) }
-
-            while (if (directionUp) activeBeadProgress.value > 0.05f else activeBeadProgress.value < 0.95f) {
-                delay(16)
-            }
-
-            if (directionUp) registerIncrement() else registerDecrement()
-            delay(150)
-            isBeadDragActive = false
+    fun fireVolumeDecrement() {
+        if (isDragging) return
+        if (!settings.tasbeehVolumeAnimation) { registerDecrement(); return }
+        val pair = getStringMetrics()
+        if (pair == null) { registerDecrement(); return }
+        val (sw, metrics) = pair
+        val tc = minOf(currentCount, sw.topStackLimit).coerceAtLeast(0)
+        if (tc == 0) { registerDecrement(); return }
+        scope.launch {
+            isDragging = true; dragIsIncrement = false
+            dragBeadY.snapTo(metrics.topBottomY)
+            dragBeadY.animateTo(metrics.decrementLandY, beadLandSpring)
+            registerDecrement()
+            kotlinx.coroutines.delay(80)
+            isDragging = false
         }
     }
 
     LaunchedEffect(viewModel.countIncrementSignal) {
-        viewModel.countIncrementSignal.collect { fireKineticBead(true) }
+        viewModel.countIncrementSignal.collect { fireVolumeIncrement() }
     }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -170,8 +219,8 @@ fun TasbeehImmersiveScreen(
             .onKeyEvent { event ->
                 if (settings.tasbeehVolumeEnabled && event.type == KeyEventType.KeyDown) {
                     when (event.key) {
-                        Key.VolumeUp -> { fireKineticBead(true); true }
-                        Key.VolumeDown -> { fireKineticBead(false); true }
+                        Key.VolumeUp -> { fireVolumeIncrement(); true }
+                        Key.VolumeDown -> { fireVolumeDecrement(); true }
                         else -> false
                     }
                 } else false
@@ -203,14 +252,14 @@ fun TasbeehImmersiveScreen(
                                 countedBeads = currentCount,
                                 totalBeads = currentTarget,
                                 beadStyle = beadStyle,
-                                activeBeadProgress = if (widget is TasbihWidget.StringBeadWidget && isBeadDragActive) activeBeadProgress.value else null,
+                                customBeadStyle = customBeadStyle,
+                                dragBeadY = if (widget is TasbihWidget.StringBeadWidget && isDragging) dragBeadY.value else null,
+                                dragIsIncrement = dragIsIncrement,
                                 thumbPosition = if (widget is TasbihWidget.StringBeadWidget) {
                                     thumbPosition?.let { t ->
                                         Offset(t.x - (widget.offsetX * screenWidth), t.y - (widget.offsetY * screenHeight))
                                     }
                                 } else null,
-                                elasticity = settings.stringElasticity,
-                                microScale = settings.beadMicroScale,
                                 isTouchActive = thumbPosition != null
                             )
                         }
@@ -228,120 +277,162 @@ fun TasbeehImmersiveScreen(
                     .fillMaxSize()
                     .pointerInput(screenWidth, screenHeight, layout.widgets, widgetsVisible, settings.tasbeehStealthModeAllowed) {
                         awaitEachGesture {
-                            val down = awaitFirstDown()
+                            val down = awaitFirstDown(requireUnconsumed = false)
                             down.consume()
 
-                            val touchScreenX = down.position.x
-                            val touchScreenY = down.position.y
-                            val startY = down.position.y
+                            val startScreenX = down.position.x
+                            val startScreenY = down.position.y
 
                             val stringScreenX = (stringWidget?.offsetX ?: 0.88f) * screenWidth
-                            val isBeadHit = hasString && widgetsVisible && kotlin.math.abs(touchScreenX - stringScreenX) < 60f * density && !showResetOverlay
+                            val isNearString = hasString && widgetsVisible &&
+                                kotlin.math.abs(startScreenX - stringScreenX) < 70f * density && !showResetOverlay
 
+                            // Canvas Y helpers
+                            val sw = stringWidget
+                            val canvasH = screenHeight * 0.9f * (sw?.scale ?: 1f)
+                            val canvasTopScreenY = (sw?.offsetY ?: 0.5f) * screenHeight - canvasH / 2f
+                            fun screenToCanvasY(sy: Float) = sy - canvasTopScreenY
+
+                            val topCountAtStart = minOf(currentCount, sw?.topStackLimit ?: 3).coerceAtLeast(0)
+                            val bottomCountAtStart = minOf(currentTarget - currentCount, sw?.bottomStackLimit ?: 7).coerceAtLeast(0)
+                            val metricsAtStart = sw?.let {
+                                stringBeadMetrics(it, canvasH, topCountAtStart, bottomCountAtStart, density)
+                            }
+
+                            val startCanvasY = screenToCanvasY(startScreenY)
+                            val hitRadius = (metricsAtStart?.beadRadius ?: 0f) * 2.5f
+
+                            val isIncrementHit = isNearString && metricsAtStart != null && bottomCountAtStart > 0 &&
+                                kotlin.math.abs(startCanvasY - metricsAtStart.bottomTopY) < hitRadius
+                            val isDecrementHit = isNearString && metricsAtStart != null && topCountAtStart > 0 &&
+                                kotlin.math.abs(startCanvasY - metricsAtStart.topBottomY) < hitRadius
+
+                            val startedDrag = !isDragging && (isIncrementHit || isDecrementHit)
+                            var dragStarted = false
                             var hasSwiped = false
                             var localResetArmed = false
-                            var hasFinishedGesture = false
 
-                            val holdJob = if (!isBeadHit) {
+                            if (startedDrag) {
+                                dragStarted = true
+                                isDragging = true
+                                dragIsIncrement = isIncrementHit
+                                val startCanvasYLocal = if (isIncrementHit) metricsAtStart!!.bottomTopY else metricsAtStart!!.topBottomY
+                                scope.launch { dragBeadY.snapTo(startCanvasYLocal) }
+                            }
+
+                            val holdJob = if (!isNearString) {
                                 scope.launch {
-                                    delay(200)
+                                    kotlinx.coroutines.delay(500)
                                     showResetOverlay = true
-                                    resetProgress = 0f
-                                    resetArmed = false
-                                    for (i in 1..20) { delay(40); resetProgress = i / 20f }
-                                    resetArmed = true
-                                    localResetArmed = true
+                                    resetProgress = 0f; resetArmed = false
+                                    for (i in 1..20) { kotlinx.coroutines.delay(40); resetProgress = i / 20f }
+                                    resetArmed = true; localResetArmed = true
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 }
                             } else null
 
-                            val stringTopY = screenHeight * 0.05f
-                            val stringHeightPx = screenHeight * 0.9f
-
-                            if (isBeadHit && !isBeadDragActive) {
-                                isBeadDragActive = true
-                                val initialProgress = (touchScreenY - stringTopY) / stringHeightPx
-                                scope.launch { activeBeadProgress.snapTo(initialProgress.coerceIn(0f, 1f)) }
-                            }
+                            var prevY = startScreenY
+                            var velocity = 0f
 
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull() ?: break
                                 if (!change.pressed) break
 
-                                val absX = change.position.x
-                                val absY = change.position.y
-                                thumbPosition = Offset(absX, absY)
+                                val currentX = change.position.x
+                                val currentY = change.position.y
+                                velocity = currentY - prevY
+                                prevY = currentY
+                                thumbPosition = Offset(currentX, currentY)
 
-                                val targetX = (absX - stringScreenX).coerceIn(-120f, 120f)
-                                scope.launch { controlXAnim.animateTo(targetX, spring(stiffness = Spring.StiffnessHigh)) }
-                                scope.launch { controlYAnim.animateTo((absY / screenHeight).coerceIn(0.1f, 0.9f), spring(stiffness = Spring.StiffnessHigh)) }
+                                val targetX = (currentX - stringScreenX).coerceIn(-100f, 100f)
+                                scope.launch { controlXAnim.animateTo(targetX, spring(stiffness = androidx.compose.animation.core.Spring.StiffnessHigh)) }
+                                scope.launch { controlYAnim.animateTo((currentY / screenHeight).coerceIn(0.1f, 0.9f), spring(stiffness = androidx.compose.animation.core.Spring.StiffnessHigh)) }
 
-                                if (!hasSwiped && (absY - startY > 150f)) {
+                                if (dragStarted) {
+                                    val canvasY = screenToCanvasY(currentY).coerceIn(0f, canvasH)
+                                    scope.launch { dragBeadY.snapTo(canvasY) }
+                                }
+
+                                if (!hasSwiped && !isNearString && kotlin.math.abs(currentY - startScreenY) > 120f) {
                                     hasSwiped = true
                                     holdJob?.cancel()
-                                    if (showResetOverlay) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 }
 
-                                if (isBeadDragActive && !hasFinishedGesture && !showResetOverlay) {
-                                    scope.launch { activeBeadProgress.snapTo(((absY - stringTopY) / stringHeightPx).coerceIn(0f, 1f)) }
-                                }
                                 if (change.positionChanged()) change.consume()
                             }
 
                             holdJob?.cancel()
-                            val overlayWasShown = showResetOverlay
 
-                            if (!hasSwiped) {
-                                if (localResetArmed) {
-                                    currentCount = 0
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                } else if (overlayWasShown) {
-                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                } else if (isBeadDragActive) {
-                                    val isStartingFromBottom = startY > screenHeight * 0.5f
-                                    if (isStartingFromBottom) {
-                                        if (activeBeadProgress.value < 0.5f) {
-                                            hasFinishedGesture = true
-                                            scope.launch {
-                                                activeBeadProgress.animateTo(0f, beadCollisionSpring)
-                                                registerIncrement()
-                                                delay(150)
-                                                isBeadDragActive = false
-                                            }
+                            if (dragStarted && metricsAtStart != null) {
+                                val curY = dragBeadY.value
+                                val midY = canvasH / 2f
+                                if (dragIsIncrement) {
+                                    val committed = curY < midY || velocity < -3f
+                                    scope.launch {
+                                        if (committed) {
+                                            dragBeadY.animateTo(metricsAtStart.incrementLandY, beadLandSpring)
+                                            registerIncrement()
                                         } else {
-                                            scope.launch { activeBeadProgress.animateTo(1f, stringSnapSpring); isBeadDragActive = false }
+                                            dragBeadY.animateTo(metricsAtStart.bottomTopY, beadSnapSpring)
                                         }
-                                    } else {
-                                        if (activeBeadProgress.value > 0.5f) {
-                                            hasFinishedGesture = true
-                                            scope.launch {
-                                                activeBeadProgress.animateTo(1f, beadCollisionSpring)
-                                                registerDecrement()
-                                                delay(150)
-                                                isBeadDragActive = false
-                                            }
-                                        } else {
-                                            scope.launch { activeBeadProgress.animateTo(0f, stringSnapSpring); isBeadDragActive = false }
-                                        }
+                                        kotlinx.coroutines.delay(80)
+                                        isDragging = false
                                     }
                                 } else {
-                                    if (!hasString || !widgetsVisible) fireKineticBead(true)
-                                    if (settings.tasbeehStealthModeAllowed) {
-                                        widgetsVisible = !widgetsVisible
-                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    val committed = curY > midY || velocity > 3f
+                                    scope.launch {
+                                        if (committed) {
+                                            dragBeadY.animateTo(metricsAtStart.decrementLandY, beadLandSpring)
+                                            registerDecrement()
+                                        } else {
+                                            dragBeadY.animateTo(metricsAtStart.topBottomY, beadSnapSpring)
+                                        }
+                                        kotlinx.coroutines.delay(80)
+                                        isDragging = false
+                                    }
+                                }
+                            } else if (!dragStarted) {
+                                val didMove = kotlin.math.abs(prevY - startScreenY) > 20f
+                                if (!didMove) {
+                                    when {
+                                        localResetArmed -> {
+                                            currentCount = 0
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                        showResetOverlay -> {
+                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                        !hasString || !widgetsVisible -> {
+                                            // In stealth or no-string mode: double-tap toggles stealth, single tap counts.
+                                            if (settings.tasbeehStealthModeAllowed) {
+                                                val secondTap = withTimeoutOrNull(300L) { awaitFirstDown(requireUnconsumed = false) }
+                                                if (secondTap != null) {
+                                                    secondTap.consume()
+                                                    widgetsVisible = !widgetsVisible
+                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                } else {
+                                                    fireVolumeIncrement()
+                                                }
+                                            } else {
+                                                fireVolumeIncrement()
+                                            }
+                                        }
+                                        settings.tasbeehStealthModeAllowed && !isNearString -> {
+                                            // Normal visible mode, not near string: double-tap to enter stealth.
+                                            val secondTap = withTimeoutOrNull(300L) { awaitFirstDown(requireUnconsumed = false) }
+                                            if (secondTap != null) {
+                                                secondTap.consume()
+                                                widgetsVisible = !widgetsVisible
+                                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            }
+                                        }
                                     }
                                 }
                             }
 
                             thumbPosition = null
                             showResetOverlay = false
-                            if (isBeadDragActive && !hasFinishedGesture) {
-                                scope.launch {
-                                    activeBeadProgress.animateTo(if (startY > screenHeight * 0.5f) 1f else 0f, stringSnapSpring)
-                                    isBeadDragActive = false
-                                }
-                            }
                             scope.launch { controlXAnim.animateTo(0f, stringSnapSpring) }
                             scope.launch { controlYAnim.animateTo(0.5f, stringSnapSpring) }
                         }
