@@ -318,6 +318,50 @@ fun TasbihBeadCustomizerSheet(
 
                 Spacer(Modifier.height(24.dp))
 
+                SectionHeader("Effects")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    FilterChip(
+                        selected = workingStyle.chromaticAberration,
+                        onClick = { workingStyle = workingStyle.copy(chromaticAberration = !workingStyle.chromaticAberration, preset = com.kaizen.khushu.data.model.BeadPreset.NONE) },
+                        label = { Text("Chromatic", fontFamily = BeVietnamPro, style = MaterialTheme.typography.titleMedium) },
+//                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = workingStyle.metallicSheen,
+                        onClick = { workingStyle = workingStyle.copy(metallicSheen = !workingStyle.metallicSheen, preset = com.kaizen.khushu.data.model.BeadPreset.NONE) },
+                        label = { Text("Metallic", fontFamily = BeVietnamPro, style = MaterialTheme.typography.titleMedium) },
+//                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = workingStyle.is3dEnabled,
+                        onClick = { workingStyle = workingStyle.copy(is3dEnabled = !workingStyle.is3dEnabled, preset = com.kaizen.khushu.data.model.BeadPreset.NONE) },
+                        label = { Text("3D Depth", fontFamily = BeVietnamPro, style = MaterialTheme.typography.titleMedium) },
+//                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Light",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(40.dp)
+                    )
+                    Slider(
+                        value = workingStyle.specularity,
+                        onValueChange = { workingStyle = workingStyle.copy(specularity = it, preset = com.kaizen.khushu.data.model.BeadPreset.NONE) },
+                        valueRange = 0f..1f,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(Modifier.height(24.dp))
+
                 SectionHeader("Engraving")
                 OutlinedTextField(
                     value = workingStyle.engravingText,
@@ -506,13 +550,40 @@ private fun BeadPreview(
             path
         }
         
+        val noiseShader = remember { createNoiseShader() }
+        val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
+        
+        // Hit-test: check if engraving center has left the shape bounds
+        val shapeRegion = remember(beadShape, density) {
+            val sizePx = with(density) { Size(100.dp.toPx(), 100.dp.toPx()) }
+            val layoutDir = androidx.compose.ui.unit.LayoutDirection.Ltr
+            val outline = beadShape.createOutline(sizePx, layoutDir, density)
+            val androidPath = android.graphics.Path()
+            when (outline) {
+                is Outline.Rectangle -> androidPath.addRect(outline.rect.left, outline.rect.top, outline.rect.right, outline.rect.bottom, android.graphics.Path.Direction.CW)
+                is Outline.Rounded -> {
+                    val r = outline.roundRect
+                    androidPath.addRoundRect(r.left, r.top, r.right, r.bottom, r.topLeftCornerRadius.x, r.topLeftCornerRadius.y, android.graphics.Path.Direction.CW)
+                }
+                is Outline.Generic -> androidPath.set(outline.path.asAndroidPath())
+            }
+            val bounds = android.graphics.RectF()
+            androidPath.computeBounds(bounds, true)
+            val region = android.graphics.Region()
+            region.setPath(androidPath, android.graphics.Region(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt()))
+            region
+        }
+        val textCenterXPx = with(density) { 50.dp.toPx() + style.textOffsetX.dp.toPx() }
+        val textCenterYPx = with(density) { 50.dp.toPx() + style.textOffsetY.dp.toPx() }
+        val isInsideShape = shapeRegion.contains(textCenterXPx.toInt(), textCenterYPx.toInt())
+
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawPremiumBead(previewBeadPath, styleRef)
+            drawPremiumBead(previewBeadPath, styleRef, noiseBrush, drawEngraving = false)
         }
 
         Text(
             text = style.engravingText,
-            color = Color.White.copy(alpha = 0.85f),
+            color = if (isInsideShape) Color.White.copy(alpha = 0.85f) else Color.Red.copy(alpha = 0.6f),
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontSize = 24.sp,
                 fontFamily = Antonio,
@@ -544,7 +615,10 @@ private fun BeadRenderer(style: CustomBeadStyle, shape: Shape, size: Float) {
         }
         path
     }
+    val noiseShader = remember { createNoiseShader() }
+    val noiseBrush = remember(noiseShader) { ShaderBrush(noiseShader) }
+
     Canvas(modifier = Modifier.size(size.dp)) {
-        drawPremiumBead(beadPath, style)
+        drawPremiumBead(beadPath, style, noiseBrush)
     }
 }

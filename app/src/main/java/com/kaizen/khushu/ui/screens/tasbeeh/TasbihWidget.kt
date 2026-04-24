@@ -425,7 +425,7 @@ internal fun DrawScope.drawBeadWrapper(
     }
 }
 
-fun DrawScope.drawPremiumBead(path: Path, style: CustomBeadStyle, noiseBrush: ShaderBrush?) {
+fun DrawScope.drawPremiumBead(path: Path, style: CustomBeadStyle, noiseBrush: ShaderBrush?, drawEngraving: Boolean = true) {
     val bounds = path.getBounds()
     val pathSize = androidx.compose.ui.geometry.Size(bounds.width, bounds.height)
 
@@ -448,6 +448,26 @@ fun DrawScope.drawPremiumBead(path: Path, style: CustomBeadStyle, noiseBrush: Sh
     // 6. Metallic sheen
     val metallicBrush = buildMetallicBrush(style, pathSize)
     drawBeadMetallicSheen(path, metallicBrush)
+
+    // 7. Engraving text — drawn last so it sits on top of all effects
+    // Skip in preview mode; BeadPreview composable renders its own Text layer with gesture support
+    if (drawEngraving && style.engravingText.isNotBlank()) {
+        val textSize = bounds.width * 0.38f
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.argb(210, 255, 255, 255)
+            this.textSize = textSize
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        // Apply user scale and offset (stored as dp-equivalent values)
+        val cx = bounds.left + bounds.width / 2f + (style.textOffsetX * density)
+        val cy = bounds.top + bounds.height / 2f + (style.textOffsetY * density) + textSize * 0.35f
+        drawContext.canvas.nativeCanvas.save()
+        drawContext.canvas.nativeCanvas.scale(style.textScale, style.textScale, cx, cy)
+        drawContext.canvas.nativeCanvas.drawText(style.engravingText, cx, cy, paint)
+        drawContext.canvas.nativeCanvas.restore()
+    }
 }
 
 private fun DrawScope.drawBead(
