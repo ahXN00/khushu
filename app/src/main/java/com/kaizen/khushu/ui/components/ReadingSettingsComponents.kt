@@ -32,6 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kaizen.khushu.data.model.ContentSource
+import com.kaizen.khushu.data.repository.CatalogRepository
 import com.kaizen.khushu.data.model.TranslationMeta
 import com.kaizen.khushu.data.model.AVAILABLE_RECITERS
 import com.kaizen.khushu.data.repository.TranslationRepository
@@ -44,7 +46,6 @@ import com.kaizen.khushu.ui.theme.ScheherazadeNew
 @Composable
 fun ReadingSettingsSheet(
     settings: UserSettings,
-    translationLanguages: Set<String> = emptySet(),
     reciterDownloadStates: Map<String, Pair<Float, Int>?> = emptyMap(),
     isReciterDownloaded: (String) -> Boolean = { false },
     onDismiss: () -> Unit,
@@ -57,10 +58,13 @@ fun ReadingSettingsSheet(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onShowTajweedChange: (Boolean) -> Unit,
     onTranslationLangChange: (String) -> Unit,
+    onShowTafsirChange: (Boolean) -> Unit,
+    onOpenTafsirPicker: () -> Unit,
     onReciterChange: (String) -> Unit,
     onScriptChange: (String) -> Unit,
     onOpenTranslationPicker: () -> Unit,
-    onDownloadAudio: (String) -> Unit
+    onDownloadAudio: (String) -> Unit,
+    onAudioSourceChange: (String) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -153,7 +157,13 @@ fun ReadingSettingsSheet(
                         }
                         1 -> { // Text & Translation
                             item {
-                                val currentMeta = com.kaizen.khushu.data.model.AVAILABLE_TRANSLATIONS.find { it.id == settings.selectedTranslationLang }
+                                val context = LocalContext.current
+                                val currentMeta = remember(settings.selectedTranslationLang, settings.selectedTranslationSource) {
+                                    val source = try { com.kaizen.khushu.data.model.ContentSource.valueOf(settings.selectedTranslationSource) } catch (_: Exception) { com.kaizen.khushu.data.model.ContentSource.FAWAZ }
+                                    CatalogRepository.translations(context, source).find { it.id == settings.selectedTranslationLang }
+                                        ?: com.kaizen.khushu.data.model.TranslationMeta.bundledEnglish().takeIf { it.id == settings.selectedTranslationLang }
+                                        ?: com.kaizen.khushu.data.model.TranslationMeta.bundledUrdu().takeIf { it.id == settings.selectedTranslationLang }
+                                }
                                 val langLabel = currentMeta?.let { "${it.langCode.uppercase()} • ${it.translatorName}" } ?: "Select Translation"
 
                                 SettingLabel("Active Translation")
@@ -175,6 +185,29 @@ fun ReadingSettingsSheet(
                                     ) {
                                         Icon(Icons.Default.Language, null, modifier = Modifier.size(20.dp))
                                         Text(langLabel, style = MaterialTheme.typography.bodyLarge, fontFamily = BeVietnamPro, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+
+                            item {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                                Spacer(Modifier.height(8.dp))
+                                SettingLabel("Tafsir")
+                                Spacer(Modifier.height(12.dp))
+                                SettingToggle(
+                                    label = "Show Tafsir",
+                                    checked = settings.showTafsir,
+                                    onCheckedChange = onShowTafsirChange,
+                                )
+                                if (settings.showTafsir) {
+                                    Spacer(Modifier.height(12.dp))
+                                    val tafsirLabel = settings.selectedTafsirId.ifBlank { "Select Tafsir" }
+                                    OutlinedButton(
+                                        onClick = onOpenTafsirPicker,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                    ) {
+                                        Text(tafsirLabel, fontFamily = BeVietnamPro)
                                     }
                                 }
                             }
@@ -238,81 +271,99 @@ fun ReadingSettingsSheet(
                         }
                         2 -> { // Audio
                             item {
-                                SettingLabel("Select Reciter")
-                            }
-                            
-                            items(AVAILABLE_RECITERS) { reciter ->
-                                val isSelected = settings.selectedReciterId == reciter.id
-                                val isDownloaded = isReciterDownloaded(reciter.id)
-                                val downloadState = reciterDownloadStates[reciter.id]
+                                val audioSources = remember { ContentSource.entries.filter { it.supportsAudio } }
+                                val selectedAudioSource = remember(settings.selectedAudioSource) { try { ContentSource.valueOf(settings.selectedAudioSource) } catch (_: Exception) { ContentSource.MP3QURAN } }
+                                val context = LocalContext.current
+                                val reciters = remember(selectedAudioSource) { CatalogRepository.reciters(context, selectedAudioSource) }
 
-                                Surface(
-                                    onClick = { onReciterChange(reciter.id) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
-                                    border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                                ) {
-                                    Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                Column {
+                                    SettingLabel("Source")
+                                    Spacer(Modifier.height(8.dp))
+                                    SourcePickerRow(
+                                        sources = audioSources,
+                                        selected = selectedAudioSource,
+                                        onSelect = { onAudioSourceChange(it.name) }
+                                    )
+                                    Spacer(Modifier.height(16.dp))
+                                    SettingLabel("Select Reciter")
+                                    Spacer(Modifier.height(8.dp))
+                                }
+
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    reciters.forEach { reciter ->
+                                        val isSelected = settings.selectedReciterId == reciter.id
+                                        val isDownloaded = isReciterDownloaded(reciter.id)
+                                        val downloadState = reciterDownloadStates[reciter.id]
+
+                                        Surface(
+                                            onClick = { onReciterChange(reciter.id) },
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
+                                            border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
                                         ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(
-                                                    imageVector = if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                                                    contentDescription = null,
-                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                )
-                                                
-                                                Column {
-                                                    Text(
-                                                        text = reciter.name,
-                                                        style = MaterialTheme.typography.bodyLarge,
-                                                        fontFamily = BeVietnamPro,
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                                    )
-                                                    Text(
-                                                        text = reciter.style,
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontFamily = BeVietnamPro,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                                    )
-                                                }
-                                            }
-
-                                            if (isDownloaded) {
-                                                Icon(Icons.Default.Check, "Downloaded", tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))
-                                            } else if (downloadState == null) {
-                                                IconButton(
-                                                    onClick = { onDownloadAudio(reciter.id) },
-                                                    modifier = Modifier.size(24.dp)
+                                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
                                                 ) {
-                                                    Icon(Icons.Default.Download, "Download", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                                }
-                                            }
-                                        }
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
+                                                            contentDescription = null,
+                                                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                        )
+                                                        
+                                                        Column {
+                                                            Text(
+                                                                text = reciter.name,
+                                                                style = MaterialTheme.typography.bodyLarge,
+                                                                fontFamily = BeVietnamPro,
+                                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                            )
+                                                            Text(
+                                                                text = reciter.style,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontFamily = BeVietnamPro,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                            )
+                                                        }
+                                                    }
 
-                                        // Progress Bar
-                                        if (downloadState != null && downloadState.first < 1f) {
-                                            val progress = downloadState.first
-                                            val count = downloadState.second
-                                            Spacer(Modifier.height(8.dp))
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                LinearProgressIndicator(
-                                                    progress = { progress },
-                                                    modifier = Modifier.weight(1f),
-                                                )
-                                                Text(
-                                                    text = "$count/114",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontFamily = BeVietnamPro,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
+                                                    if (isDownloaded) {
+                                                        Icon(Icons.Default.Check, "Downloaded", tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))
+                                                    } else if (downloadState == null) {
+                                                        IconButton(
+                                                            onClick = { onDownloadAudio(reciter.id) },
+                                                            modifier = Modifier.size(24.dp)
+                                                        ) {
+                                                            Icon(Icons.Default.Download, "Download", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                                        }
+                                                    }
+                                                }
+
+                                                // Progress Bar
+                                                if (downloadState != null && downloadState.first < 1f) {
+                                                    val progress = downloadState.first
+                                                    val count = downloadState.second
+                                                    Spacer(Modifier.height(8.dp))
+                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        LinearProgressIndicator(
+                                                            progress = { progress },
+                                                            modifier = Modifier.weight(1f),
+                                                        )
+                                                        Text(
+                                                            text = "$count/114",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontFamily = BeVietnamPro,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -484,16 +535,26 @@ fun ThemeChip(label: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 fun TranslationPickerSheet(
     selectedId: String,
+    selectedSource: ContentSource,
     isDownloading: Boolean,
     progress: Float,
+    onSelectSource: (ContentSource) -> Unit,
     onSelect: (TranslationMeta) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
-    
-    val grouped = remember {
-        com.kaizen.khushu.data.model.AVAILABLE_TRANSLATIONS.groupBy { it.langName }
+
+    val translationSources = remember {
+        ContentSource.entries.filter { it.supportsTranslations }
+    }
+
+    val catalog = remember(selectedSource) {
+        val list = CatalogRepository.translations(context, selectedSource).toMutableList()
+        // Always show bundled at top
+        val bundled = listOf(TranslationMeta.bundledEnglish(), TranslationMeta.bundledUrdu())
+        bundled.forEach { b -> if (list.none { it.id == b.id }) list.add(0, b) }
+        list.groupBy { it.langName.ifBlank { "Other" } }.toSortedMap()
     }
 
     ModalBottomSheet(
@@ -501,82 +562,78 @@ fun TranslationPickerSheet(
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
-        Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp)
-            ) {
+        Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
                 Text(
-                    "Translations",
+                    "Translation",
                     style = MaterialTheme.typography.headlineSmall.copy(fontFamily = BeVietnamPro),
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
 
+                SettingLabel("Source")
+                Spacer(Modifier.height(8.dp))
+                SourcePickerRow(
+                    sources = translationSources,
+                    selected = selectedSource,
+                    onSelect = onSelectSource,
+                )
+                Spacer(Modifier.height(16.dp))
+
                 if (isDownloading) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-                        Text(
-                            "Downloading translation...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontFamily = BeVietnamPro,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                        Text("Downloading...", style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = BeVietnamPro, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(6.dp))
+                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(12.dp))
                     }
                 }
 
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    grouped.forEach { (lang, translations) ->
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    catalog.forEach { (lang, translations) ->
                         item {
-                            Text(
-                                text = lang,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontFamily = BeVietnamPro,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
+                            Text(lang, style = MaterialTheme.typography.labelLarge,
+                                fontFamily = BeVietnamPro, color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 8.dp))
                         }
                         items(translations) { meta ->
-                            val isDownloaded = TranslationRepository.isDownloaded(context, meta.id)
+                            val isBundled = meta.id in TranslationMeta.BUNDLED
+                            val isDownloaded = isBundled || TranslationRepository.isDownloaded(context, meta.id)
                             val isSelected = selectedId == meta.id
 
                             Surface(
                                 onClick = { if (!isDownloading) onSelect(meta) },
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                        else Color.Transparent,
                                 border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
                             ) {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            meta.translatorName,
+                                        Text(meta.translatorName,
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontFamily = BeVietnamPro,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                        )
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                                         Text(
-                                            "${meta.langCode.uppercase()} • ${meta.sizeKb}KB",
+                                            buildString {
+                                                append(meta.langCode.uppercase())
+                                                if (isBundled) append(" • Bundled")
+                                                else if (isDownloaded) append(" • Downloaded")
+                                                else append(" • Tap to download")
+                                            },
                                             style = MaterialTheme.typography.bodySmall,
                                             fontFamily = BeVietnamPro,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-
-                                    if (isSelected) {
-                                        Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                                    } else if (!isDownloaded) {
-                                        Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                    when {
+                                        isSelected -> Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                        !isDownloaded -> Icon(Icons.Default.Download, null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                                     }
                                 }
                             }

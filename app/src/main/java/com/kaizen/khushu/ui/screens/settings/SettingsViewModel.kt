@@ -243,6 +243,22 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateSelectedTranslationLang(lang) }
     }
 
+    fun setSelectedTranslationSource(source: String) {
+        viewModelScope.launch { repository.setSelectedTranslationSource(source) }
+    }
+
+    fun setSelectedTafsir(id: String, source: String) {
+        viewModelScope.launch { repository.setSelectedTafsir(id, source) }
+    }
+
+    fun setShowTafsir(show: Boolean) {
+        viewModelScope.launch { repository.setShowTafsir(show) }
+    }
+
+    fun setSelectedAudioSource(source: String) {
+        viewModelScope.launch { repository.setSelectedAudioSource(source) }
+    }
+
     fun updateLastReadTopicId(id: String) {
         viewModelScope.launch { repository.updateLastReadTopicId(id) }
     }

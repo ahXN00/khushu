@@ -257,7 +257,6 @@ fun LearnReadingScreen(
             if (showSettings) {
                 ReadingSettingsSheet(
                     settings = settings,
-                    translationLanguages = topic.translations.keys,
                     onDismiss = { showSettings = false },
                     onThemeChange = { settingsViewModel.setReadingTheme(it) },
                     onArabicSizeChange = { settingsViewModel.setArabicSizeSp(it) },
@@ -268,6 +267,8 @@ fun LearnReadingScreen(
                     onKeepScreenOnChange = { settingsViewModel.toggleReadingKeepScreenOn(it) },
                     onShowTajweedChange = { settingsViewModel.toggleShowTajweed(it) },
                     onTranslationLangChange = { settingsViewModel.setSelectedTranslationLang(it) },
+                    onShowTafsirChange = { settingsViewModel.setShowTafsir(it) },
+                    onOpenTafsirPicker = { showSettings = false },
                     onReciterChange = { settingsViewModel.setSelectedReciterId(it) },
                     onScriptChange = { settingsViewModel.setSelectedScript(it) },
                     onOpenTranslationPicker = { showSettings = false; showTranslationPicker = true },
@@ -278,8 +279,12 @@ fun LearnReadingScreen(
             if (showTranslationPicker) {
                 TranslationPickerSheet(
                     selectedId = settings.selectedTranslationLang,
+                    selectedSource = try { com.kaizen.khushu.data.model.ContentSource.valueOf(settings.selectedTranslationSource) } catch (e: Exception) { com.kaizen.khushu.data.model.ContentSource.FAWAZ },
                     isDownloading = learnReadingViewModel.isDownloading.value,
                     progress = learnReadingViewModel.downloadProgress.floatValue,
+                    onSelectSource = { source ->
+                        settingsViewModel.setSelectedTranslationSource(source.name)
+                    },
                     onSelect = { meta -> settingsViewModel.setSelectedTranslationLang(meta.id); showTranslationPicker = false },
                     onDismiss = { showTranslationPicker = false }
                 )

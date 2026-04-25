@@ -48,6 +48,11 @@ class SettingsRepository(private val context: Context) {
         val SHOW_CONTINUE_READING = booleanPreferencesKey("show_continue_reading")
         val SHOW_TAJWEED = booleanPreferencesKey("show_tajweed")
         val SELECTED_TRANSLATION_LANG = stringPreferencesKey("selected_translation_lang")
+        val SELECTED_TRANSLATION_SOURCE = stringPreferencesKey("selected_translation_source")
+        val SELECTED_TAFSIR_ID = stringPreferencesKey("selected_tafsir_id")
+        val SELECTED_TAFSIR_SOURCE = stringPreferencesKey("selected_tafsir_source")
+        val SHOW_TAFSIR = booleanPreferencesKey("show_tafsir")
+        val SELECTED_AUDIO_SOURCE = stringPreferencesKey("selected_audio_source")
         val SELECTED_RECITER_ID = stringPreferencesKey("selected_reciter_id")
         val SELECTED_SCRIPT = stringPreferencesKey("selected_script")
         val TASBEEH_DYNAMIC_COLORS = booleanPreferencesKey("tasbeeh_dynamic_colors")
@@ -116,7 +121,12 @@ class SettingsRepository(private val context: Context) {
                 showContinueReading = preferences[PreferencesKeys.SHOW_CONTINUE_READING] ?: true,
                 showTajweed = preferences[PreferencesKeys.SHOW_TAJWEED] ?: false,
                 selectedTranslationLang = preferences[PreferencesKeys.SELECTED_TRANSLATION_LANG] ?: "en_20",
+                selectedTranslationSource = preferences[PreferencesKeys.SELECTED_TRANSLATION_SOURCE] ?: "FAWAZ",
+                selectedTafsirId = preferences[PreferencesKeys.SELECTED_TAFSIR_ID] ?: "",
+                selectedTafsirSource = preferences[PreferencesKeys.SELECTED_TAFSIR_SOURCE] ?: "SPA5K",
+                showTafsir = preferences[PreferencesKeys.SHOW_TAFSIR] ?: false,
                 selectedReciterId = preferences[PreferencesKeys.SELECTED_RECITER_ID] ?: "mishari",
+                selectedAudioSource = preferences[PreferencesKeys.SELECTED_AUDIO_SOURCE] ?: "MP3QURAN",
                 selectedScript = preferences[PreferencesKeys.SELECTED_SCRIPT] ?: "uthmani",
                 tasbeehDynamicColors = preferences[PreferencesKeys.TASBEEH_DYNAMIC_COLORS] ?: true,
                 stringElasticity = preferences[PreferencesKeys.STRING_ELASTICITY] ?: 1.8f,
@@ -301,6 +311,25 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[PreferencesKeys.SELECTED_TRANSLATION_LANG] = lang }
     }
 
+    suspend fun setSelectedTranslationSource(source: String) {
+        context.dataStore.edit { it[PreferencesKeys.SELECTED_TRANSLATION_SOURCE] = source }
+    }
+
+    suspend fun setSelectedTafsir(id: String, source: String) {
+        context.dataStore.edit {
+            it[PreferencesKeys.SELECTED_TAFSIR_ID] = id
+            it[PreferencesKeys.SELECTED_TAFSIR_SOURCE] = source
+        }
+    }
+
+    suspend fun setSelectedAudioSource(source: String) {
+        context.dataStore.edit { it[PreferencesKeys.SELECTED_AUDIO_SOURCE] = source }
+    }
+
+    suspend fun setShowTafsir(show: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_TAFSIR] = show }
+    }
+
     suspend fun updateSelectedReciterId(id: String) {
         context.dataStore.edit { it[PreferencesKeys.SELECTED_RECITER_ID] = id }
     }
@@ -342,7 +371,12 @@ data class UserSettings(
     val showContinueReading: Boolean = true,
     val showTajweed: Boolean = false,
     val selectedTranslationLang: String = "en_20",
+    val selectedTranslationSource: String = "FAWAZ",
+    val selectedTafsirId: String = "",
+    val selectedTafsirSource: String = "SPA5K",
+    val showTafsir: Boolean = false,
     val selectedReciterId: String = "mishari",
+    val selectedAudioSource: String = "MP3QURAN",
     val selectedScript: String = "uthmani",
     val tasbeehDynamicColors: Boolean = true,
     val stringElasticity: Float = 1.8f,

@@ -32,10 +32,12 @@ import androidx.media3.session.MediaController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kaizen.khushu.data.model.AyahBlock
 import com.kaizen.khushu.data.model.ContentBlock
+import com.kaizen.khushu.data.model.ContentSource
 import com.kaizen.khushu.data.model.AVAILABLE_RECITERS
 import com.kaizen.khushu.ui.components.BlockActionSheet
 import com.kaizen.khushu.ui.components.ReadingSettingsSheet
 import com.kaizen.khushu.ui.components.TranslationPickerSheet
+import com.kaizen.khushu.ui.components.TafsirPickerSheet
 import com.kaizen.khushu.data.repository.TranslationRepository
 import com.kaizen.khushu.data.repository.QuranAudioRepository
 import com.kaizen.khushu.ui.screens.learn.BlockRenderer
@@ -89,6 +91,60 @@ private fun readingColorScheme(readingTheme: String, dynamicColor: Boolean): Col
     }
 }
 
+@Composable
+private fun JuzHeader(juzNumber: Int, contentColor: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = contentColor.copy(alpha = 0.15f),
+        )
+        Text(
+            text = "Juz $juzNumber",
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor.copy(alpha = 0.4f),
+            modifier = Modifier.padding(horizontal = 12.dp),
+            fontFamily = BeVietnamPro,
+        )
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = contentColor.copy(alpha = 0.15f),
+        )
+    }
+}
+
+@Composable
+private fun SajdaIndicator(type: String, contentColor: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(
+                    if (type == "obligatory") MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary,
+                    androidx.compose.foundation.shape.CircleShape
+                )
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = if (type == "obligatory") "Sajdah Wajibah" else "Sajdah Mustahabb",
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor.copy(alpha = 0.5f),
+            fontFamily = BeVietnamPro,
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuranReaderScreen(
@@ -105,6 +161,9 @@ fun QuranReaderScreen(
     val translations by viewModel.currentTranslation
     val scriptMap by viewModel.scriptMap
     val isLoading by viewModel.isLoading
+    val tafsirText by viewModel.tafsirText
+    val isTafsirDownloading by viewModel.isTafsirDownloading
+    val tafsirDownloadProgress by viewModel.tafsirDownloadProgress
     val chapters by viewModel.chapters
     val settings by settingsViewModel.settings.collectAsState()
     val context = LocalContext.current
@@ -187,10 +246,16 @@ fun QuranReaderScreen(
 
     var showSettings by remember { mutableStateOf(false) }
     var showTranslationPicker by remember { mutableStateOf(false) }
+    var showTafsirPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(surahNumber, settings.selectedTranslationLang) {
         viewModel.loadChapters()
         viewModel.loadSurah(surahNumber, settings.selectedTranslationLang)
+        viewModel.loadVerseMeta(context)
+    }
+
+    LaunchedEffect(surahNumber, settings.showTafsir, settings.selectedTafsirId) {
+        viewModel.loadTafsirIfEnabled(context, settings, surahNumber)
     }
 
     // Load script when selected script changes
@@ -217,7 +282,7 @@ fun QuranReaderScreen(
     }
 
     // Convert ayahs to blocks for BlockRenderer
-    val blocks = remember(ayahs, translations, surah) {
+    val blocks = remember(ayahs, translations, tafsirText, surah) {
         ayahs.map { (num, text) ->
             val plainText = text.replace(Regex("<[^>]*>"), "")
 
@@ -228,6 +293,7 @@ fun QuranReaderScreen(
                 textUthmani = plainText,
                 tajweedMarkup = if (text.contains("<tajweed")) text else null,
                 translationEn = translations[num],
+                tafsirText = tafsirText[num],
                 verified = true
             )
         }
@@ -358,20 +424,34 @@ fun QuranReaderScreen(
                             }
 
                             itemsIndexed(blocks) { index, block ->
-                                val translationMap = remember(translations) {
-                                    translations.mapKeys { it.key.toString() }
+                                val ayahNum = block.ayah
+                                val meta = viewModel.verseMeta.value["$surahNumber:$ayahNum"]
+                                val prevMeta = if (ayahNum > 1) viewModel.verseMeta.value["$surahNumber:${ayahNum - 1}"] else null
+                                val showJuzHeader = meta != null && (prevMeta == null || prevMeta.juz != meta.juz)
+
+                                Column {
+                                    if (showJuzHeader && ayahNum > 1) {
+                                        JuzHeader(juzNumber = meta!!.juz, contentColor = fg)
+                                    }
+                                    if (meta?.sajda != null) {
+                                        SajdaIndicator(type = meta.sajda, contentColor = fg)
+                                    }
+
+                                    val translationMap = remember(translations) {
+                                        translations.mapKeys { it.key.toString() }
+                                    }
+                                    BlockRenderer(
+                                        block = block,
+                                        settings = settings,
+                                        fg = fg,
+                                        bg = bg,
+                                        translationMap = translationMap,
+                                        scriptMap = scriptMap,
+                                        isHighlighted = playingAyahIndex == index,
+                                        onBlockClick = { activeBlock = it to index },
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
                                 }
-                                BlockRenderer(
-                                    block = block,
-                                    settings = settings,
-                                    fg = fg,
-                                    bg = bg,
-                                    translationMap = translationMap,
-                                    scriptMap = scriptMap,
-                                    isHighlighted = playingAyahIndex == index,
-                                    onBlockClick = { activeBlock = it to index },
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                )
                             }
 
                             item {
@@ -474,7 +554,6 @@ fun QuranReaderScreen(
 
                 ReadingSettingsSheet(
                     settings = settings,
-                    translationLanguages = com.kaizen.khushu.data.model.AVAILABLE_TRANSLATIONS.map { it.id }.toSet(),
                     reciterDownloadStates = reciterDownloadStates,
                     isReciterDownloaded = { quranAudioViewModel.isReciterDownloaded(it) },
                     onDismiss = { showSettings = false },
@@ -487,6 +566,11 @@ fun QuranReaderScreen(
                     onKeepScreenOnChange = { settingsViewModel.toggleReadingKeepScreenOn(it) },
                     onShowTajweedChange = { settingsViewModel.toggleShowTajweed(it) },
                     onTranslationLangChange = { settingsViewModel.setSelectedTranslationLang(it) },
+                    onShowTafsirChange = { settingsViewModel.setShowTafsir(it) },
+                    onOpenTafsirPicker = {
+                        showSettings = false
+                        showTafsirPicker = true
+                    },
                     onReciterChange = { settingsViewModel.setSelectedReciterId(it) },
                     onScriptChange = { settingsViewModel.setSelectedScript(it) },
                     onOpenTranslationPicker = {
@@ -495,7 +579,8 @@ fun QuranReaderScreen(
                     },
                     onDownloadAudio = { reciterId ->
                         quranAudioViewModel.downloadReciter(reciterId)
-                    }
+                    },
+                    onAudioSourceChange = { settingsViewModel.setSelectedAudioSource(it) }
                 )
             }
 
@@ -503,8 +588,12 @@ fun QuranReaderScreen(
                 val translationViewModel: com.kaizen.khushu.ui.screens.learn.LearnReadingViewModel = viewModel()
                 TranslationPickerSheet(
                     selectedId = settings.selectedTranslationLang,
+                    selectedSource = try { ContentSource.valueOf(settings.selectedTranslationSource) } catch (e: Exception) { ContentSource.FAWAZ },
                     isDownloading = translationViewModel.isDownloading.value,
                     progress = translationViewModel.downloadProgress.floatValue,
+                    onSelectSource = { source ->
+                        settingsViewModel.setSelectedTranslationSource(source.name)
+                    },
                     onSelect = { meta ->
                         if (TranslationRepository.isDownloaded(context, meta.id)) {
                             settingsViewModel.setSelectedTranslationLang(meta.id)
@@ -517,6 +606,24 @@ fun QuranReaderScreen(
                         }
                     },
                     onDismiss = { showTranslationPicker = false }
+                )
+            }
+
+            if (showTafsirPicker) {
+                TafsirPickerSheet(
+                    selectedTafsirId = settings.selectedTafsirId,
+                    selectedSource = try { ContentSource.valueOf(settings.selectedTafsirSource) } catch (e: Exception) { ContentSource.SPA5K },
+                    currentSurah = surahNumber,
+                    isDownloading = isTafsirDownloading,
+                    progress = tafsirDownloadProgress,
+                    onSelectSource = { source ->
+                        settingsViewModel.setSelectedTafsir(settings.selectedTafsirId, source.name)
+                    },
+                    onSelect = { meta ->
+                        settingsViewModel.setSelectedTafsir(meta.id, meta.source.name)
+                        showTafsirPicker = false
+                    },
+                    onDismiss = { showTafsirPicker = false }
                 )
             }
         }
