@@ -1,14 +1,37 @@
 package com.kaizen.khushu.ui.screens.settings
 
 import android.Manifest
-import androidx.compose.foundation.layout.*
+import android.content.Intent
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,8 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationManagerCompat
+import com.kaizen.khushu.receiver.PrayerAlarmReceiver
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,9 +71,23 @@ private val sourceLabels = mapOf(
     "API" to "AlAdhan API (Online)"
 )
 
+private val alertStyleLabels = mapOf(
+    "CUSTOM_SOUND" to "Custom sound",
+    "SYSTEM_SOUND" to "System sound",
+    "VIBRATION" to "Vibration only",
+    "SILENT" to "Silent"
+)
+
 private fun prayerSettingLabel(value: String, labels: Map<String, String>): String {
     return labels[value] ?: value
 }
+
+private data class PrayerNotificationPreference(
+    val prayerName: String,
+    val prayerEnabled: Boolean,
+    val prePrayerEnabled: Boolean,
+    val prePrayerMinutes: Int,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,12 +98,13 @@ fun PrayerSettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val notificationsAllowed = NotificationManagerCompat.from(context).areNotificationsEnabled()
     val lastRefreshed = if (settings.lastPrayerRefreshEpochMs > 0L) {
         SimpleDateFormat("d MMM, h:mm a", Locale.getDefault()).format(Date(settings.lastPrayerRefreshEpochMs))
     } else {
         "Not refreshed yet"
     }
-    val permissionLauncher = rememberLauncherForActivityResult(
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
@@ -75,15 +113,25 @@ fun PrayerSettingsScreen(
             viewModel.refreshLocation()
         }
     }
+    val notificationsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { }
 
     val calculationMethods = listOf(
-        "MUSLIM_WORLD_LEAGUE", "EGYPTIAN", "KARACHI", "UMM_AL_QURA", 
-        "DUBAI", "MOON_SIGHTING_COMMITTEE", "NORTH_AMERICA", "KUWAIT", 
+        "MUSLIM_WORLD_LEAGUE", "EGYPTIAN", "KARACHI", "UMM_AL_QURA",
+        "DUBAI", "MOON_SIGHTING_COMMITTEE", "NORTH_AMERICA", "KUWAIT",
         "QATAR", "SINGAPORE", "TEHRAN", "TURKEY"
     )
-    
     val madhabs = listOf("SHAFI", "HANAFI")
     val sources = listOf("LOCAL", "API")
+    val alertStyleOptions = listOf("CUSTOM_SOUND", "SYSTEM_SOUND", "VIBRATION", "SILENT")
+    val prayerNotificationPreferences = listOf(
+        PrayerNotificationPreference("Fajr", settings.fajrPrayerNotificationEnabled, settings.fajrPrePrayerNotificationEnabled, settings.fajrPrePrayerMinutes),
+        PrayerNotificationPreference("Dhuhr", settings.dhuhrPrayerNotificationEnabled, settings.dhuhrPrePrayerNotificationEnabled, settings.dhuhrPrePrayerMinutes),
+        PrayerNotificationPreference("Asr", settings.asrPrayerNotificationEnabled, settings.asrPrePrayerNotificationEnabled, settings.asrPrePrayerMinutes),
+        PrayerNotificationPreference("Maghrib", settings.maghribPrayerNotificationEnabled, settings.maghribPrePrayerNotificationEnabled, settings.maghribPrePrayerMinutes),
+        PrayerNotificationPreference("Isha", settings.ishaPrayerNotificationEnabled, settings.ishaPrePrayerNotificationEnabled, settings.ishaPrePrayerMinutes)
+    )
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -110,7 +158,7 @@ fun PrayerSettingsScreen(
                 options = calculationMethods,
                 selectedOption = settings.prayerCalculationMethod,
                 optionLabel = { prayerSettingLabel(it, calculationMethodLabels) },
-                onOptionSelected = { viewModel.setPrayerCalculationMethod(it) }
+                onOptionSelected = viewModel::setPrayerCalculationMethod
             )
 
             Spacer(Modifier.height(16.dp))
@@ -120,7 +168,7 @@ fun PrayerSettingsScreen(
                 options = madhabs,
                 selectedOption = settings.prayerMadhab,
                 optionLabel = { prayerSettingLabel(it, madhabLabels) },
-                onOptionSelected = { viewModel.setPrayerMadhab(it) }
+                onOptionSelected = viewModel::setPrayerMadhab
             )
 
             Spacer(Modifier.height(16.dp))
@@ -131,7 +179,7 @@ fun PrayerSettingsScreen(
                 options = sources,
                 selectedOption = settings.prayerSourceType,
                 optionLabel = { prayerSettingLabel(it, sourceLabels) },
-                onOptionSelected = { viewModel.setPrayerSourceType(it) }
+                onOptionSelected = viewModel::setPrayerSourceType
             )
 
             Spacer(Modifier.height(16.dp))
@@ -154,7 +202,7 @@ fun PrayerSettingsScreen(
             ) {
                 FilledTonalButton(
                     onClick = {
-                        permissionLauncher.launch(
+                        locationPermissionLauncher.launch(
                             arrayOf(
                                 Manifest.permission.ACCESS_FINE_LOCATION,
                                 Manifest.permission.ACCESS_COARSE_LOCATION
@@ -169,7 +217,7 @@ fun PrayerSettingsScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { viewModel.refreshLocation() },
+                    onClick = viewModel::refreshLocation,
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
@@ -187,6 +235,47 @@ fun PrayerSettingsScreen(
             PrayerOffsetRow("Isha", settings.ishaOffsetMinutes) { viewModel.setPrayerOffset("Isha", it) }
 
             Spacer(Modifier.height(16.dp))
+            SectionHeader("Prayer Notifications")
+            PrayerNotificationsPanel(
+                notificationsAllowed = notificationsAllowed,
+                alertStyle = settings.prayerNotificationAlertStyle,
+                alertStyleOptions = alertStyleOptions,
+                alertStyleLabel = { alertStyleLabels[it] ?: it },
+                prayerPreferences = prayerNotificationPreferences,
+                onAllowNotifications = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+                onAlertStyleChange = viewModel::setPrayerNotificationAlertStyle,
+                onPrayerToggle = viewModel::setPrayerNotificationEnabled,
+                onPrePrayerToggle = viewModel::setPrePrayerNotificationEnabled,
+                onPrePrayerMinutesChange = viewModel::setPrePrayerMinutes,
+                onSendPrayerDebugNotification = {
+                    context.sendBroadcast(
+                        Intent(context, PrayerAlarmReceiver::class.java).apply {
+                            action = PrayerAlarmReceiver.ACTION_FIRE_PRAYER_NOTIFICATION
+                            putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_NAME, "Dhuhr")
+                            putExtra(PrayerAlarmReceiver.EXTRA_NOTIFICATION_TYPE, "PRAYER")
+                            putExtra(PrayerAlarmReceiver.EXTRA_PRE_PRAYER_MINUTES, 0)
+                            putExtra(PrayerAlarmReceiver.EXTRA_TRIGGER_AT_MILLIS, System.currentTimeMillis())
+                        }
+                    )
+                },
+                onSendPrePrayerDebugNotification = {
+                    context.sendBroadcast(
+                        Intent(context, PrayerAlarmReceiver::class.java).apply {
+                            action = PrayerAlarmReceiver.ACTION_FIRE_PRAYER_NOTIFICATION
+                            putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_NAME, "Dhuhr")
+                            putExtra(PrayerAlarmReceiver.EXTRA_NOTIFICATION_TYPE, "PRE_PRAYER")
+                            putExtra(PrayerAlarmReceiver.EXTRA_PRE_PRAYER_MINUTES, 10)
+                            putExtra(PrayerAlarmReceiver.EXTRA_TRIGGER_AT_MILLIS, System.currentTimeMillis())
+                        }
+                    )
+                }
+            )
+
+            Spacer(Modifier.height(16.dp))
             SectionHeader("Diagnostics")
             PrayerDiagnosticsCard(
                 source = prayerSettingLabel(settings.prayerSourceType, sourceLabels),
@@ -195,9 +284,10 @@ fun PrayerSettingsScreen(
                 latitude = settings.locationLat,
                 longitude = settings.locationLng,
                 lastRefreshed = lastRefreshed,
-                gpsEnabled = settings.useGpsLocation
+                gpsEnabled = settings.useGpsLocation,
+                notificationsAllowed = notificationsAllowed
             )
-            
+
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -239,6 +329,150 @@ private fun PrayerOffsetRow(
 }
 
 @Composable
+private fun PrayerNotificationsPanel(
+    notificationsAllowed: Boolean,
+    alertStyle: String,
+    alertStyleOptions: List<String>,
+    alertStyleLabel: (String) -> String,
+    prayerPreferences: List<PrayerNotificationPreference>,
+    onAllowNotifications: () -> Unit,
+    onAlertStyleChange: (String) -> Unit,
+    onPrayerToggle: (String, Boolean) -> Unit,
+    onPrePrayerToggle: (String, Boolean) -> Unit,
+    onPrePrayerMinutesChange: (String, Int) -> Unit,
+    onSendPrayerDebugNotification: () -> Unit,
+    onSendPrePrayerDebugNotification: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Prayer reminders", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "Battery-friendly scheduled notifications for prayer start and pre-prayer reminders.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilledTonalButton(
+                    onClick = onSendPrayerDebugNotification,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Notifications, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Debug Prayer")
+                }
+                OutlinedButton(
+                    onClick = onSendPrePrayerDebugNotification,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Debug Pre-Prayer")
+                }
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notificationsAllowed) {
+                FilledTonalButton(
+                    onClick = onAllowNotifications,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Allow Notifications")
+                }
+            }
+
+            SettingsDropdown(
+                title = "Alert style",
+                subtitle = "Choose how prayer reminders should sound or behave.",
+                options = alertStyleOptions,
+                selectedOption = alertStyle,
+                optionLabel = alertStyleLabel,
+                onOptionSelected = onAlertStyleChange
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+            prayerPreferences.forEachIndexed { index, preference ->
+                PrayerNotificationRow(
+                    preference = preference,
+                    onPrayerToggle = { enabled -> onPrayerToggle(preference.prayerName, enabled) },
+                    onPrePrayerToggle = { enabled -> onPrePrayerToggle(preference.prayerName, enabled) },
+                    onPrePrayerMinutesChange = { minutes ->
+                        onPrePrayerMinutesChange(preference.prayerName, minutes)
+                    }
+                )
+                if (index != prayerPreferences.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrayerNotificationRow(
+    preference: PrayerNotificationPreference,
+    onPrayerToggle: (Boolean) -> Unit,
+    onPrePrayerToggle: (Boolean) -> Unit,
+    onPrePrayerMinutesChange: (Int) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(preference.prayerName, style = MaterialTheme.typography.titleSmall)
+        SettingsToggle(
+            title = "Prayer notification",
+            subtitle = "Alert when ${preference.prayerName} starts.",
+            checked = preference.prayerEnabled,
+            onCheckedChange = onPrayerToggle
+        )
+        SettingsToggle(
+            title = "Pre-prayer notification",
+            subtitle = "Remind me before ${preference.prayerName}.",
+            checked = preference.prePrayerEnabled,
+            onCheckedChange = onPrePrayerToggle
+        )
+        if (preference.prePrayerEnabled) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Lead time", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "${preference.prePrayerMinutes} minutes before",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+                OutlinedButton(onClick = { onPrePrayerMinutesChange(preference.prePrayerMinutes - 1) }) {
+                    Text("-")
+                }
+                Text(
+                    text = "${preference.prePrayerMinutes}m",
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedButton(onClick = { onPrePrayerMinutesChange(preference.prePrayerMinutes + 1) }) {
+                    Text("+")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun PrayerDiagnosticsCard(
     source: String,
     method: String,
@@ -246,7 +480,8 @@ private fun PrayerDiagnosticsCard(
     latitude: Float,
     longitude: Float,
     lastRefreshed: String,
-    gpsEnabled: Boolean
+    gpsEnabled: Boolean,
+    notificationsAllowed: Boolean
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -263,6 +498,11 @@ private fun PrayerDiagnosticsCard(
                 style = MaterialTheme.typography.bodyMedium
             )
             Text("GPS: ${if (gpsEnabled) "Enabled" else "Disabled"}", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Notifications: ${if (notificationsAllowed) "Allowed" else "Not allowed"}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text("Delivery: Battery-friendly scheduled notification", style = MaterialTheme.typography.bodyMedium)
             Text("Last Refresh: $lastRefreshed", style = MaterialTheme.typography.bodyMedium)
         }
     }

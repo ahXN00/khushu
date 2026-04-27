@@ -302,7 +302,8 @@ fun HomeScreen(
 //                    ayahText = uiState.ayahText,
                         ayahRef = uiState.ayahRef,
                         darkTheme = darkTheme,
-                        bottomPadding = contentPadding.calculateBottomPadding()
+                        bottomPadding = contentPadding.calculateBottomPadding(),
+                        modifier = Modifier.fillParentMaxHeight()
                     )
                 }
             }

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,6 +54,8 @@ import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.model.TasbeehCollection
 import com.kaizen.khushu.data.model.DhikrItem
 import com.kaizen.khushu.data.local.TasbeehDatabase
+import com.kaizen.khushu.notifications.PrayerNotificationScheduler
+import com.kaizen.khushu.notifications.toPrayerNotificationScheduleConfig
 import com.kaizen.khushu.ui.components.PillNavBar
 import com.kaizen.khushu.ui.navigation.*
 import com.kaizen.khushu.ui.screens.onboarding.OnboardingScreen
@@ -74,6 +77,11 @@ import com.kaizen.khushu.ui.theme.ThemeTransitionProvider
 import com.kaizen.khushu.ui.util.add
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -125,6 +133,7 @@ class MainActivity : ComponentActivity() {
         settingsRepository = SettingsRepository(applicationContext)
         settingsViewModel = SettingsViewModel(settingsRepository, applicationContext)
         prayerTimeRepository = PrayerTimeRepository(settingsRepository)
+        val prayerNotificationScheduler = PrayerNotificationScheduler(applicationContext)
 
         homeViewModel = ViewModelProvider(
             this as ViewModelStoreOwner,
@@ -158,6 +167,23 @@ class MainActivity : ComponentActivity() {
 
         quranViewModel = ViewModelProvider(this)[com.kaizen.khushu.ui.screens.quran.QuranViewModel::class.java]
         hadithViewModel = ViewModelProvider(this)[com.kaizen.khushu.ui.screens.hadith.HadithViewModel::class.java]
+
+        lifecycleScope.launch {
+            settingsRepository.settingsFlow
+                .map { settings -> settings.toPrayerNotificationScheduleConfig() to settings }
+                .distinctUntilChanged { old, new -> old.first == new.first }
+                .collect { (_, settings) ->
+                    prayerNotificationScheduler.syncNotifications(settings)
+                }
+        }
+
+        lifecycleScope.launch {
+            while (true) {
+                val settings = settingsRepository.settingsFlow.first()
+                prayerNotificationScheduler.maybeDeliverCurrentPrayerNotification(settings)
+                delay(30_000L)
+            }
+        }
 
         setContent {
             val isLoaded by settingsViewModel.isSettingsLoaded.collectAsState()

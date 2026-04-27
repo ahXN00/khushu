@@ -86,6 +86,23 @@ class SettingsRepository(private val context: Context) {
         val PRAYER_OFFSET_MAGHRIB = intPreferencesKey("prayer_offset_maghrib")
         val PRAYER_OFFSET_ISHA = intPreferencesKey("prayer_offset_isha")
         val LAST_PRAYER_REFRESH_EPOCH_MS = longPreferencesKey("last_prayer_refresh_epoch_ms")
+        val PRAYER_NOTIFICATION_FAJR = booleanPreferencesKey("prayer_notification_fajr")
+        val PRAYER_NOTIFICATION_DHUHR = booleanPreferencesKey("prayer_notification_dhuhr")
+        val PRAYER_NOTIFICATION_ASR = booleanPreferencesKey("prayer_notification_asr")
+        val PRAYER_NOTIFICATION_MAGHRIB = booleanPreferencesKey("prayer_notification_maghrib")
+        val PRAYER_NOTIFICATION_ISHA = booleanPreferencesKey("prayer_notification_isha")
+        val PRE_PRAYER_NOTIFICATION_FAJR = booleanPreferencesKey("pre_prayer_notification_fajr")
+        val PRE_PRAYER_NOTIFICATION_DHUHR = booleanPreferencesKey("pre_prayer_notification_dhuhr")
+        val PRE_PRAYER_NOTIFICATION_ASR = booleanPreferencesKey("pre_prayer_notification_asr")
+        val PRE_PRAYER_NOTIFICATION_MAGHRIB = booleanPreferencesKey("pre_prayer_notification_maghrib")
+        val PRE_PRAYER_NOTIFICATION_ISHA = booleanPreferencesKey("pre_prayer_notification_isha")
+        val PRE_PRAYER_MINUTES_FAJR = intPreferencesKey("pre_prayer_minutes_fajr")
+        val PRE_PRAYER_MINUTES_DHUHR = intPreferencesKey("pre_prayer_minutes_dhuhr")
+        val PRE_PRAYER_MINUTES_ASR = intPreferencesKey("pre_prayer_minutes_asr")
+        val PRE_PRAYER_MINUTES_MAGHRIB = intPreferencesKey("pre_prayer_minutes_maghrib")
+        val PRE_PRAYER_MINUTES_ISHA = intPreferencesKey("pre_prayer_minutes_isha")
+        val PRAYER_NOTIFICATION_ALERT_STYLE = stringPreferencesKey("prayer_notification_alert_style")
+        val LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID = stringPreferencesKey("last_delivered_prayer_notification_event_id")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -164,7 +181,24 @@ class SettingsRepository(private val context: Context) {
                 asrOffsetMinutes = preferences[PreferencesKeys.PRAYER_OFFSET_ASR] ?: 0,
                 maghribOffsetMinutes = preferences[PreferencesKeys.PRAYER_OFFSET_MAGHRIB] ?: 0,
                 ishaOffsetMinutes = preferences[PreferencesKeys.PRAYER_OFFSET_ISHA] ?: 0,
-                lastPrayerRefreshEpochMs = preferences[PreferencesKeys.LAST_PRAYER_REFRESH_EPOCH_MS] ?: 0L
+                lastPrayerRefreshEpochMs = preferences[PreferencesKeys.LAST_PRAYER_REFRESH_EPOCH_MS] ?: 0L,
+                fajrPrayerNotificationEnabled = preferences[PreferencesKeys.PRAYER_NOTIFICATION_FAJR] ?: false,
+                dhuhrPrayerNotificationEnabled = preferences[PreferencesKeys.PRAYER_NOTIFICATION_DHUHR] ?: false,
+                asrPrayerNotificationEnabled = preferences[PreferencesKeys.PRAYER_NOTIFICATION_ASR] ?: false,
+                maghribPrayerNotificationEnabled = preferences[PreferencesKeys.PRAYER_NOTIFICATION_MAGHRIB] ?: false,
+                ishaPrayerNotificationEnabled = preferences[PreferencesKeys.PRAYER_NOTIFICATION_ISHA] ?: false,
+                fajrPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_FAJR] ?: false,
+                dhuhrPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_DHUHR] ?: false,
+                asrPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_ASR] ?: false,
+                maghribPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_MAGHRIB] ?: false,
+                ishaPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_ISHA] ?: false,
+                fajrPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_FAJR] ?: 10,
+                dhuhrPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_DHUHR] ?: 10,
+                asrPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_ASR] ?: 10,
+                maghribPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_MAGHRIB] ?: 10,
+                ishaPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_ISHA] ?: 10,
+                prayerNotificationAlertStyle = preferences[PreferencesKeys.PRAYER_NOTIFICATION_ALERT_STYLE] ?: "SYSTEM_SOUND",
+                lastDeliveredPrayerNotificationEventId = preferences[PreferencesKeys.LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID].orEmpty()
             )
         }
 
@@ -209,6 +243,50 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun updateLastPrayerRefresh(epochMs: Long) {
         context.dataStore.edit { it[PreferencesKeys.LAST_PRAYER_REFRESH_EPOCH_MS] = epochMs }
+    }
+
+    suspend fun updatePrayerNotificationEnabled(prayerKey: String, enabled: Boolean) {
+        context.dataStore.edit {
+            when (prayerKey) {
+                "Fajr" -> it[PreferencesKeys.PRAYER_NOTIFICATION_FAJR] = enabled
+                "Dhuhr" -> it[PreferencesKeys.PRAYER_NOTIFICATION_DHUHR] = enabled
+                "Asr" -> it[PreferencesKeys.PRAYER_NOTIFICATION_ASR] = enabled
+                "Maghrib" -> it[PreferencesKeys.PRAYER_NOTIFICATION_MAGHRIB] = enabled
+                "Isha" -> it[PreferencesKeys.PRAYER_NOTIFICATION_ISHA] = enabled
+            }
+        }
+    }
+
+    suspend fun updatePrePrayerNotificationEnabled(prayerKey: String, enabled: Boolean) {
+        context.dataStore.edit {
+            when (prayerKey) {
+                "Fajr" -> it[PreferencesKeys.PRE_PRAYER_NOTIFICATION_FAJR] = enabled
+                "Dhuhr" -> it[PreferencesKeys.PRE_PRAYER_NOTIFICATION_DHUHR] = enabled
+                "Asr" -> it[PreferencesKeys.PRE_PRAYER_NOTIFICATION_ASR] = enabled
+                "Maghrib" -> it[PreferencesKeys.PRE_PRAYER_NOTIFICATION_MAGHRIB] = enabled
+                "Isha" -> it[PreferencesKeys.PRE_PRAYER_NOTIFICATION_ISHA] = enabled
+            }
+        }
+    }
+
+    suspend fun updatePrePrayerMinutes(prayerKey: String, minutes: Int) {
+        context.dataStore.edit {
+            when (prayerKey) {
+                "Fajr" -> it[PreferencesKeys.PRE_PRAYER_MINUTES_FAJR] = minutes
+                "Dhuhr" -> it[PreferencesKeys.PRE_PRAYER_MINUTES_DHUHR] = minutes
+                "Asr" -> it[PreferencesKeys.PRE_PRAYER_MINUTES_ASR] = minutes
+                "Maghrib" -> it[PreferencesKeys.PRE_PRAYER_MINUTES_MAGHRIB] = minutes
+                "Isha" -> it[PreferencesKeys.PRE_PRAYER_MINUTES_ISHA] = minutes
+            }
+        }
+    }
+
+    suspend fun updatePrayerNotificationAlertStyle(style: String) {
+        context.dataStore.edit { it[PreferencesKeys.PRAYER_NOTIFICATION_ALERT_STYLE] = style }
+    }
+
+    suspend fun updateLastDeliveredPrayerNotificationEventId(eventId: String) {
+        context.dataStore.edit { it[PreferencesKeys.LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID] = eventId }
     }
 
     suspend fun setTasbeehVolumeEnabled(enabled: Boolean) {
@@ -466,5 +544,22 @@ data class UserSettings(
     val asrOffsetMinutes: Int = 0,
     val maghribOffsetMinutes: Int = 0,
     val ishaOffsetMinutes: Int = 0,
-    val lastPrayerRefreshEpochMs: Long = 0L
+    val lastPrayerRefreshEpochMs: Long = 0L,
+    val fajrPrayerNotificationEnabled: Boolean = false,
+    val dhuhrPrayerNotificationEnabled: Boolean = false,
+    val asrPrayerNotificationEnabled: Boolean = false,
+    val maghribPrayerNotificationEnabled: Boolean = false,
+    val ishaPrayerNotificationEnabled: Boolean = false,
+    val fajrPrePrayerNotificationEnabled: Boolean = false,
+    val dhuhrPrePrayerNotificationEnabled: Boolean = false,
+    val asrPrePrayerNotificationEnabled: Boolean = false,
+    val maghribPrePrayerNotificationEnabled: Boolean = false,
+    val ishaPrePrayerNotificationEnabled: Boolean = false,
+    val fajrPrePrayerMinutes: Int = 10,
+    val dhuhrPrePrayerMinutes: Int = 10,
+    val asrPrePrayerMinutes: Int = 10,
+    val maghribPrePrayerMinutes: Int = 10,
+    val ishaPrePrayerMinutes: Int = 10,
+    val prayerNotificationAlertStyle: String = "SYSTEM_SOUND",
+    val lastDeliveredPrayerNotificationEventId: String = ""
 )

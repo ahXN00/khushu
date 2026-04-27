@@ -14,8 +14,8 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
-import java.util.Date
 import java.util.Calendar
+import java.util.Date
 
 @Serializable
 data class AlAdhanResponse(val code: Int, val data: AlAdhanData)
@@ -67,6 +67,66 @@ class PrayerTimeRepository(
 
     fun getSunnahTimes(prayerTimes: PrayerTimes): SunnahTimes {
         return SunnahTimes(prayerTimes)
+    }
+
+    suspend fun getEffectivePrayerDateTimes(
+        date: Date,
+        settings: UserSettings
+    ): Map<String, Date> {
+        val localMethodSupported = supportsLocalCalculationMethod(settings.prayerCalculationMethod)
+        val isApiSource = settings.prayerSourceType == "API" || !localMethodSupported
+        val localPrayerTimes = getLocalPrayerTimes(
+            date = date,
+            lat = settings.locationLat.toDouble(),
+            lng = settings.locationLng.toDouble(),
+            methodStr = settings.prayerCalculationMethod,
+            madhabStr = settings.prayerMadhab
+        )
+        val apiTimings = if (isApiSource) {
+            getFallbackPrayerTimes(
+                date = date,
+                lat = settings.locationLat.toDouble(),
+                lng = settings.locationLng.toDouble(),
+                methodStr = settings.prayerCalculationMethod,
+                madhabStr = settings.prayerMadhab
+            )
+        } else {
+            null
+        }
+
+        fun parseApiTime(key: String, fallback: Date): Date {
+            val timeStr = apiTimings?.get(key) ?: return fallback
+            return try {
+                val normalizedTime = timeStr.take(5)
+                val parsed = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).parse(normalizedTime)
+                    ?: return fallback
+                val targetCal = Calendar.getInstance().apply { time = date }
+                val parsedCal = Calendar.getInstance().apply { time = parsed }
+                targetCal.set(Calendar.HOUR_OF_DAY, parsedCal.get(Calendar.HOUR_OF_DAY))
+                targetCal.set(Calendar.MINUTE, parsedCal.get(Calendar.MINUTE))
+                targetCal.set(Calendar.SECOND, 0)
+                targetCal.set(Calendar.MILLISECOND, 0)
+                targetCal.time
+            } catch (e: Exception) {
+                fallback
+            }
+        }
+
+        fun applyOffset(time: Date, minutes: Int): Date = Date(time.time + minutes * 60_000L)
+
+        val fajr = if (isApiSource) parseApiTime("Fajr", localPrayerTimes.fajr) else localPrayerTimes.fajr
+        val dhuhr = if (isApiSource) parseApiTime("Dhuhr", localPrayerTimes.dhuhr) else localPrayerTimes.dhuhr
+        val asr = if (isApiSource) parseApiTime("Asr", localPrayerTimes.asr) else localPrayerTimes.asr
+        val maghrib = if (isApiSource) parseApiTime("Maghrib", localPrayerTimes.maghrib) else localPrayerTimes.maghrib
+        val isha = if (isApiSource) parseApiTime("Isha", localPrayerTimes.isha) else localPrayerTimes.isha
+
+        return mapOf(
+            "Fajr" to applyOffset(fajr, settings.fajrOffsetMinutes),
+            "Dhuhr" to applyOffset(dhuhr, settings.dhuhrOffsetMinutes),
+            "Asr" to applyOffset(asr, settings.asrOffsetMinutes),
+            "Maghrib" to applyOffset(maghrib, settings.maghribOffsetMinutes),
+            "Isha" to applyOffset(isha, settings.ishaOffsetMinutes)
+        )
     }
 
     suspend fun getFallbackPrayerTimes(

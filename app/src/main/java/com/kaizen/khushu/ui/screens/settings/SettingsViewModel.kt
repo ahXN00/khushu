@@ -329,6 +329,22 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updatePrayerOffset(prayerName, minutes.coerceIn(-15, 15)) }
     }
 
+    fun setPrayerNotificationEnabled(prayerName: String, enabled: Boolean) {
+        viewModelScope.launch { repository.updatePrayerNotificationEnabled(prayerName, enabled) }
+    }
+
+    fun setPrePrayerNotificationEnabled(prayerName: String, enabled: Boolean) {
+        viewModelScope.launch { repository.updatePrePrayerNotificationEnabled(prayerName, enabled) }
+    }
+
+    fun setPrePrayerMinutes(prayerName: String, minutes: Int) {
+        viewModelScope.launch { repository.updatePrePrayerMinutes(prayerName, minutes.coerceIn(1, 60)) }
+    }
+
+    fun setPrayerNotificationAlertStyle(style: String) {
+        viewModelScope.launch { repository.updatePrayerNotificationAlertStyle(style) }
+    }
+
     fun refreshLocation() {
         val hasFineLocation =
             ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) ==

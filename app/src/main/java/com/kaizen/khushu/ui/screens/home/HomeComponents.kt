@@ -695,6 +695,7 @@ fun PrayerSlab(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .fillMaxHeight()
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(start = 22.dp, end = 22.dp, top = 22.dp, bottom = 32.dp + bottomPadding)
     ) {
