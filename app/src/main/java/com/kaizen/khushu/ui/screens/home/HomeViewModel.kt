@@ -36,6 +36,15 @@ class HomeViewModel(
     // State for API prayer times to avoid re-fetching on every tick
     private val _apiPrayerTimes = MutableStateFlow<Map<String, String>?>(null)
     private var lastApiFetchKey: String? = null
+    private var refreshStartedAtMillis = 0L
+
+    private suspend fun completeRefreshWithMinimumDuration() {
+        val remaining = MIN_REFRESH_DURATION_MS - (System.currentTimeMillis() - refreshStartedAtMillis)
+        if (remaining > 0L) {
+            delay(remaining)
+        }
+        _isRefreshing.value = false
+    }
 
     // Fallback UI State
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -74,7 +83,7 @@ class HomeViewModel(
                 _apiPrayerTimes.value = timings
                 lastApiFetchKey = apiFetchKey
                 settingsRepository.updateLastPrayerRefresh(System.currentTimeMillis())
-                _isRefreshing.value = false
+                completeRefreshWithMinimumDuration()
             }
         }
 
@@ -311,13 +320,14 @@ class HomeViewModel(
     }
 
     fun refreshPrayerData() {
+        refreshStartedAtMillis = System.currentTimeMillis()
         _isRefreshing.value = true
         lastApiFetchKey = null
         _currentTime.value = Date()
         viewModelScope.launch {
             settingsRepository.updateLastPrayerRefresh(System.currentTimeMillis())
-            if (_isRefreshing.value) {
-                _isRefreshing.value = false
+            if (uiState.value.calculationSource == CalculationSource.LOCAL && _isRefreshing.value) {
+                completeRefreshWithMinimumDuration()
             }
         }
     }
@@ -346,6 +356,8 @@ class HomeViewModel(
     }
 
     companion object {
+        private const val MIN_REFRESH_DURATION_MS = 700L
+
         fun factory(
             settingsRepository: SettingsRepository,
             prayerTimeRepository: PrayerTimeRepository
