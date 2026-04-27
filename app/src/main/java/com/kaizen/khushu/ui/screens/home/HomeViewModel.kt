@@ -3,7 +3,7 @@ package com.kaizen.khushu.ui.screens.home
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kaizen.khushu.data.local.IslamicEventsCatalog
+import com.kaizen.khushu.data.repository.IslamicEventsRepository
 import com.kaizen.khushu.data.repository.PrayerTimeRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import kotlinx.coroutines.delay
@@ -25,7 +25,8 @@ import androidx.lifecycle.ViewModelProvider
 
 class HomeViewModel(
     private val settingsRepository: SettingsRepository,
-    private val prayerTimeRepository: PrayerTimeRepository
+    private val prayerTimeRepository: PrayerTimeRepository,
+    private val islamicEventsRepository: IslamicEventsRepository,
 ) : ViewModel() {
 
     private val _currentTime = MutableStateFlow(Date())
@@ -251,49 +252,79 @@ class HomeViewModel(
             todayHijri?.format(formatter).orEmpty()
         }.getOrDefault("")
 
-        val mappedEvents = runCatching {
-            if (todayHijri == null) {
-                emptyList()
-            } else {
-                IslamicEventsCatalog.getUpcomingEvents(6).map { ev ->
-                    val currentM = todayHijri.get(ChronoField.MONTH_OF_YEAR)
-                    val currentD = todayHijri.get(ChronoField.DAY_OF_MONTH)
+        fun mapEvent(ev: com.kaizen.khushu.data.repository.IslamicCalendarEvent): IslamicEvent {
+            val currentM = todayHijri?.get(ChronoField.MONTH_OF_YEAR) ?: ev.month
+            val currentD = todayHijri?.get(ChronoField.DAY_OF_MONTH) ?: ev.day
 
-                    var eventYear = todayHijri.get(ChronoField.YEAR)
-                    if (ev.month < currentM || (ev.month == currentM && ev.day < currentD)) {
-                        eventYear += 1
-                    }
-
-                    val eventDate = try {
-                        todayHijri
-                            .with(ChronoField.YEAR, eventYear.toLong())
-                            .with(ChronoField.MONTH_OF_YEAR, ev.month.toLong())
-                            .with(ChronoField.DAY_OF_MONTH, ev.day.toLong())
-                    } catch (e: Exception) {
-                        todayHijri
-                    }
-
-                    val daysBetween = ChronoUnit.DAYS.between(todayHijri, eventDate)
-                    val dateLabel = when (daysBetween) {
-                        0L -> "Today"
-                        1L -> "Tomorrow"
-                        else -> "in $daysBetween days"
-                    }
-
-                    IslamicEvent(
-                        label = dateLabel,
-                        date = "${ev.day} ${getMonthName(ev.month)}",
-                        name = ev.title,
-                        isToday = daysBetween == 0L
-                    )
-                }
+            var eventYear = todayHijri?.get(ChronoField.YEAR) ?: 0
+            if (todayHijri != null && (ev.month < currentM || (ev.month == currentM && ev.day < currentD))) {
+                eventYear += 1
             }
+
+            val eventDate = try {
+                todayHijri
+                    ?.with(ChronoField.YEAR, eventYear.toLong())
+                    ?.with(ChronoField.MONTH_OF_YEAR, ev.month.toLong())
+                    ?.with(ChronoField.DAY_OF_MONTH, ev.day.toLong())
+            } catch (e: Exception) {
+                todayHijri
+            }
+
+            val daysBetween = if (todayHijri != null && eventDate != null) {
+                ChronoUnit.DAYS.between(todayHijri, eventDate)
+            } else {
+                0L
+            }
+            val dateLabel = when (daysBetween) {
+                0L -> "Today"
+                1L -> "Tomorrow"
+                else -> "in $daysBetween days"
+            }
+            val detailDate = if (ev.day == ev.endDay) {
+                "${ev.day} ${ev.monthNameEnglish}"
+            } else {
+                "${ev.day}-${ev.endDay} ${ev.monthNameEnglish}"
+            }
+
+            return IslamicEvent(
+                month = ev.month,
+                monthNameEnglish = ev.monthNameEnglish,
+                day = ev.day,
+                endDay = ev.endDay,
+                label = dateLabel,
+                date = "$dateLabel | $detailDate",
+                name = ev.title,
+                description = ev.description,
+                notes = ev.notes,
+                detailDate = detailDate,
+                isToday = daysBetween == 0L
+            )
+        }
+
+        val currentMonth = todayHijri?.get(ChronoField.MONTH_OF_YEAR) ?: 0
+        val currentYear = todayHijri?.get(ChronoField.YEAR) ?: 0
+        val currentMonthName = islamicEventsRepository.getAllEvents()
+            .firstOrNull { it.month == currentMonth }
+            ?.monthNameEnglish
+            ?: getMonthName(currentMonth)
+        val currentMonthEvents = runCatching {
+            islamicEventsRepository.getEventsForMonth(currentMonth).map(::mapEvent)
         }.getOrDefault(emptyList())
+        val calendarEvents = runCatching {
+            islamicEventsRepository.getAllEvents().map(::mapEvent)
+        }.getOrDefault(emptyList())
+        val eventsHeader = if (currentYear > 0) {
+            "UPCOMING · ${currentMonthName.uppercase(Locale.getDefault())} $currentYear"
+        } else {
+            "UPCOMING EVENTS"
+        }
 
         HomeUiState(
             prayers = mappedPrayers,
             makruhZones = listOf(makruhSunrise, makruhZawal, makruhSunset),
-            events = mappedEvents,
+            events = currentMonthEvents,
+            calendarEvents = calendarEvents,
+            eventsHeader = eventsHeader,
             hijriDate = formattedHijri,
             sunArcT = currentArcT,
             currentTimeMillis = effectiveCurrentTime.time,
@@ -360,12 +391,13 @@ class HomeViewModel(
 
         fun factory(
             settingsRepository: SettingsRepository,
-            prayerTimeRepository: PrayerTimeRepository
+            prayerTimeRepository: PrayerTimeRepository,
+            islamicEventsRepository: IslamicEventsRepository,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                    return HomeViewModel(settingsRepository, prayerTimeRepository) as T
+                    return HomeViewModel(settingsRepository, prayerTimeRepository, islamicEventsRepository) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel class")
             }

@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,13 +14,24 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +46,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -66,6 +79,10 @@ private fun bpt(t: Float): Offset {
         u * u * P0.x + 2 * u * t * P1.x + t * t * P2.x,
         u * u * P0.y + 2 * u * t * P1.y + t * t * P2.y
     )
+}
+
+private fun insetArcMarkerT(t: Float): Float {
+    return (0.06f + t.coerceIn(0f, 1f) * 0.88f).coerceIn(0f, 1f)
 }
 
 @Composable
@@ -265,8 +282,8 @@ fun SunArcCard(
                     }
                 }
 
-                val sunM = mapPt(bpt(sunT))
-                val nextM = mapPt(bpt(effectiveNextT))
+                val sunM = mapPt(bpt(insetArcMarkerT(sunT)))
+                val nextM = mapPt(bpt(insetArcMarkerT(effectiveNextT)))
 
                 // Sun glow
                 drawCircle(
@@ -605,14 +622,39 @@ fun NextPrayerCard(
     }
 }
 
+private data class MonthGroup(
+    val month: Int,
+    val monthNameEnglish: String,
+    val events: List<IslamicEvent>,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsStrip(
+    header: String,
     events: List<IslamicEvent>,
+    calendarEvents: List<IslamicEvent>,
     modifier: Modifier = Modifier
 ) {
+    var selectedEvent by remember { mutableStateOf<IslamicEvent?>(null) }
+    var showCalendar by remember { mutableStateOf(false) }
+
+    val monthGroups = remember(calendarEvents) {
+        calendarEvents
+            .groupBy { it.month }
+            .toSortedMap()
+            .map { (month, monthEvents) ->
+                MonthGroup(
+                    month = month,
+                    monthNameEnglish = monthEvents.firstOrNull()?.monthNameEnglish.orEmpty(),
+                    events = monthEvents.sortedWith(compareBy({ it.day }, { it.endDay }, { it.name }))
+                )
+            }
+    }
+
     Column(modifier = modifier) {
         Text(
-            text = "UPCOMING · DHU'L-QI'DAH 1446",
+            text = header,
             style = MaterialTheme.typography.labelSmall.copy(
                 fontSize = 10.sp,
                 letterSpacing = 0.09.sp,
@@ -644,14 +686,16 @@ fun EventsStrip(
                         .clip(RoundedCornerShape(14.dp))
                         .background(bgColor)
                         .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+                        .clickable { selectedEvent = ev }
                         .padding(10.dp)
-                        .widthIn(min = 116.dp)
+                        .width(180.dp)
+                        .height(70.dp)
                 ) {
-                    Column {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         Text(
-                            text = ev.label.uppercase(),
+                            text = ev.date.uppercase(),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 7.5.sp,
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.06.sp
                             ),
@@ -660,15 +704,378 @@ fun EventsStrip(
                         )
                         Text(
                             text = ev.name,
-                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp, lineHeight = 16.sp),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        if (ev.description.isNotBlank()) {
+                            Text(
+                                text = ev.description,
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                                modifier = Modifier.padding(top = 4.dp),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (calendarEvents.isNotEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                RoundedCornerShape(22.dp)
+                            )
+                            .clickable { showCalendar = true }
+                            .width(72.dp)
+                            .height(70.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Show all events",
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "ALL",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.08.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCalendar) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val currentMonth = events.firstOrNull()?.month ?: calendarEvents.firstOrNull()?.month ?: 1
+        var selectedMonth by remember(calendarEvents, events) { mutableIntStateOf(currentMonth) }
+        val selectedGroup = monthGroups.firstOrNull { it.month == selectedMonth } ?: monthGroups.firstOrNull()
+        val defaultSelectedDay = remember(selectedGroup, events) {
+            selectedGroup?.events?.firstOrNull { it.isToday }?.day
+                ?: selectedGroup?.events?.firstOrNull()?.day
+                ?: 1
+        }
+        var selectedDay by remember(selectedGroup) { mutableIntStateOf(defaultSelectedDay) }
+        val selectedDayEvents = remember(selectedGroup, selectedDay) {
+            selectedGroup?.events?.filter { selectedDay in it.day..it.endDay }.orEmpty()
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = { showCalendar = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Hijri Calendar",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Browse events by Hijri month",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    monthGroups.chunked(3).forEach { rowGroups ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowGroups.forEach { group ->
+                                val isSelected = group.month == selectedMonth
+                                Surface(
+                                    onClick = { selectedMonth = group.month },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.45f)
+                                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = group.month.toString(),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 8.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                        Text(
+                                            text = group.monthNameEnglish,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 11.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "${group.events.size} events",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp),
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
+                            }
+                            repeat(3 - rowGroups.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+
+                if (selectedGroup != null) {
+                    Text(
+                        text = "${selectedGroup.month} | ${selectedGroup.monthNameEnglish}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(5),
+                        modifier = Modifier.heightIn(max = 260.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(30) { index ->
+                            val day = index + 1
+                            val hasEvent = selectedGroup.events.any { day in it.day..it.endDay }
+                            val isSelected = day == selectedDay
+                            Surface(
+                                onClick = { selectedDay = day },
+                                shape = RoundedCornerShape(16.dp),
+                                color = when {
+                                    isSelected -> MaterialTheme.colorScheme.tertiaryContainer
+                                    hasEvent -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    else -> MaterialTheme.colorScheme.surfaceContainerLow
+                                },
+                                border = BorderStroke(
+                                    1.dp,
+                                    when {
+                                        isSelected -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.45f)
+                                        hasEvent -> MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+                                        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
+                                    }
+                                )
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(58.dp)
+                                        .padding(horizontal = 8.dp, vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        text = day.toString(),
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.align(Alignment.TopStart)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (hasEvent) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    Color.Transparent
+                                                }
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = "Events on $selectedDay ${selectedGroup.monthNameEnglish}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    if (selectedDayEvents.isEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "No recorded event for this day",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(14.dp)
+                            )
+                        }
+                    } else {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            itemsIndexed(selectedDayEvents) { index, event ->
+                                val isFirst = index == 0
+                                val bgColor =
+                                    if (isFirst) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
+                                val borderColor =
+                                    if (isFirst) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
+                                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                val labelColor =
+                                    if (isFirst) MaterialTheme.colorScheme.tertiary
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(bgColor)
+                                        .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+                                        .clickable { selectedEvent = event }
+                                        .padding(10.dp)
+                                        .width(220.dp)
+                                        .height(82.dp)
+                                ) {
+                                    Column(modifier = Modifier.fillMaxSize()) {
+                                        Text(
+                                            text = event.detailDate.uppercase(),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.06.sp
+                                            ),
+                                            color = labelColor,
+                                            modifier = Modifier.padding(bottom = 2.dp)
+                                        )
+                                        Text(
+                                            text = event.name,
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontSize = 14.sp,
+                                                lineHeight = 16.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (event.description.isNotBlank()) {
+                                            Text(
+                                                text = event.description,
+                                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                                                modifier = Modifier.padding(top = 4.dp),
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    selectedEvent?.let { event ->
+        BasicAlertDialog(
+            onDismissRequest = { selectedEvent = null }
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                tonalElevation = 0.dp,
+                border = BorderStroke(
+                    1.dp,
+                    if (event.isToday) {
+                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f)
+                    } else {
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)
+                    }
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = event.date.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.08.sp
+                        )
+                    )
+                    Text(
+                        text = event.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = event.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.84f)
+                    )
+                    if (!event.notes.isNullOrBlank()) {
                         Text(
-                            text = ev.date,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                            modifier = Modifier.padding(top = 2.dp)
+                            text = event.notes,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.56f)
                         )
+                    }
+                    Text(
+                        text = event.detailDate,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f)
+                    )
+                    TextButton(
+                        onClick = { selectedEvent = null },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Close")
                     }
                 }
             }

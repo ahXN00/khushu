@@ -27,9 +27,16 @@ data class MakruhZone(
 )
 
 data class IslamicEvent(
+    val month: Int,
+    val monthNameEnglish: String,
+    val day: Int,
+    val endDay: Int = day,
     val label: String,
     val date: String,
     val name: String,
+    val description: String = "",
+    val notes: String? = null,
+    val detailDate: String = date,
     val isToday: Boolean = false,
 )
 
@@ -37,6 +44,8 @@ data class HomeUiState(
     val prayers: List<PrayerInfo> = emptyList(),
     val makruhZones: List<MakruhZone> = emptyList(),
     val events: List<IslamicEvent> = emptyList(),
+    val calendarEvents: List<IslamicEvent> = emptyList(),
+    val eventsHeader: String = "",
     val hijriDate: String = "",
 //    val ayahText: String = "Verily, in the remembrance of Allah do hearts find rest.",
     val ayahRef: String = "Ar-Ra\u02bbd \u00b7 13:28",
@@ -100,10 +109,10 @@ val PLACEHOLDER_MAKRUH = listOf(
 )
 
 val PLACEHOLDER_EVENTS = listOf(
-    IslamicEvent(label = "Today", date = "7 Dhu\u02bbl-Qi\u02bbdah", name = "Sacred Month", isToday = true),
-    IslamicEvent(label = "25 Dhu\u02bbl-Qi\u02bbdah", date = "in 18 days", name = "Dahw al-Ard"),
-    IslamicEvent(label = "1 Dhu\u02bbl-Hijjah", date = "in 23 days", name = "Dhul Hijjah begins"),
-    IslamicEvent(label = "9 Dhu\u02bbl-Hijjah", date = "in 31 days", name = "Yawm Arafah"),
-    IslamicEvent(label = "10 Dhu\u02bbl-Hijjah", date = "in 32 days", name = "Eid al-Adha"),
-    IslamicEvent(label = "13 Dhu\u02bbl-Hijjah", date = "in 35 days", name = "End of Tashreeq"),
+    IslamicEvent(month = 11, monthNameEnglish = "Dhu al-Qidah", day = 7, label = "Today", date = "7 Dhu\u02bbl-Qi\u02bbdah", name = "Sacred Month", isToday = true),
+    IslamicEvent(month = 11, monthNameEnglish = "Dhu al-Qidah", day = 25, label = "25 Dhu\u02bbl-Qi\u02bbdah", date = "in 18 days", name = "Dahw al-Ard"),
+    IslamicEvent(month = 12, monthNameEnglish = "Dhu al-Hijjah", day = 1, label = "1 Dhu\u02bbl-Hijjah", date = "in 23 days", name = "Dhul Hijjah begins"),
+    IslamicEvent(month = 12, monthNameEnglish = "Dhu al-Hijjah", day = 9, label = "9 Dhu\u02bbl-Hijjah", date = "in 31 days", name = "Yawm Arafah"),
+    IslamicEvent(month = 12, monthNameEnglish = "Dhu al-Hijjah", day = 10, label = "10 Dhu\u02bbl-Hijjah", date = "in 32 days", name = "Eid al-Adha"),
+    IslamicEvent(month = 12, monthNameEnglish = "Dhu al-Hijjah", day = 13, label = "13 Dhu\u02bbl-Hijjah", date = "in 35 days", name = "End of Tashreeq"),
 )

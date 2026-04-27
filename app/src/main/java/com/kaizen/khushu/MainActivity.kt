@@ -50,6 +50,7 @@ import androidx.navigation.navArgument
 import com.kaizen.khushu.data.local.CanvasDatabase
 import com.kaizen.khushu.data.model.CanvasPreset
 import com.kaizen.khushu.data.repository.AudioRepository
+import com.kaizen.khushu.data.repository.IslamicEventsRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.model.TasbeehCollection
 import com.kaizen.khushu.data.model.DhikrItem
@@ -133,11 +134,16 @@ class MainActivity : ComponentActivity() {
         settingsRepository = SettingsRepository(applicationContext)
         settingsViewModel = SettingsViewModel(settingsRepository, applicationContext)
         prayerTimeRepository = PrayerTimeRepository(settingsRepository)
+        val islamicEventsRepository = IslamicEventsRepository(applicationContext)
         val prayerNotificationScheduler = PrayerNotificationScheduler(applicationContext)
 
         homeViewModel = ViewModelProvider(
             this as ViewModelStoreOwner,
-            com.kaizen.khushu.ui.screens.home.HomeViewModel.factory(settingsRepository, prayerTimeRepository)
+            com.kaizen.khushu.ui.screens.home.HomeViewModel.factory(
+                settingsRepository,
+                prayerTimeRepository,
+                islamicEventsRepository
+            )
         )[com.kaizen.khushu.ui.screens.home.HomeViewModel::class.java]
 
         val dao = TasbeehDatabase.getInstance(applicationContext).tasbeehDao()

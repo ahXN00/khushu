@@ -244,7 +244,7 @@ fun HomeScreen(
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(
-                    top = contentPadding.calculateTopPadding() + 28.dp,
+                    top = contentPadding.calculateTopPadding() + 22.dp,
                     bottom = 0.dp
                 ),
                 modifier = Modifier
@@ -285,7 +285,11 @@ fun HomeScreen(
                 item { Spacer(modifier = Modifier.height(14.dp)) }
 
                 item {
-                    EventsStrip(events = uiState.events)
+                    EventsStrip(
+                        header = uiState.eventsHeader,
+                        events = uiState.events,
+                        calendarEvents = uiState.calendarEvents
+                    )
                 }
 
                 item { Spacer(modifier = Modifier.height(14.dp)) }
