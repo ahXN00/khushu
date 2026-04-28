@@ -60,6 +60,6 @@ docs/superpowers/
 # Repo-local archives and generated content pipeline artifacts
 docs/khushu-handoff.zip
 docs/khushu-handoff/
-docs/images/screenshots/
+# docs/images/screenshots/
 scripts/data/
 alquran_meta.json
