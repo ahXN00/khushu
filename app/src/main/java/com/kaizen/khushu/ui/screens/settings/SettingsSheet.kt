@@ -1,5 +1,7 @@
 package com.kaizen.khushu.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
 import com.kaizen.khushu.ui.components.KhushuLogoBadge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -47,7 +49,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material3.Surface
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,10 +62,11 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.text.font.FontWeight
-import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import com.kaizen.khushu.ui.navigation.SETTINGS_ABOUT_ROUTE
+
+private const val KHUSHU_REPO_URL = "https://github.com/greykaizen/khushu"
+private const val KHUSHU_ISSUES_URL = "https://github.com/greykaizen/khushu/issues/new/choose"
 
 private enum class SettingsView {
     Main, History
@@ -76,11 +78,21 @@ fun SettingsSheet(
     viewModel: SettingsViewModel,
     onNavigateSettings: () -> Unit,
     onNavigateCustomize: () -> Unit,
+    onNavigateAbout: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val settings by viewModel.settings.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var currentView by remember { mutableStateOf(SettingsView.Main) }
+
+    fun openUrl(url: String) {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -163,11 +175,20 @@ fun SettingsSheet(
                             modifier = Modifier.padding(bottom = 12.dp),
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            SocialCircleButton(R.drawable.ic_github)
+                            SocialCircleButton(
+                                iconRes = R.drawable.ic_github,
+                                onClick = { openUrl(KHUSHU_REPO_URL) }
+                            )
                             Spacer(modifier = Modifier.width(16.dp))
-                            SocialCircleButton(R.drawable.ic_telegram)
+                            SocialCircleButton(
+                                iconRes = R.drawable.ic_menu,
+                                onClick = { openUrl(KHUSHU_ISSUES_URL) }
+                            )
                             Spacer(modifier = Modifier.width(16.dp))
-                            SocialCircleButton(R.drawable.ic_email)
+                            SocialCircleButton(
+                                iconRes = R.drawable.ic_globe,
+                                onClick = onNavigateAbout
+                            )
                         }
                         Text(
                             text = "v${BuildConfig.VERSION_NAME}",
@@ -316,13 +337,16 @@ private fun SettingsBrandingHeader(
 }
 
 @Composable
-private fun SocialCircleButton(iconRes: Int) {
+private fun SocialCircleButton(
+    iconRes: Int,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .size(56.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable { /* Handle link */ },
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(

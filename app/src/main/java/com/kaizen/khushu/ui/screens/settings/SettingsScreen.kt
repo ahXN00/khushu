@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material3.*
@@ -22,6 +23,7 @@ fun SettingsScreen(
     onNavigateCounter: () -> Unit,
     onNavigateAppearance: () -> Unit,
     onNavigatePrayer: () -> Unit,
+    onNavigateAbout: () -> Unit,
     onBack: () -> Unit
 ) {
     val settings by viewModel.settings.collectAsState()
@@ -75,6 +77,13 @@ fun SettingsScreen(
                 detail = "Calculation Method & Asr Rules",
                 imageVector = Icons.Default.AccessTime,
                 onClick = onNavigatePrayer
+            )
+
+            MenuSectionItem(
+                title = "About Khushu",
+                detail = "Story, project links and bug reporting",
+                imageVector = Icons.Default.Info,
+                onClick = onNavigateAbout
             )
 
             Spacer(Modifier.height(32.dp))

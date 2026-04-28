@@ -23,8 +23,8 @@ android {
         applicationId = "com.kaizen.khushu"
         minSdk = 30
         targetSdk = 36
-        versionCode = 80
-        versionName = "0.24.5+$gitHash"
+        versionCode = 81
+        versionName = "0.24.6+$gitHash"
 
 
         buildConfigField("String", "AUDIO_BASE_URL", "\"https://example.com/audio/\"")
@@ -47,7 +47,7 @@ android {
         abi {
             isEnable = true
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            include("armeabi-v7a", "arm64-v8a")
             isUniversalApk = true
         }
     }

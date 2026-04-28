@@ -578,6 +578,9 @@ private fun KhushuApp(
                             onNavigatePrayer = {
                                 navController.navigate(com.kaizen.khushu.ui.navigation.SETTINGS_PRAYER_ROUTE)
                             },
+                            onNavigateAbout = {
+                                navController.navigate(com.kaizen.khushu.ui.navigation.SETTINGS_ABOUT_ROUTE)
+                            },
                             onBack = {
                                 navController.popBackStack()
                             }
@@ -619,6 +622,18 @@ private fun KhushuApp(
                     ) {
                         PrayerSettingsScreen(
                             viewModel = settingsViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = com.kaizen.khushu.ui.navigation.SETTINGS_ABOUT_ROUTE,
+                        enterTransition = { subScreenEnter() },
+                        exitTransition = { subScreenExit() },
+                        popEnterTransition = { subScreenPopEnter() },
+                        popExitTransition = { subScreenPopExit() },
+                    ) {
+                        AboutSettingsScreen(
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -850,6 +865,10 @@ private fun KhushuApp(
                 onNavigateCustomize = {
                     showSettingsSheet = false
                     navController.navigate(CUSTOMIZE_ROUTE)
+                },
+                onNavigateAbout = {
+                    showSettingsSheet = false
+                    navController.navigate(com.kaizen.khushu.ui.navigation.SETTINGS_ABOUT_ROUTE)
                 },
                 onDismiss = { showSettingsSheet = false }
             )

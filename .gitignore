@@ -1,18 +1,26 @@
 *.iml
 .gradle
+.kotlin/
 /local.properties
+local.properties
+.idea/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+.idea/deploymentTargetSelector.xml
+.idea/deviceManager.xml
+.idea/studiobot.xml
+.vscode/
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
+*.keystore
+*.jks
 
 # Release artifacts
 *.apk
@@ -30,11 +38,15 @@ CLAUDE-2.md
 GEMINI.md
 .claude/
 .gemini/
+.codex
 tasks/
 nav-bar.md
 design.md
 AGENTS.md
 graphify-out/
+.vscode/
+.idea/
+.kotlin/
 
 # Figma exports
 figma/
@@ -44,3 +56,10 @@ figma/
 .env
 .env.*
 docs/superpowers/
+
+# Repo-local archives and generated content pipeline artifacts
+docs/khushu-handoff.zip
+docs/khushu-handoff/
+docs/images/screenshots/
+scripts/data/
+alquran_meta.json
