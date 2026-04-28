@@ -12,8 +12,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/100%25-Free_%26_Private-success.svg" alt="100% Free & Private">
   <img src="https://img.shields.io/badge/No_Ads-Forever-red.svg" alt="No Ads">
-  <img src="https://img.shields.io/github/v/release/greykaizen/khushu?label=Version&color=3DDC84" alt="Release Version">
-  <img src="https://img.shields.io/github/downloads/greykaizen/khushu/total?label=Downloads&color=3DDC84" alt="Total Downloads">
+  <img src="https://img.shields.io/github/v/tag/greykaizen/khushu?label=Version&color=3DDC84&sort=semver" alt="Release Version">
+  <img src="https://img.shields.io/github/downloads/greykaizen/khushu/latest/total?label=Downloads&color=3DDC84" alt="Total Downloads">
 </p>
 
 <p align="center">
@@ -105,7 +105,7 @@ We are constantly dreaming of ways to make Khushu more useful for your daily lif
 
 Khushu is built with a modern, high-performance tech stack designed for fluid animations and a premium feel.
 
-*   **Language:** Kotlin 2.1.0
+*   **Language:** Kotlin 2.2.10
 *   **UI Framework:** Jetpack Compose (Material 3)
 *   **Architecture:** MVVM + Clean Architecture
 *   **Database:** Room (for local storage and privacy)
