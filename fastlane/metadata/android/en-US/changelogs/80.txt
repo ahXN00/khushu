@@ -1,0 +1,3 @@
+Prayer and pre-prayer notifications
+Extra prayer timings with optional alerts
+Improved Home events, Pray tab, and Study ordering

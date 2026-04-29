@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/100%25-Free_%26_Private-success.svg" alt="100% Free & Private">
   <img src="https://img.shields.io/badge/No_Ads-Forever-red.svg" alt="No Ads">
   <img src="https://img.shields.io/github/v/tag/greykaizen/khushu?label=Version&color=3DDC84&sort=semver" alt="Release Version">
-  <img src="https://img.shields.io/github/downloads/greykaizen/khushu/latest/total?label=Downloads&color=3DDC84" alt="Total Downloads">
+  <!-- <img src="https://img.shields.io/github/downloads/greykaizen/khushu/latest/total?label=Downloads&color=3DDC84" alt="Total Downloads"> -->
 </p>
 
 <p align="center">
