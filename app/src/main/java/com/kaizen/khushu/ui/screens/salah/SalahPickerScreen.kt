@@ -66,9 +66,26 @@ fun SalahPickerScreen(
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    text = "Tap on the screen to Start",
+                    text = "Guided prayer",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = "Helpful when you want a simple\nrakat-by-rakat flow to follow.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text = "Tap anywhere to start",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                 )
             }
         }

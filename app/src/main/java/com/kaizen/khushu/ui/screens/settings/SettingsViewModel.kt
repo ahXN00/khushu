@@ -349,6 +349,28 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updatePrayerNotificationAlertStyle(style) }
     }
 
+    fun toggleExtraPrayerTiming(id: String, enabled: Boolean) {
+        val updated = settings.value.selectedExtraPrayerTimings.toMutableSet().apply {
+            if (enabled) add(id) else remove(id)
+        }
+        viewModelScope.launch { repository.updateSelectedExtraPrayerTimings(updated) }
+    }
+
+    fun toggleExtraPrayerNotification(id: String, enabled: Boolean) {
+        val updated = settings.value.extraPrayerNotifications.toMutableSet().apply {
+            if (enabled) add(id) else remove(id)
+        }
+        viewModelScope.launch { repository.updateExtraPrayerNotifications(updated) }
+    }
+
+    fun toggleShowExtraPrayerTimingsOnHome(enabled: Boolean) {
+        viewModelScope.launch { repository.updateShowExtraPrayerTimingsOnHome(enabled) }
+    }
+
+    fun toggleShowUpcomingEventsOnHome(enabled: Boolean) {
+        viewModelScope.launch { repository.updateShowUpcomingEventsOnHome(enabled) }
+    }
+
     fun refreshLocation() {
         val hasFineLocation =
             ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) ==

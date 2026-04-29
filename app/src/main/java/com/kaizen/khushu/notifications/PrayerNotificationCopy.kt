@@ -3,6 +3,7 @@ package com.kaizen.khushu.notifications
 import android.content.Context
 import android.location.Geocoder
 import android.os.Build
+import com.kaizen.khushu.data.repository.extraPrayerTimingLabel
 import com.kaizen.khushu.data.repository.UserSettings
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -111,6 +112,15 @@ object PrayerNotificationCopy {
         "Take this as a gentle nudge from someone who wants good for you."
     )
 
+    private val extraTimingReflections = mapOf(
+        "IMSAK" to "A quiet boundary before Fajr begins.",
+        "SUNRISE" to "The morning has opened fully now.",
+        "SUNSET" to "The day is folding into evening.",
+        "FIRST_THIRD" to "The night has entered its first deep stretch.",
+        "MIDNIGHT" to "The middle of the night has arrived.",
+        "LAST_THIRD" to "The last third of the night is here."
+    )
+
     fun build(
         context: Context,
         settings: UserSettings,
@@ -119,16 +129,28 @@ object PrayerNotificationCopy {
         triggerAtMillis: Long,
         prePrayerMinutes: Int,
     ): PrayerNotificationContent {
-        val utilityLine = "$prayerName at ${formatTime(triggerAtMillis)} in ${resolveLocationLabel(context, settings)}"
+        val locationLabel = resolveLocationLabel(context, settings)
+        val prayerUtilityLine = "$prayerName at ${formatTime(triggerAtMillis)} in $locationLabel"
         val seed = "$prayerName|${type.name}|${dayStamp(triggerAtMillis)}".hashCode()
+        val isExtraTiming = prayerTitles[prayerName] == null && prePrayerTitles[prayerName] == null
 
         return if (type == PrayerAlarmType.PRE_PRAYER) {
             val title = pick(prePrayerTitles[prayerName].orEmpty(), seed)
                 ?: "$prayerName soon. Let's get ready."
+            val utilityLine = "$prayerName in $prePrayerMinutes minutes${if (locationLabel.isNotBlank()) " · $locationLabel" else ""}"
             val reflection = pick(prePrayerReflections, seed + prePrayerMinutes)
                 ?: "A few minutes left. Let us get ready for prayer."
             PrayerNotificationContent(
                 title = title,
+                utilityLine = utilityLine,
+                expandedText = "$utilityLine\n\n$reflection"
+            )
+        } else if (isExtraTiming) {
+            val timingLabel = extraPrayerTimingLabel(prayerName)
+            val utilityLine = "$timingLabel at ${formatTime(triggerAtMillis)} in $locationLabel"
+            val reflection = extraTimingReflections[prayerName] ?: "A notable point in the day has arrived."
+            PrayerNotificationContent(
+                title = "$timingLabel time",
                 utilityLine = utilityLine,
                 expandedText = "$utilityLine\n\n$reflection"
             )
@@ -139,8 +161,8 @@ object PrayerNotificationCopy {
                 ?: "Come, let us answer the call to prayer."
             PrayerNotificationContent(
                 title = title,
-                utilityLine = utilityLine,
-                expandedText = "$utilityLine\n\n$reflection"
+                utilityLine = prayerUtilityLine,
+                expandedText = "$prayerUtilityLine\n\n$reflection"
             )
         }
     }

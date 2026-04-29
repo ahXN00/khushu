@@ -24,9 +24,9 @@ const val TASBEEH_CANVAS_ROUTE = "tasbeeh/canvas"
 
 enum class AppDestinations(val label: String, val icon: Int, val route: String) {
     HOME("Home", R.drawable.ic_home, "home"),
-    SALAH("Salah", R.drawable.ic_salah, "salah"),
+    SALAH("Pray", R.drawable.ic_salah, "salah"),
     TASBEEH("Tasbih", R.drawable.ic_tasbeeh, "tasbeeh"),
-    LEARN("Learn", R.drawable.ic_learn, "learn"),
+    LEARN("Study", R.drawable.ic_learn, "learn"),
     ;
     companion object {
         fun fromRoute(route: String?) = entries.find { it.route == route }

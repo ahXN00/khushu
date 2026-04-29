@@ -63,6 +63,25 @@ object LearnRepository {
 
         return listOf(
             LearnSection(
+                id = "quran",
+                sectionTitle = "Holy Quran",
+                color = 0xFF43A047L,
+                topics = quranTopics
+            ),
+            LearnSection(
+                id = "hadith",
+                sectionTitle = "Prophetic Hadith",
+                color = 0xFF673AB7L,
+                topics = com.kaizen.khushu.data.model.BUNDLED_HADITH_BOOKS.map { book ->
+                    LearnTopic(
+                        id = "hadith_book_${book.id}",
+                        title = book.name,
+                        arabicText = "",
+                        translations = mapOf("en" to "")
+                    )
+                }
+            ),
+            LearnSection(
                 id = "foundations",
                 sectionTitle = "Foundations",
                 color = 0xFF2A4B7CL,
@@ -105,25 +124,6 @@ object LearnRepository {
                     LearnTopic(id = "dua_before_sleep", title = "Duas Before Sleep", arabicText = "", translations = mapOf("en" to "")),
                     LearnTopic(id = "duas_after_fard", title = "Duas After Obligatory Prayer", arabicText = "", translations = mapOf("en" to ""))
                 )
-            ),
-            LearnSection(
-                id = "quran",
-                sectionTitle = "Holy Quran",
-                color = 0xFF43A047L,
-                topics = quranTopics
-            ),
-            LearnSection(
-                id = "hadith",
-                sectionTitle = "Prophetic Hadith",
-                color = 0xFF673AB7L,
-                topics = com.kaizen.khushu.data.model.BUNDLED_HADITH_BOOKS.map { book ->
-                    LearnTopic(
-                        id = "hadith_book_${book.id}",
-                        title = book.name,
-                        arabicText = "",
-                        translations = mapOf("en" to "")
-                    )
-                }
             )
         )
     }

@@ -3,6 +3,8 @@ package com.kaizen.khushu.ui.screens.home
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kaizen.khushu.data.repository.extraPrayerTimingArabicLabel
+import com.kaizen.khushu.data.repository.extraPrayerTimingShortLabel
 import com.kaizen.khushu.data.repository.IslamicEventsRepository
 import com.kaizen.khushu.data.repository.PrayerTimeRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
@@ -110,6 +112,12 @@ class HomeViewModel(
 
         // API values helper
         val apiTimings = if (isApiSource) _apiPrayerTimes.value else null
+        val extraPrayerTimes = runCatching {
+            prayerTimeRepository.getExtraPrayerDateTimes(
+                date = effectiveCurrentTime,
+                settings = settings
+            )
+        }.getOrDefault(emptyMap())
 
         fun parseApiTime(key: String, fallback: Date): Date {
             val timeStr = apiTimings?.get(key) ?: return fallback
@@ -221,6 +229,39 @@ class HomeViewModel(
                 rawTime = getPrayerTime(ishaCal.get(Calendar.HOUR_OF_DAY), ishaCal.get(Calendar.MINUTE))
             )
         )
+
+        val selectedExtraTimings = settings.selectedExtraPrayerTimings
+        val mappedExtraTimings = selectedExtraTimings.mapNotNull { id ->
+            val timing = extraPrayerTimes[id] ?: return@mapNotNull null
+            PrayerInfo(
+                name = extraPrayerTimingShortLabel(id),
+                ar = extraPrayerTimingArabicLabel(id),
+                time = timeFormatter.format(timing),
+                hour = Calendar.getInstance().apply { time = timing }.get(Calendar.HOUR_OF_DAY),
+                minute = Calendar.getInstance().apply { time = timing }.get(Calendar.MINUTE),
+                arcT = tToArc(timing.time),
+                dotColorLight = when (id) {
+                    "IMSAK" -> Color(0xFF5D739C)
+                    "SUNRISE" -> Color(0xFFCC8B33)
+                    "SUNSET" -> Color(0xFFAF5A3E)
+                    "FIRST_THIRD" -> Color(0xFF6F66AF)
+                    "MIDNIGHT" -> Color(0xFF534E9B)
+                    "LAST_THIRD" -> Color(0xFF4D79B2)
+                    else -> Color(0xFF8A8A8A)
+                },
+                dotColorDark = when (id) {
+                    "IMSAK" -> Color(0xFF7E95C1)
+                    "SUNRISE" -> Color(0xFFE7B055)
+                    "SUNSET" -> Color(0xFFD37858)
+                    "FIRST_THIRD" -> Color(0xFF8B80D1)
+                    "MIDNIGHT" -> Color(0xFF7C74D4)
+                    "LAST_THIRD" -> Color(0xFF70A2E6)
+                    else -> Color(0xFFB0B0B0)
+                },
+                rawTime = timing.time,
+                isExtra = true
+            )
+        }.sortedBy { it.rawTime }
 
         // 5. Build Makruh Zones
         val min20 = 20 * 60 * 1000L
@@ -343,6 +384,7 @@ class HomeViewModel(
 
         HomeUiState(
             prayers = mappedPrayers,
+            extraTimings = mappedExtraTimings,
             makruhZones = listOf(makruhSunrise, makruhZawal, makruhSunset),
             events = currentMonthEvents,
             calendarEvents = calendarEvents,
@@ -355,7 +397,9 @@ class HomeViewModel(
             lastPrayerRefreshEpochMs = settings.lastPrayerRefreshEpochMs,
             locationLat = settings.locationLat,
             locationLng = settings.locationLng,
-            calculationSource = if (isApiSource) CalculationSource.API else CalculationSource.LOCAL
+            calculationSource = if (isApiSource) CalculationSource.API else CalculationSource.LOCAL,
+            showExtraPrayerTimingsOnHome = settings.showExtraPrayerTimingsOnHome,
+            showUpcomingEventsOnHome = settings.showUpcomingEventsOnHome
         )
     }.stateIn(
         scope = viewModelScope,

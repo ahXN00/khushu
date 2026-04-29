@@ -16,6 +16,7 @@ import okhttp3.Request
 import java.net.URLEncoder
 import java.util.Calendar
 import java.util.Date
+import java.util.concurrent.TimeUnit
 
 @Serializable
 data class AlAdhanResponse(val code: Int, val data: AlAdhanData)
@@ -126,6 +127,76 @@ class PrayerTimeRepository(
             "Asr" to applyOffset(asr, settings.asrOffsetMinutes),
             "Maghrib" to applyOffset(maghrib, settings.maghribOffsetMinutes),
             "Isha" to applyOffset(isha, settings.ishaOffsetMinutes)
+        )
+    }
+
+    suspend fun getExtraPrayerDateTimes(
+        date: Date,
+        settings: UserSettings
+    ): Map<String, Date> {
+        val localMethodSupported = supportsLocalCalculationMethod(settings.prayerCalculationMethod)
+        val isApiSource = settings.prayerSourceType == "API" || !localMethodSupported
+        val localPrayerTimes = getLocalPrayerTimes(
+            date = date,
+            lat = settings.locationLat.toDouble(),
+            lng = settings.locationLng.toDouble(),
+            methodStr = settings.prayerCalculationMethod,
+            madhabStr = settings.prayerMadhab
+        )
+        val nextDayPrayerTimes = getLocalPrayerTimes(
+            date = Date(date.time + TimeUnit.DAYS.toMillis(1)),
+            lat = settings.locationLat.toDouble(),
+            lng = settings.locationLng.toDouble(),
+            methodStr = settings.prayerCalculationMethod,
+            madhabStr = settings.prayerMadhab
+        )
+        val apiTimings = if (isApiSource) {
+            getFallbackPrayerTimes(
+                date = date,
+                lat = settings.locationLat.toDouble(),
+                lng = settings.locationLng.toDouble(),
+                methodStr = settings.prayerCalculationMethod,
+                madhabStr = settings.prayerMadhab
+            )
+        } else {
+            null
+        }
+
+        fun parseApiTime(key: String, fallback: Date): Date {
+            val timeStr = apiTimings?.get(key) ?: return fallback
+            return try {
+                val normalizedTime = timeStr.take(5)
+                val parsed = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).parse(normalizedTime)
+                    ?: return fallback
+                val targetCal = Calendar.getInstance().apply { time = date }
+                val parsedCal = Calendar.getInstance().apply { time = parsed }
+                targetCal.set(Calendar.HOUR_OF_DAY, parsedCal.get(Calendar.HOUR_OF_DAY))
+                targetCal.set(Calendar.MINUTE, parsedCal.get(Calendar.MINUTE))
+                targetCal.set(Calendar.SECOND, 0)
+                targetCal.set(Calendar.MILLISECOND, 0)
+                targetCal.time
+            } catch (e: Exception) {
+                fallback
+            }
+        }
+
+        val localSunrise = localPrayerTimes.sunrise
+        val localSunset = localPrayerTimes.maghrib
+        val localImsak = Date(localPrayerTimes.fajr.time - TimeUnit.MINUTES.toMillis(10))
+        val sunnahTimes = getSunnahTimes(localPrayerTimes)
+        val localMidnight = sunnahTimes.middleOfTheNight
+        val localLastThird = sunnahTimes.lastThirdOfTheNight
+        val firstThirdMillis = localPrayerTimes.maghrib.time +
+            ((nextDayPrayerTimes.fajr.time - localPrayerTimes.maghrib.time) / 3L)
+        val localFirstThird = Date(firstThirdMillis)
+
+        return mapOf(
+            "IMSAK" to if (isApiSource) parseApiTime("Imsak", localImsak) else localImsak,
+            "SUNRISE" to if (isApiSource) parseApiTime("Sunrise", localSunrise) else localSunrise,
+            "SUNSET" to if (isApiSource) parseApiTime("Sunset", localSunset) else localSunset,
+            "FIRST_THIRD" to if (isApiSource) parseApiTime("Firstthird", localFirstThird) else localFirstThird,
+            "MIDNIGHT" to if (isApiSource) parseApiTime("Midnight", localMidnight) else localMidnight,
+            "LAST_THIRD" to if (isApiSource) parseApiTime("Lastthird", localLastThird) else localLastThird,
         )
     }
 

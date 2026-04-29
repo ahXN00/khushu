@@ -57,6 +57,7 @@ fun KhushuAppBar(
     title: String,
     onSettingsClick: () -> Unit,
     onBookmarksClick: (() -> Unit)? = null,
+    showLogoTitle: Boolean = false,
     // Pass non-null to show the grid/list toggle in the actions area.
     // isListMode drives which button is highlighted; both callbacks are required together.
     isListMode: Boolean? = null,
@@ -86,18 +87,27 @@ fun KhushuAppBar(
 
                     ) {
                     AnimatedContent(
-                        targetState = title,
+                        targetState = showLogoTitle,
                         transitionSpec = {
                             fadeIn(animationSpec = tween(220, delayMillis = 90)) togetherWith
                                     fadeOut(animationSpec = tween(90))
                         },
                         label = "AppBarTitleTransition"
-                    ) { targetTitle ->
-                        Text(
-                            text = targetTitle,
-                            style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                    ) { isLogoTitle ->
+                        if (isLogoTitle) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_khushu_logo),
+                                contentDescription = "Khushu",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(64.dp)
+                            )
+                        } else {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.displaySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(3.dp))
                     Box(

@@ -346,7 +346,8 @@ private fun KhushuApp(
                             viewModel = homeViewModel,
                             hazeState = hazeState,
                             contentPadding = screenContentPadding,
-                            onSettingsClick = { showSettingsSheet = true }
+                            onSettingsClick = { showSettingsSheet = true },
+                            onPrayClick = { navController.navigate(AppDestinations.SALAH.route) }
                         )
                     }
 

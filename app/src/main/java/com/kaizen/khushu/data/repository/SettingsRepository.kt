@@ -105,6 +105,10 @@ class SettingsRepository(private val context: Context) {
         val PRE_PRAYER_MINUTES_ISHA = intPreferencesKey("pre_prayer_minutes_isha")
         val PRAYER_NOTIFICATION_ALERT_STYLE = stringPreferencesKey("prayer_notification_alert_style")
         val LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID = stringPreferencesKey("last_delivered_prayer_notification_event_id")
+        val SELECTED_EXTRA_PRAYER_TIMINGS = stringSetPreferencesKey("selected_extra_prayer_timings")
+        val EXTRA_PRAYER_NOTIFICATIONS = stringSetPreferencesKey("extra_prayer_notifications")
+        val SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME = booleanPreferencesKey("show_extra_prayer_timings_on_home")
+        val SHOW_UPCOMING_EVENTS_ON_HOME = booleanPreferencesKey("show_upcoming_events_on_home")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -209,7 +213,11 @@ class SettingsRepository(private val context: Context) {
                 maghribPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_MAGHRIB] ?: 10,
                 ishaPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_ISHA] ?: 10,
                 prayerNotificationAlertStyle = preferences[PreferencesKeys.PRAYER_NOTIFICATION_ALERT_STYLE] ?: "SYSTEM_SOUND",
-                lastDeliveredPrayerNotificationEventId = preferences[PreferencesKeys.LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID].orEmpty()
+                lastDeliveredPrayerNotificationEventId = preferences[PreferencesKeys.LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID].orEmpty(),
+                selectedExtraPrayerTimings = preferences[PreferencesKeys.SELECTED_EXTRA_PRAYER_TIMINGS] ?: emptySet(),
+                extraPrayerNotifications = preferences[PreferencesKeys.EXTRA_PRAYER_NOTIFICATIONS] ?: emptySet(),
+                showExtraPrayerTimingsOnHome = preferences[PreferencesKeys.SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME] ?: false,
+                showUpcomingEventsOnHome = preferences[PreferencesKeys.SHOW_UPCOMING_EVENTS_ON_HOME] ?: true
             )
         }
 
@@ -298,6 +306,22 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun updateLastDeliveredPrayerNotificationEventId(eventId: String) {
         context.dataStore.edit { it[PreferencesKeys.LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID] = eventId }
+    }
+
+    suspend fun updateSelectedExtraPrayerTimings(ids: Set<String>) {
+        context.dataStore.edit { it[PreferencesKeys.SELECTED_EXTRA_PRAYER_TIMINGS] = ids }
+    }
+
+    suspend fun updateExtraPrayerNotifications(ids: Set<String>) {
+        context.dataStore.edit { it[PreferencesKeys.EXTRA_PRAYER_NOTIFICATIONS] = ids }
+    }
+
+    suspend fun updateShowExtraPrayerTimingsOnHome(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME] = enabled }
+    }
+
+    suspend fun updateShowUpcomingEventsOnHome(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_UPCOMING_EVENTS_ON_HOME] = enabled }
     }
 
     suspend fun setTasbeehVolumeEnabled(enabled: Boolean) {
@@ -572,5 +596,9 @@ data class UserSettings(
     val maghribPrePrayerMinutes: Int = 10,
     val ishaPrePrayerMinutes: Int = 10,
     val prayerNotificationAlertStyle: String = "SYSTEM_SOUND",
-    val lastDeliveredPrayerNotificationEventId: String = ""
+    val lastDeliveredPrayerNotificationEventId: String = "",
+    val selectedExtraPrayerTimings: Set<String> = emptySet(),
+    val extraPrayerNotifications: Set<String> = emptySet(),
+    val showExtraPrayerTimingsOnHome: Boolean = false,
+    val showUpcomingEventsOnHome: Boolean = true
 )

@@ -17,6 +17,7 @@ data class PrayerInfo(
     val dotColorLight: Color,
     val dotColorDark: Color,
     val rawTime: Long = 0L,
+    val isExtra: Boolean = false,
 )
 
 data class MakruhZone(
@@ -43,6 +44,7 @@ data class IslamicEvent(
 
 data class HomeUiState(
     val prayers: List<PrayerInfo> = emptyList(),
+    val extraTimings: List<PrayerInfo> = emptyList(),
     val makruhZones: List<MakruhZone> = emptyList(),
     val events: List<IslamicEvent> = emptyList(),
     val calendarEvents: List<IslamicEvent> = emptyList(),
@@ -58,7 +60,10 @@ data class HomeUiState(
     val lastPrayerRefreshEpochMs: Long = 0L,
     val locationLat: Float = 0f,
     val locationLng: Float = 0f,
+    val locationLabel: String = "",
     val calculationSource: CalculationSource = CalculationSource.LOCAL,
+    val showExtraPrayerTimingsOnHome: Boolean = false,
+    val showUpcomingEventsOnHome: Boolean = true,
 )
 
 val PLACEHOLDER_PRAYERS = listOf(

@@ -41,6 +41,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
+import com.kaizen.khushu.data.repository.EXTRA_PRAYER_TIMINGS
 import com.kaizen.khushu.receiver.PrayerAlarmReceiver
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -89,6 +90,13 @@ private data class PrayerNotificationPreference(
     val prePrayerMinutes: Int,
 )
 
+private data class ExtraTimingPreference(
+    val id: String,
+    val label: String,
+    val selected: Boolean,
+    val notificationEnabled: Boolean,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrayerSettingsScreen(
@@ -132,6 +140,14 @@ fun PrayerSettingsScreen(
         PrayerNotificationPreference("Maghrib", settings.maghribPrayerNotificationEnabled, settings.maghribPrePrayerNotificationEnabled, settings.maghribPrePrayerMinutes),
         PrayerNotificationPreference("Isha", settings.ishaPrayerNotificationEnabled, settings.ishaPrePrayerNotificationEnabled, settings.ishaPrePrayerMinutes)
     )
+    val extraTimingPreferences = EXTRA_PRAYER_TIMINGS.map {
+        ExtraTimingPreference(
+            id = it.id,
+            label = it.label,
+            selected = settings.selectedExtraPrayerTimings.contains(it.id),
+            notificationEnabled = settings.extraPrayerNotifications.contains(it.id)
+        )
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -242,6 +258,9 @@ fun PrayerSettingsScreen(
                 alertStyleOptions = alertStyleOptions,
                 alertStyleLabel = { alertStyleLabels[it] ?: it },
                 prayerPreferences = prayerNotificationPreferences,
+                extraTimingPreferences = extraTimingPreferences,
+                showExtraPrayerTimingsOnHome = settings.showExtraPrayerTimingsOnHome,
+                showUpcomingEventsOnHome = settings.showUpcomingEventsOnHome,
                 onAllowNotifications = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -251,6 +270,10 @@ fun PrayerSettingsScreen(
                 onPrayerToggle = viewModel::setPrayerNotificationEnabled,
                 onPrePrayerToggle = viewModel::setPrePrayerNotificationEnabled,
                 onPrePrayerMinutesChange = viewModel::setPrePrayerMinutes,
+                onExtraTimingToggle = viewModel::toggleExtraPrayerTiming,
+                onExtraTimingNotificationToggle = viewModel::toggleExtraPrayerNotification,
+                onShowExtraPrayerTimingsOnHomeToggle = viewModel::toggleShowExtraPrayerTimingsOnHome,
+                onShowUpcomingEventsOnHomeToggle = viewModel::toggleShowUpcomingEventsOnHome,
                 onSendPrayerDebugNotification = {
                     context.sendBroadcast(
                         Intent(context, PrayerAlarmReceiver::class.java).apply {
@@ -335,11 +358,18 @@ private fun PrayerNotificationsPanel(
     alertStyleOptions: List<String>,
     alertStyleLabel: (String) -> String,
     prayerPreferences: List<PrayerNotificationPreference>,
+    extraTimingPreferences: List<ExtraTimingPreference>,
+    showExtraPrayerTimingsOnHome: Boolean,
+    showUpcomingEventsOnHome: Boolean,
     onAllowNotifications: () -> Unit,
     onAlertStyleChange: (String) -> Unit,
     onPrayerToggle: (String, Boolean) -> Unit,
     onPrePrayerToggle: (String, Boolean) -> Unit,
     onPrePrayerMinutesChange: (String, Int) -> Unit,
+    onExtraTimingToggle: (String, Boolean) -> Unit,
+    onExtraTimingNotificationToggle: (String, Boolean) -> Unit,
+    onShowExtraPrayerTimingsOnHomeToggle: (Boolean) -> Unit,
+    onShowUpcomingEventsOnHomeToggle: (Boolean) -> Unit,
     onSendPrayerDebugNotification: () -> Unit,
     onSendPrePrayerDebugNotification: () -> Unit,
 ) {
@@ -416,7 +446,64 @@ private fun PrayerNotificationsPanel(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
                 }
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+            Text("Extra timings", style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = "Choose which additional timings Khushu should keep available for Home surfaces and notifications.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+            )
+
+            extraTimingPreferences.forEachIndexed { index, preference ->
+                ExtraTimingRow(
+                    preference = preference,
+                    onSelectedToggle = { enabled -> onExtraTimingToggle(preference.id, enabled) },
+                    onNotificationToggle = { enabled -> onExtraTimingNotificationToggle(preference.id, enabled) }
+                )
+                if (index != extraTimingPreferences.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+            Text("Home surfaces", style = MaterialTheme.typography.titleSmall)
+            SettingsToggle(
+                title = "Show selected extra timings on Home",
+                subtitle = "Let the next card, sun card, and prayer slab include the extra timings you selected.",
+                checked = showExtraPrayerTimingsOnHome,
+                onCheckedChange = onShowExtraPrayerTimingsOnHomeToggle
+            )
+            SettingsToggle(
+                title = "Show upcoming events on Home",
+                subtitle = "Keep the monthly Islamic events strip visible on the Home screen.",
+                checked = showUpcomingEventsOnHome,
+                onCheckedChange = onShowUpcomingEventsOnHomeToggle
+            )
         }
+    }
+}
+
+@Composable
+private fun ExtraTimingRow(
+    preference: ExtraTimingPreference,
+    onSelectedToggle: (Boolean) -> Unit,
+    onNotificationToggle: (Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(preference.label, style = MaterialTheme.typography.titleSmall)
+        SettingsToggle(
+            title = "Keep available",
+            subtitle = "Include ${preference.label} in Khushu's extra timings set.",
+            checked = preference.selected,
+            onCheckedChange = onSelectedToggle
+        )
+        SettingsToggle(
+            title = "Notification",
+            subtitle = "Alert me when ${preference.label} begins.",
+            checked = preference.notificationEnabled,
+            onCheckedChange = onNotificationToggle
+        )
     }
 }
 

@@ -1,5 +1,8 @@
 package com.kaizen.khushu.ui.screens.home
 
+import android.content.Context
+import android.location.Geocoder
+import android.os.Build
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -34,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,6 +50,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -54,6 +59,10 @@ import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.ui.components.KhushuAppBar
 import com.kaizen.khushu.R
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 private fun findNextPrayer(prayers: List<PrayerInfo>, now: Long): PrayerInfo? {
@@ -63,6 +72,38 @@ private fun findNextPrayer(prayers: List<PrayerInfo>, now: Long): PrayerInfo? {
 
     val fajr = prayers.first()
     return fajr.copy(rawTime = fajr.rawTime + TimeUnit.DAYS.toMillis(1))
+}
+
+private fun findCurrentPrayer(prayers: List<PrayerInfo>, now: Long): PrayerInfo? {
+    if (prayers.isEmpty()) return null
+    return prayers.lastOrNull { it.rawTime <= now } ?: prayers.last()
+}
+
+private suspend fun resolveLocationLabel(context: Context, lat: Float, lng: Float): String {
+    return withContext(Dispatchers.IO) {
+        runCatching {
+            val geocoder = Geocoder(context, Locale.getDefault())
+            val addresses = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val results = mutableListOf<android.location.Address>()
+                val latch = CountDownLatch(1)
+                geocoder.getFromLocation(lat.toDouble(), lng.toDouble(), 1) { found ->
+                    results += found
+                    latch.countDown()
+                }
+                latch.await()
+                results
+            } else {
+                geocoder.getFromLocation(lat.toDouble(), lng.toDouble(), 1).orEmpty()
+            }
+
+            val best = addresses.firstOrNull()
+            listOfNotNull(
+                best?.locality?.takeIf { it.isNotBlank() },
+                best?.subAdminArea?.takeIf { it.isNotBlank() },
+                best?.adminArea?.takeIf { it.isNotBlank() }
+            ).firstOrNull()
+        }.getOrNull() ?: "Your area"
+    }
 }
 
 @Composable
@@ -126,10 +167,12 @@ fun HomeScreen(
     hazeState: HazeState,
     contentPadding: PaddingValues,
     onSettingsClick: () -> Unit,
+    onPrayClick: () -> Unit,
     viewModel: HomeViewModel,
     modifier: Modifier = Modifier,
 ) {
     val darkTheme = isSystemInDarkTheme()
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -155,8 +198,26 @@ fun HomeScreen(
     var pullOffsetPx by remember { mutableFloatStateOf(0f) }
     var thresholdReached by remember { mutableStateOf(false) }
 
-    val nextPrayer = findNextPrayer(uiState.prayers, uiState.currentTimeMillis)
+    val currentPrayer = findCurrentPrayer(uiState.prayers, uiState.currentTimeMillis)
+    val homeVisibleTimings = if (uiState.showExtraPrayerTimingsOnHome) {
+        (uiState.prayers + uiState.extraTimings).sortedBy { it.rawTime }
+    } else {
+        uiState.prayers
+    }
+    val nextPrayer = findNextPrayer(homeVisibleTimings, uiState.currentTimeMillis)
     val doneCount = doneStates.values.count { it }
+    val locationLabel by produceState(
+        initialValue = uiState.locationLabel.ifBlank { "Your area" },
+        context,
+        uiState.locationLat,
+        uiState.locationLng,
+        uiState.locationLabel
+    ) {
+        value = when {
+            uiState.locationLabel.isNotBlank() -> uiState.locationLabel
+            else -> resolveLocationLabel(context.applicationContext, uiState.locationLat, uiState.locationLng)
+        }
+    }
     val pullProgress = (pullOffsetPx / refreshThresholdPx).coerceIn(0f, 1f)
     val animatedPullOffsetPx by animateFloatAsState(
         targetValue = when {
@@ -259,7 +320,9 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         NextPrayerCard(
-                            prayer = nextPrayer,
+                            currentPrayer = currentPrayer,
+                            nextPrayer = nextPrayer,
+                            locationLabel = locationLabel,
                             doneCount = doneCount,
                             source = uiState.calculationSource,
                             usingPreviewTime = uiState.usingPreviewTime,
@@ -284,20 +347,25 @@ fun HomeScreen(
 
                 item { Spacer(modifier = Modifier.height(14.dp)) }
 
-                item {
-                    EventsStrip(
-                        header = uiState.eventsHeader,
-                        events = uiState.events,
-                        calendarEvents = uiState.calendarEvents
-                    )
-                }
+                if (uiState.showUpcomingEventsOnHome) {
+                    item {
+                        EventsStrip(
+                            header = uiState.eventsHeader,
+                            events = uiState.events,
+                            calendarEvents = uiState.calendarEvents
+                        )
+                    }
 
-                item { Spacer(modifier = Modifier.height(14.dp)) }
+                    item { Spacer(modifier = Modifier.height(14.dp)) }
+                }
 
                 item {
                     PrayerSlab(
                         prayers = uiState.prayers,
+                        extraTimings = if (uiState.showExtraPrayerTimingsOnHome) uiState.extraTimings else emptyList(),
+                        activePrayerName = currentPrayer?.name,
                         doneStates = doneStates,
+                        onPrayClick = onPrayClick,
                         onToggleDone = { name ->
                             doneStates = doneStates.toMutableMap().apply {
                                 this[name] = !(this[name] ?: false)

@@ -14,6 +14,7 @@ import android.os.Build
 import com.kaizen.khushu.data.repository.PrayerTimeRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.repository.UserSettings
+import com.kaizen.khushu.data.repository.EXTRA_PRAYER_TIMINGS
 import com.kaizen.khushu.receiver.PrayerAlarmReceiver
 import kotlinx.coroutines.flow.first
 import java.util.Calendar
@@ -47,6 +48,7 @@ data class PrayerNotificationScheduleConfig(
     val maghribPrePrayerMinutes: Int,
     val ishaPrePrayerMinutes: Int,
     val prayerNotificationAlertStyle: String,
+    val extraPrayerNotifications: Set<String>,
 )
 
 fun UserSettings.toPrayerNotificationScheduleConfig(): PrayerNotificationScheduleConfig {
@@ -78,6 +80,7 @@ fun UserSettings.toPrayerNotificationScheduleConfig(): PrayerNotificationSchedul
         maghribPrePrayerMinutes = maghribPrePrayerMinutes,
         ishaPrePrayerMinutes = ishaPrePrayerMinutes,
         prayerNotificationAlertStyle = prayerNotificationAlertStyle,
+        extraPrayerNotifications = extraPrayerNotifications,
     )
 }
 
@@ -108,6 +111,10 @@ class PrayerNotificationScheduler(
                 date = targetDate,
                 settings = currentSettings
             )
+            val extraPrayerTimes = prayerTimeRepository.getExtraPrayerDateTimes(
+                date = targetDate,
+                settings = currentSettings
+            )
 
             prayerTimes.forEach { (prayerName, prayerDate) ->
                 if (isPrayerNotificationEnabled(currentSettings, prayerName) && prayerDate.time > now) {
@@ -132,6 +139,17 @@ class PrayerNotificationScheduler(
                     }
                 }
             }
+
+            extraPrayerTimes.forEach { (timingId, timingDate) ->
+                if (currentSettings.extraPrayerNotifications.contains(timingId) && timingDate.time > now) {
+                    schedulePrayerAlarm(
+                        prayerName = timingId,
+                        triggerAtMillis = timingDate.time,
+                        type = PrayerAlarmType.PRAYER,
+                        prePrayerMinutes = 0
+                    )
+                }
+            }
         }
     }
 
@@ -144,6 +162,10 @@ class PrayerNotificationScheduler(
         if (!hasAnyNotificationEnabled(currentSettings)) return
 
         val prayerTimes = prayerTimeRepository.getEffectivePrayerDateTimes(
+            date = Date(nowMillis),
+            settings = currentSettings
+        )
+        val extraPrayerTimes = prayerTimeRepository.getExtraPrayerDateTimes(
             date = Date(nowMillis),
             settings = currentSettings
         )
@@ -179,11 +201,27 @@ class PrayerNotificationScheduler(
                 }
             }
         }
+
+        extraPrayerTimes.forEach { (timingId, timingDate) ->
+            val timingMillis = timingDate.time
+            if (currentSettings.extraPrayerNotifications.contains(timingId) &&
+                nowMillis >= timingMillis &&
+                nowMillis - timingMillis <= windowMillis
+            ) {
+                deliverIfNeeded(
+                    prayerName = timingId,
+                    type = PrayerAlarmType.PRAYER,
+                    triggerAtMillis = timingMillis,
+                    prePrayerMinutes = 0,
+                    settings = currentSettings
+                )
+            }
+        }
     }
 
     fun cancelAllScheduledNotifications() {
         val dayOffsets = -1..2
-        val prayerNames = listOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
+        val prayerNames = listOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha") + EXTRA_PRAYER_TIMINGS.map { it.id }
         val alarmTypes = PrayerAlarmType.entries
 
         for (offset in dayOffsets) {
@@ -274,6 +312,7 @@ class PrayerNotificationScheduler(
             settings.maghribPrePrayerNotificationEnabled,
             settings.ishaPrePrayerNotificationEnabled
         ).any { it }
+            || settings.extraPrayerNotifications.isNotEmpty()
     }
 
     private fun isPrayerNotificationEnabled(settings: UserSettings, prayerName: String): Boolean {

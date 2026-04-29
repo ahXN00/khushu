@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -50,9 +51,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Calendar
+import kotlinx.coroutines.delay
 import kotlin.math.max
 import kotlin.math.min
-import kotlinx.coroutines.delay
 
 // --- Stars for Dark Mode ---
 private data class Star(val x: Float, val y: Float, val r: Float, val alpha: Float, val delay: Int)
@@ -505,41 +506,58 @@ fun SunArcCard(
 
 @Composable
 fun NextPrayerCard(
-        prayer: PrayerInfo?,
+        currentPrayer: PrayerInfo?,
+        nextPrayer: PrayerInfo?,
+        locationLabel: String,
         doneCount: Int,
         source: CalculationSource = CalculationSource.LOCAL,
         usingPreviewTime: Boolean = false,
         onTimeClick: () -> Unit = {},
         modifier: Modifier = Modifier
 ) {
-    // Current Clock Logic
-    var hh by remember { mutableStateOf("00") }
-    var mm by remember { mutableStateOf("00") }
-    var ss by remember { mutableStateOf("00") }
+    var activeClock by remember { mutableStateOf("--:--") }
 
     LaunchedEffect(Unit) {
         while (true) {
             val now = Calendar.getInstance()
-            // 12-hour format for the clock
             var hour = now.get(Calendar.HOUR)
-            if (hour == 0) hour = 12 // handle 12 AM/PM
-
-            hh = String.format("%02d", hour)
-            mm = String.format("%02d", now.get(Calendar.MINUTE))
-            ss = String.format("%02d", now.get(Calendar.SECOND))
-
-            delay(1000)
+            if (hour == 0) hour = 12
+            val minute = now.get(Calendar.MINUTE)
+            activeClock = String.format("%02d:%02d", hour, minute)
+            delay(1_000L)
         }
     }
 
     Surface(
             modifier = modifier.size(161.dp),
             shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = Color.Transparent,
             shadowElevation = 6.dp,
             tonalElevation = 4.dp
     ) {
-        Box(modifier = Modifier.padding(top = 14.dp, start = 16.dp, end = 16.dp, bottom = 13.dp)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .align(Alignment.Center)
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+            )
+            Box(modifier = Modifier.padding(top = 14.dp, start = 16.dp, end = 16.dp, bottom = 13.dp)) {
             Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.SpaceBetween
@@ -551,7 +569,7 @@ fun NextPrayerCard(
                             verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                                text = "NEXT PRAYER",
+                                text = locationLabel.uppercase(),
                                 style =
                                         MaterialTheme.typography.labelSmall.copy(
                                                 fontSize = 8.5.sp,
@@ -559,7 +577,7 @@ fun NextPrayerCard(
                                                 fontWeight = FontWeight.SemiBold
                                         ),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                modifier = Modifier.padding(bottom = 5.dp)
+                                modifier = Modifier.padding(bottom = 6.dp)
                         )
                         // Source Indicator
                         Box(
@@ -583,60 +601,102 @@ fun NextPrayerCard(
                             )
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),  // Take full width
+                        horizontalArrangement = Arrangement.Center,  // Center horizontally
+                        verticalAlignment = Alignment.CenterVertically  // Center vertically
+                    ) {
                         Text(
-                                text = prayer?.name ?: "Loading",
+                                text = currentPrayer?.name ?: "Loading",
                                 style =
                                         MaterialTheme.typography.displaySmall.copy(
-                                                fontSize = 32.sp
+                                                fontSize = 26.sp
                                         ),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                         )
-                    }
-                    Text(
-                            text = prayer?.time ?: "Calculating prayer times",
+                        Text(
+                            text = activeClock,
                             style =
-                                    MaterialTheme.typography.bodySmall.copy(
-                                            fontSize = 12.sp,
-                                            fontStyle = FontStyle.Italic
-                                    ),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                MaterialTheme.typography.titleLarge.copy(
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
                             modifier =
-                                    Modifier.padding(top = 3.dp)
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .clickable { onTimeClick() }
-                                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
+                                Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { onTimeClick() }
+//                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+//                    Text(
+//                            text = currentPrayer?.time ?: "Current prayer",
+//                            style =
+//                                    MaterialTheme.typography.bodySmall.copy(
+//                                            fontSize = 12.sp,
+//                                            fontStyle = FontStyle.Italic
+//                                    ),
+//                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+//                            modifier =
+//                                    Modifier.padding(top = 3.dp)
+//                                            .clip(RoundedCornerShape(6.dp))
+//                                            .clickable { onTimeClick() }
+//                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+//                    )
                 }
 
+                Spacer(Modifier.height(14.dp))
                 Column {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                                text = "$hh:$mm",
-                                style =
-                                        MaterialTheme.typography.titleLarge.copy(
-                                                fontSize = 22.sp,
-                                                fontWeight = FontWeight.Bold
-                                        ),
-                                color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                                text = ss,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                modifier = Modifier.padding(start = 2.dp, bottom = 2.dp)
-                        )
+                    Text(
+                            text = "NEXT TIMING",
+                            style =
+                                    MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 8.5.sp,
+                                            letterSpacing = 0.09.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                    ),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),  // Take full width
+                        horizontalArrangement = Arrangement.SpaceBetween,  // Center horizontally
+                        verticalAlignment = Alignment.CenterVertically  // Center vertically
+                    ) {
+                    Text(
+                            text = nextPrayer?.name ?: "Calculating",
+                            style =
+                                    MaterialTheme.typography.titleLarge.copy(
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.Medium
+                                    ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(top = 2.dp)
+                    )
+                    Text(
+                            text = nextPrayer?.time ?: "Prayer time unavailable",
+                            style =
+                                    MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 10.sp,
+//                                            fontStyle = FontStyle.Italic
+                                    ),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+//                            modifier = Modifier.padding(top = 2.dp)
+                    )
                     }
-
                     Row(
                             modifier = Modifier.padding(top = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text(
+                                text = "${doneCount}/5",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
                         repeat(5) { i ->
                             Box(
                                     modifier =
-                                            Modifier.padding(end = 5.dp)
+                                            Modifier.padding(start = 5.dp)
                                                     .size(if (i < doneCount) 7.dp else 5.5.dp)
                                                     .clip(CircleShape)
                                                     .background(
@@ -651,12 +711,6 @@ fun NextPrayerCard(
                                                     )
                             )
                         }
-                        Text(
-                                text = "$doneCount/5",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                modifier = Modifier.padding(start = 2.dp)
-                        )
                     }
 
                     if (usingPreviewTime) {
@@ -669,6 +723,7 @@ fun NextPrayerCard(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -750,9 +805,9 @@ fun EventsStrip(
                                         .background(bgColor)
                                         .border(1.dp, borderColor, RoundedCornerShape(14.dp))
                                         .clickable { selectedEvent = ev }
-                                        .padding(10.dp)
-                                        .width(180.dp)
-                                        .height(70.dp)
+                                        .padding(12.dp)
+                                        .width(160.dp)
+                                        .height(55.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Text(
@@ -777,19 +832,6 @@ fun EventsStrip(
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                         )
-                        if (ev.description.isNotBlank()) {
-                            Text(
-                                    text = ev.description,
-                                    style =
-                                            MaterialTheme.typography.bodySmall.copy(
-                                                    fontSize = 10.sp
-                                            ),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
-                                    modifier = Modifier.padding(top = 4.dp),
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                            )
-                        }
                     }
                 }
             }
@@ -807,7 +849,7 @@ fun EventsStrip(
                                                     MaterialTheme.colorScheme.outline.copy(
                                                             alpha = 0.2f
                                                     ),
-                                                    RoundedCornerShape(22.dp)
+                                                    RoundedCornerShape(28.dp)
                                             )
                                             .clickable { showCalendar = true }
                                             .width(72.dp)
@@ -1206,7 +1248,10 @@ fun EventsStrip(
 @Composable
 fun PrayerSlab(
         prayers: List<PrayerInfo>,
+        extraTimings: List<PrayerInfo>,
+        activePrayerName: String?,
         doneStates: Map<String, Boolean>,
+        onPrayClick: () -> Unit,
         onToggleDone: (String) -> Unit,
         //    ayahText: String,
         ayahRef: String,
@@ -1288,6 +1333,7 @@ fun PrayerSlab(
                     val isNext =
                             !isPrayed &&
                                     prayers.find { !(doneStates[it.name] ?: false) }?.name == p.name
+                    val isActivePrayer = activePrayerName == p.name
                     val dotColor = if (darkTheme) p.dotColorDark else p.dotColorLight
 
                     Row(
@@ -1359,7 +1405,7 @@ fun PrayerSlab(
                                 text = p.name,
                                 style =
                                         MaterialTheme.typography.bodyLarge.copy(
-                                                fontSize = 18.sp,
+                                                fontSize = 14.sp,
                                                 fontWeight =
                                                         if (isNext) FontWeight.SemiBold
                                                         else FontWeight.Light
@@ -1371,11 +1417,11 @@ fun PrayerSlab(
                                                 )
                                         else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f),
-                                textDecoration =
-                                        if (isPrayed)
-                                                androidx.compose.ui.text.style.TextDecoration
-                                                        .LineThrough
-                                        else null
+//                                textDecoration =
+//                                        if (isPrayed)
+//                                                androidx.compose.ui.text.style.TextDecoration
+//                                                        .LineThrough
+//                                        else null
                         )
 
                         if (isNext) {
@@ -1390,6 +1436,31 @@ fun PrayerSlab(
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(end = 8.dp)
                             )
+                        }
+
+                        if (isActivePrayer) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                    .clickable(
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() }
+                                    ) { onPrayClick() }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "Pray",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        letterSpacing = 0.06.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
                         }
 
                         // Arabic Name
@@ -1449,6 +1520,74 @@ fun PrayerSlab(
                 //                ),
                 //                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                 //            )
+
+                if (extraTimings.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "EXTRA TIMINGS",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 9.sp,
+                            letterSpacing = 0.09.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    extraTimings.forEach { timing ->
+                        val dotColor = if (darkTheme) timing.dotColorDark else timing.dotColorLight
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(dotColor.copy(alpha = 0.92f))
+                            )
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            Text(
+                                text = timing.name,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Light
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            if (timing.ar.isNotBlank()) {
+                                Text(
+                                    text = timing.ar,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+
+                            Text(
+                                text = timing.time,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
