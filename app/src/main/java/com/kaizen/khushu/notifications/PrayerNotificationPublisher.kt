@@ -9,13 +9,16 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.kaizen.khushu.MainActivity
 import com.kaizen.khushu.R
+import com.kaizen.khushu.data.repository.UserSettings
 
 object PrayerNotificationPublisher {
 
     fun publish(
         context: Context,
+        settings: UserSettings,
         prayerName: String,
         type: PrayerAlarmType,
+        triggerAtMillis: Long,
         prePrayerMinutes: Int,
         alertStyle: String,
     ) {
@@ -32,10 +35,14 @@ object PrayerNotificationPublisher {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val (title, body) = when (type) {
-            PrayerAlarmType.PRAYER -> "$prayerName time" to "It is time for $prayerName prayer."
-            PrayerAlarmType.PRE_PRAYER -> "$prayerName soon" to "$prayerName begins in $prePrayerMinutes minutes."
-        }
+        val content = PrayerNotificationCopy.build(
+            context = context,
+            settings = settings,
+            prayerName = prayerName,
+            type = type,
+            triggerAtMillis = triggerAtMillis,
+            prePrayerMinutes = prePrayerMinutes
+        )
 
         val builder = NotificationCompat.Builder(
             context,
@@ -43,9 +50,9 @@ object PrayerNotificationPublisher {
         )
             .setSmallIcon(R.drawable.ic_notification_glyph)
             .setColor(ContextCompat.getColor(context, R.color.splash_background))
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentTitle(content.title)
+            .setContentText(content.utilityLine)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content.expandedText))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(

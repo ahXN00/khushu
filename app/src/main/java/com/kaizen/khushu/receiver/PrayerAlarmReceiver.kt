@@ -32,8 +32,10 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
                 PrayerNotificationScheduler.createNotificationChannels(context)
                 PrayerNotificationPublisher.publish(
                     context = context,
+                    settings = settings,
                     prayerName = prayerName,
                     type = type,
+                    triggerAtMillis = triggerAtMillis,
                     prePrayerMinutes = prePrayerMinutes,
                     alertStyle = settings.prayerNotificationAlertStyle
                 )

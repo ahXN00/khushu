@@ -325,8 +325,10 @@ class PrayerNotificationScheduler(
 
         PrayerNotificationPublisher.publish(
             context = appContext,
+            settings = settings,
             prayerName = prayerName,
             type = type,
+            triggerAtMillis = triggerAtMillis,
             prePrayerMinutes = prePrayerMinutes,
             alertStyle = settings.prayerNotificationAlertStyle
         )
