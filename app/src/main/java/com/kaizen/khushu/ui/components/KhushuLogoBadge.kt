@@ -88,7 +88,7 @@ fun KhushuLogoBadge(
     )
 
     val morphShape = rememberMorphShape(
-        start = MaterialShapes.Cookie12Sided,
+        start = MaterialShapes.Cookie9Sided,
         end = MaterialShapes.Sunny,
         progress = pressProgress
     )

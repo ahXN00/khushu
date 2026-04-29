@@ -49,7 +49,7 @@ class SettingsViewModel(
             completionText = "الحمد لله",
             colorSeed = "default",
             tasbeehListMode = true,
-            startupTab = "salah",
+            startupTab = "home",
             tasbihBeadStyle = "CLASSIC_AMBER",
             showTajweed = false,
             customBeadStyles = listOf(defaultCustomBeadStyle()),

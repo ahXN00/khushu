@@ -147,7 +147,7 @@ class SettingsRepository(private val context: Context) {
                 completionText = preferences[PreferencesKeys.COMPLETION_TEXT] ?: "الحمد لله",
                 colorSeed = preferences[PreferencesKeys.COLOR_SEED] ?: "default",
                 tasbeehListMode = preferences[PreferencesKeys.TASBEEH_LIST_MODE] ?: true,
-                startupTab = preferences[PreferencesKeys.STARTUP_TAB] ?: "salah",
+                startupTab = preferences[PreferencesKeys.STARTUP_TAB] ?: "home",
                 tasbihBeadStyle = preferences[PreferencesKeys.TASBIH_BEAD_STYLE] ?: "CLASSIC_AMBER",
                 logoStyle = preferences[PreferencesKeys.LOGO_STYLE] ?: "DYNAMIC",
                 readingTheme = preferences[PreferencesKeys.READING_THEME] ?: "DARK",

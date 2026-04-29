@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.kaizen.khushu.MainActivity
 import com.kaizen.khushu.R
 
@@ -40,7 +41,8 @@ object PrayerNotificationPublisher {
             context,
             PrayerNotificationScheduler.channelIdForStyle(alertStyle)
         )
-            .setSmallIcon(R.drawable.ic_notification_small)
+            .setSmallIcon(R.drawable.ic_notification_glyph)
+            .setColor(ContextCompat.getColor(context, R.color.splash_background))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

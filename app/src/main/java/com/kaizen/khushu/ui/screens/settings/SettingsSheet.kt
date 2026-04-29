@@ -66,6 +66,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 
 private const val KHUSHU_REPO_URL = "https://github.com/greykaizen/khushu"
 private const val KHUSHU_ISSUES_URL = "https://github.com/greykaizen/khushu/issues/new/choose"
@@ -232,12 +233,13 @@ private fun SettingsMenuItem(
         text = text,
         style = MaterialTheme.typography.headlineLarge.copy(
             fontFamily = Antonio,
-            fontSize = 34.sp,
+            fontSize = 32.sp,
         ),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp)
+            .padding(end = 12.dp),
         textAlign = androidx.compose.ui.text.style.TextAlign.End
     )
 }
@@ -311,7 +313,7 @@ private fun SettingsBrandingHeader(
         Row(verticalAlignment = Alignment.CenterVertically) {
             KhushuLogoBadge(
                 logoStyle = logoStyle,
-                size = 64.dp,
+                size = 56.dp,
                 iconSize = 48.dp
             )
             Spacer(modifier = Modifier.width(18.dp))
@@ -319,7 +321,7 @@ private fun SettingsBrandingHeader(
                 text = "Khushu",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontFamily = Antonio, 
-                    fontSize = 32.sp,
+                    fontSize = 28.sp,
                     letterSpacing = 1.sp
                 ),
                 color = MaterialTheme.colorScheme.onSurface
@@ -332,7 +334,7 @@ private fun SettingsBrandingHeader(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Close",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
