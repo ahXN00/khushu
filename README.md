@@ -123,6 +123,22 @@ To build the project locally, you will need:
 2. Open the project in Android Studio.
 3. Sync Gradle and run the `app` module on your device or emulator.
 
+### Distribution Flavors
+
+Khushu now has two build flavors:
+
+- `full`: the regular app build used for GitHub releases and the normal distribution path
+- `fdroid`: a compatibility flavor intended for F-Droid-style builds
+
+Useful commands:
+
+- Regular debug build: `./gradlew :app:assembleFullDebug`
+- Regular release build: `./gradlew :app:assembleFullRelease`
+- F-Droid debug build: `./gradlew :app:assembleFdroidDebug`
+- F-Droid release build (single APK): `./gradlew :app:assembleFdroidRelease -Pkhushu.singleApk=true`
+
+The `fdroid` flavor avoids Google Play Services location and uses bundled fonts instead of downloadable Google Fonts.
+
 ---
 
 ## 🤝 Contribution

@@ -3,6 +3,8 @@ package com.kaizen.khushu.ui.screens.settings
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -14,9 +16,6 @@ import com.kaizen.khushu.data.model.defaultCustomBeadStyle
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.repository.UserSettings
 import com.kaizen.khushu.util.AppIconManager
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -383,25 +382,42 @@ class SettingsViewModel(
             return
         }
 
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(appContext)
+        val locationManager = appContext.getSystemService(LocationManager::class.java) ?: return
+        val enabledProviders = buildList {
+            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                add(LocationManager.NETWORK_PROVIDER)
+            }
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                add(LocationManager.GPS_PROVIDER)
+            }
+            if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
+                add(LocationManager.PASSIVE_PROVIDER)
+            }
+        }
+        if (enabledProviders.isEmpty()) return
+
         try {
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location ->
-                    if (location != null) {
-                        setLocation(location.latitude.toFloat(), location.longitude.toFloat())
-                    } else {
-                        fusedLocationClient.getCurrentLocation(
-                            Priority.PRIORITY_HIGH_ACCURACY,
-                            CancellationTokenSource().token
-                        ).addOnSuccessListener { currentLocation ->
-                            currentLocation?.let {
-                                setLocation(it.latitude.toFloat(), it.longitude.toFloat())
-                            }
-                        }
-                    }
+            enabledProviders
+                .asSequence()
+                .mapNotNull { provider -> locationManager.getLastKnownLocation(provider) }
+                .maxByOrNull(Location::getTime)
+                ?.let { lastKnown ->
+                    setLocation(lastKnown.latitude.toFloat(), lastKnown.longitude.toFloat())
+                    return
                 }
+
+            val provider = when {
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
+                locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
+                else -> enabledProviders.first()
+            }
+            locationManager.getCurrentLocation(provider, null, appContext.mainExecutor) { currentLocation ->
+                currentLocation?.let {
+                    setLocation(it.latitude.toFloat(), it.longitude.toFloat())
+                }
+            }
         } catch (e: SecurityException) {
-            // Should not happen if permission check passed
+            // Permission checks happen above; ignore if the platform still denies.
         }
     }
 

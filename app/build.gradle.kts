@@ -18,18 +18,30 @@ val gitHash: String = try {
 android {
     namespace = "com.kaizen.khushu"
     compileSdk = 36
+    val singleApkBuild = providers.gradleProperty("khushu.singleApk").orNull == "true"
 
     defaultConfig {
         applicationId = "com.kaizen.khushu"
         minSdk = 30
         targetSdk = 36
         versionCode = 80
-        versionName = "0.24.5+$gitHash"
+        versionName = "0.24.5"
 
 
         buildConfigField("String", "AUDIO_BASE_URL", "\"https://example.com/audio/\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") {
+            dimension = "distribution"
+            versionNameSuffix = "+$gitHash"
+        }
+        create("fdroid") {
+            dimension = "distribution"
+        }
     }
 
     buildTypes {
@@ -45,7 +57,7 @@ android {
 
     splits {
         abi {
-            isEnable = true
+            isEnable = !singleApkBuild
             reset()
             include("armeabi-v7a", "arm64-v8a")
             isUniversalApk = true
@@ -65,12 +77,6 @@ android {
         disable += "InvalidFragmentVersionForActivityResult"
     }
 
-    // Configure for Arabic font support
-    sourceSets {
-        getByName("main") {
-            res.srcDirs("src/main/res")
-        }
-    }
 }
 
 dependencies {
@@ -87,7 +93,7 @@ dependencies {
     implementation(libs.androidx.compose.material)
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.compose.ui.text.google.fonts)
+    add("fullImplementation", libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.haze)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
@@ -114,7 +120,6 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
-    implementation(libs.play.services.location)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

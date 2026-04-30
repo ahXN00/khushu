@@ -33,7 +33,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          ./gradlew assembleRelease \
+          ./gradlew assembleFullRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/keystore.p12 \
             -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
             -Pandroid.injected.signing.key.alias=$ALIAS \
@@ -51,4 +51,4 @@ jobs:
           gh release create "$tag_name" \
             --title "Khushu $tag_name" \
             --generate-notes \
-            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/full/release/*.apk
