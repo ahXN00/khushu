@@ -19,6 +19,10 @@ android {
     namespace = "com.kaizen.khushu"
     compileSdk = 36
     val singleApkBuild = providers.gradleProperty("khushu.singleApk").orNull == "true"
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 
     defaultConfig {
         applicationId = "com.kaizen.khushu"
