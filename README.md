@@ -16,14 +16,10 @@
   <!-- <img src="https://img.shields.io/github/downloads/greykaizen/khushu/latest/total?label=Downloads&color=3DDC84" alt="Total Downloads"> -->
 </p>
 
-<div align="center" style="display: flex; justify-content: center; align-items: center; gap: 10px;">
-  <a href="https://github.com/greykaizen/khushu/releases/latest">
-    <img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.svg" height="104">
-  </a>
-  <a href="http://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/greykaizen/khushu">
-    <img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="70">
-  </a>
-</div>
+<p align="center">
+  <a href="https://github.com/greykaizen/khushu/releases/latest"><img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.svg" height="104" align="middle"></a>&nbsp;&nbsp;
+  <a href="http://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/greykaizen/khushu"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="70" align="middle"></a>
+</p>
 
 
 > [!NOTE]
