@@ -1,0 +1,30 @@
+Categories:
+  - Reading
+  - Time
+License: GPL-3.0-only
+SourceCode: https://github.com/greykaizen/khushu
+IssueTracker: https://github.com/greykaizen/khushu/issues
+Changelog: https://github.com/greykaizen/khushu/releases
+RepoType: git
+Repo: https://github.com/greykaizen/khushu.git
+CurrentVersion: "0.24.5"
+CurrentVersionCode: 80
+UpdateCheckMode: Tags
+
+MaintainerNotes: |-
+  Build the fdroid flavor, not the regular full flavor.
+
+  The full flavor keeps Google downloadable fonts for the normal upstream
+  distribution path. The fdroid flavor bundles fonts locally and avoids Google
+  Play Services location.
+
+  Use the Gradle property below so the fdroid build emits a single APK.
+
+Builds:
+  - versionName: "0.24.5"
+    versionCode: 80
+    commit: 4ed07d0f9c271d036959af98c5a5d767d0acc9df
+    gradle:
+      - fdroid
+    gradleprops:
+      - khushu.singleApk=true
