@@ -20,7 +20,11 @@
   <a href="https://github.com/greykaizen/khushu/releases/latest">
     <img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.svg" height="104">
   </a>
+  <a href="http://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/greykaizen/khushu">
+    <img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="80">
+  </a>
 </p>
+
 
 > [!NOTE]
 > **Khushu is in Early Development.**
