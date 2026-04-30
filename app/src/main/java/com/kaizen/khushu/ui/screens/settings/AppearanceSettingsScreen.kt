@@ -55,6 +55,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.ui.navigation.AppDestinations
+import androidx.compose.ui.text.font.FontWeight
 import com.kaizen.khushu.ui.theme.BeVietnamPro
 import com.kaizen.khushu.ui.theme.LocalThemeTransitionController
 import com.kaizen.khushu.ui.theme.colorSeeds
@@ -98,89 +99,95 @@ fun AppearanceSettingsScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
 
-            SettingsSectionCard(
+            SettingsGroup(
                 title = "Theme",
-                subtitle = "Control the overall look and startup behavior of Khushu."
+                description = "Control the overall look and startup behavior of Khushu."
             ) {
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    themeOptions.forEachIndexed { index, label ->
-                        SegmentedButton(
-                            modifier = Modifier.onGloballyPositioned { buttonCoordinates[index] = it },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
-                            onClick = {
-                                val center = buttonCoordinates[index]?.boundsInRoot()?.center ?: Offset.Zero
-                                transitionController.captureAndChange(center) {
-                                    viewModel.setThemeMode(label)
+                Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        themeOptions.forEachIndexed { index, label ->
+                            SegmentedButton(
+                                modifier = Modifier.onGloballyPositioned { buttonCoordinates[index] = it },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
+                                onClick = {
+                                    val center = buttonCoordinates[index]?.boundsInRoot()?.center ?: Offset.Zero
+                                    transitionController.captureAndChange(center) {
+                                        viewModel.setThemeMode(label)
+                                    }
+                                },
+                                selected = settings.themeMode == label,
+                                icon = {
+                                    Icon(
+                                        imageVector = themeIcons[index],
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = label,
+                                        fontFamily = BeVietnamPro,
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
                                 }
-                            },
-                            selected = settings.themeMode == label,
-                            icon = {
-                                Icon(
-                                    imageVector = themeIcons[index],
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = label,
-                                    fontFamily = BeVietnamPro,
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                            }
-                        )
+                            )
+                        }
                     }
                 }
 
-                SettingsToggle(
+                SettingsToggleItem(
                     title = "Show Continue Reading",
                     subtitle = "Keep the last opened study topic visible in Study.",
                     checked = settings.showContinueReading,
                     onCheckedChange = viewModel::toggleShowContinueReading
                 )
 
-                Text(
-                    text = "Startup screen",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Choose which area opens first when Khushu launches.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(
-                        "Home" to AppDestinations.HOME.route,
-                        "Pray" to AppDestinations.SALAH.route,
-                        "Tasbih" to AppDestinations.TASBEEH.route,
-                        "Study" to AppDestinations.LEARN.route
-                    ).forEach { (label, route) ->
-                        FilterChip(
-                            selected = settings.startupTab == route,
-                            onClick = { viewModel.setStartupTab(route) },
-                            label = { Text(label) }
-                        )
+                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                    Text(
+                        text = "Startup screen",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = BeVietnamPro,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Choose which area opens first when Khushu launches.",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BeVietnamPro),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "Home" to AppDestinations.HOME.route,
+                            "Pray" to AppDestinations.SALAH.route,
+                            "Tasbih" to AppDestinations.TASBEEH.route,
+                            "Study" to AppDestinations.LEARN.route
+                        ).forEach { (label, route) ->
+                            FilterChip(
+                                selected = settings.startupTab == route,
+                                onClick = { viewModel.setStartupTab(route) },
+                                label = { Text(label, fontFamily = BeVietnamPro) }
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            SettingsSectionCard(
+            SettingsGroup(
                 title = "Color",
-                subtitle = "Use wallpaper-aware colors or choose a manual accent."
+                description = "Use wallpaper-aware colors or choose a manual accent."
             ) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    SettingsToggle(
+                    SettingsToggleItem(
                         title = "Dynamic Color",
                         subtitle = "Sync the accent palette with your wallpaper.",
                         checked = settings.dynamicColor,
@@ -189,11 +196,12 @@ fun AppearanceSettingsScreen(
                 }
 
                 if (isDarkTheme) {
-                    SettingsToggle(
+                    SettingsToggleItem(
                         title = "Pure AMOLED Black",
                         subtitle = "Use an absolute black background in dark mode.",
                         checked = settings.pureBlack,
-                        onCheckedChange = viewModel::togglePureBlack
+                        onCheckedChange = viewModel::togglePureBlack,
+                        showDivider = !settings.dynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
                     )
                 }
 
@@ -202,17 +210,19 @@ fun AppearanceSettingsScreen(
                     enter = expandVertically() + fadeIn(),
                     exit = shrinkVertically() + fadeOut()
                 ) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        colorSeeds.forEach { (key, color) ->
-                            AccentColorChip(
-                                color = color,
-                                selected = settings.colorSeed == key,
-                                onClick = { viewModel.setColorSeed(key) }
-                            )
+                    Box(modifier = Modifier.padding(20.dp)) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            colorSeeds.forEach { (key, color) ->
+                                AccentColorChip(
+                                    color = color,
+                                    selected = settings.colorSeed == key,
+                                    onClick = { viewModel.setColorSeed(key) }
+                                )
+                            }
                         }
                     }
                 }

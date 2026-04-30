@@ -37,29 +37,31 @@ fun CounterSettingsScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(8.dp))
-            SettingsSectionCard(
+            Spacer(Modifier.height(12.dp))
+
+            SettingsGroup(
                 title = "Haptics",
-                subtitle = "Physical feedback that applies across Khushu counters."
+                description = "Physical feedback that applies across Khushu counters."
             ) {
-                SettingsToggle(
+                SettingsToggleItem(
                     title = "Haptic Feedback",
                     subtitle = "Vibrate slightly when a count increments.",
                     checked = settings.hapticsEnabled,
-                    onCheckedChange = { viewModel.toggleHaptics(it) }
+                    onCheckedChange = { viewModel.toggleHaptics(it) },
+                    showDivider = false
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-            SettingsSectionCard(
+            SettingsGroup(
                 title = "Hardware",
-                subtitle = "Optional device-level controls for counting."
+                description = "Optional device-level controls for counting."
             ) {
-                SettingsToggle(
+                SettingsToggleItem(
                     title = "Volume Key Counting",
                     subtitle = "Use the hardware volume buttons to count.",
                     checked = settings.volumeCounting,
-                    onCheckedChange = { viewModel.toggleVolumeCounting(it) }
+                    onCheckedChange = { viewModel.toggleVolumeCounting(it) },
+                    showDivider = false
                 )
             }
             Spacer(Modifier.height(32.dp))

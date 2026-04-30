@@ -1,7 +1,9 @@
 package com.kaizen.khushu.ui.screens.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
+import com.kaizen.khushu.ui.theme.BeVietnamPro
 import androidx.compose.ui.unit.dp
 import com.kaizen.khushu.ui.components.KhushuLogoBadge
 
@@ -47,37 +51,38 @@ fun CustomizeScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
 
-            SettingsSectionCard(
+            SettingsGroup(
                 title = "Prayer experience",
-                subtitle = "Tune the guided prayer screen and tasbih counter behavior."
+                description = "Tune the guided prayer screen and tasbih counter behavior."
             ) {
-                MenuSectionItem(
+                SettingsMenuItem(
                     title = "Pray Screen",
-                    detail = "Session controls, completion text, and layout editor",
+                    subtitle = "Session controls, completion text, and layout editor",
                     iconRes = com.kaizen.khushu.R.drawable.ic_salah,
                     onClick = onNavigateSalah
                 )
 
-                MenuSectionItem(
+                SettingsMenuItem(
                     title = "Tasbih Screen",
-                    detail = "Layout editor, bead style, and interaction behavior",
+                    subtitle = "Layout editor, bead style, and interaction behavior",
                     iconRes = com.kaizen.khushu.R.drawable.ic_tasbeeh,
-                    onClick = onNavigateTasbeeh
+                    onClick = onNavigateTasbeeh,
+                    showDivider = false
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
-
-            SettingsSectionCard(
+            SettingsGroup(
                 title = "App Icon",
-                subtitle = "Choose how Khushu appears on your launcher."
+                description = "Choose how Khushu appears on your launcher."
             ) {
-                LogoStyleGrid(
-                    selected = settings.logoStyle,
-                    onSelect = { settingsViewModel.setLogoStyle(it) },
-                )
+                Box(modifier = Modifier.padding(16.dp)) {
+                    LogoStyleGrid(
+                        selected = settings.logoStyle,
+                        onSelect = { settingsViewModel.setLogoStyle(it) },
+                    )
+                }
             }
 
             Spacer(Modifier.height(32.dp))
@@ -124,17 +129,22 @@ private fun LogoStyleCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(24.dp)
     val borderColor = if (isSelected)
         MaterialTheme.colorScheme.primary
     else
-        MaterialTheme.colorScheme.outlineVariant
-    val borderWidth = if (isSelected) 2.dp else 1.dp
+        Color.Transparent
+    
+    val containerColor = if (isSelected)
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+    else
+        MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
 
     Column(
         modifier = modifier
             .clip(shape)
-            .border(borderWidth, borderColor, shape)
+            .background(containerColor)
+            .border(if (isSelected) 2.dp else 0.dp, borderColor, shape)
             .clickable(onClick = onClick)
             .padding(vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -147,7 +157,7 @@ private fun LogoStyleCard(
         )
         Text(
             text = option.label,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelLarge.copy(fontFamily = BeVietnamPro),
             color = if (isSelected)
                 MaterialTheme.colorScheme.primary
             else

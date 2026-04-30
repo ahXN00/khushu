@@ -46,52 +46,52 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
 
-            SettingsSectionCard(
+            SettingsGroup(
                 title = "App behavior",
-                subtitle = "Core behavior that applies across Khushu."
+                description = "Core behavior that applies across Khushu."
             ) {
-                SettingsToggle(
+                SettingsToggleItem(
                     title = "Keep Screen Awake",
-                    subtitle = "Prevent device sleep during prayer and tasbih sessions.",
+                    subtitle = "Prevent device sleep during sessions.",
                     checked = settings.keepScreenAwake,
-                    onCheckedChange = { viewModel.toggleKeepScreenAwake(it) }
+                    onCheckedChange = { viewModel.toggleKeepScreenAwake(it) },
+                    showDivider = false
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            SettingsSectionCard(
+            SettingsGroup(
                 title = "Preferences",
-                subtitle = "Timing, feedback, appearance, and app information."
+                description = "Timing, feedback, appearance, and app information."
             ) {
-                MenuSectionItem(
+                SettingsMenuItem(
                     title = "Prayer Times",
-                    detail = "Calculation, reminders, Home visibility, and diagnostics",
+                    subtitle = "Calculation, reminders, and diagnostics",
                     imageVector = Icons.Default.AccessTime,
                     onClick = onNavigatePrayer
                 )
 
-                MenuSectionItem(
+                SettingsMenuItem(
                     title = "Appearance",
-                    detail = "Theme, colors, startup screen, and reading defaults",
+                    subtitle = "Theme, colors, and startup screen",
                     imageVector = Icons.Default.ColorLens,
                     onClick = onNavigateAppearance
                 )
 
-                MenuSectionItem(
+                SettingsMenuItem(
                     title = "Counter",
-                    detail = "Haptics and hardware counting behavior",
+                    subtitle = "Haptics and hardware behavior",
                     imageVector = Icons.Default.TouchApp,
                     onClick = onNavigateCounter
                 )
 
-                MenuSectionItem(
+                SettingsMenuItem(
                     title = "About Khushu",
-                    detail = "Story, project links, and issue reporting",
+                    subtitle = "Story, project links, and reporting",
                     imageVector = Icons.Default.Info,
-                    onClick = onNavigateAbout
+                    onClick = onNavigateAbout,
+                    showDivider = false
                 )
             }
 

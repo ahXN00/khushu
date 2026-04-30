@@ -41,53 +41,55 @@ fun TasbeehCustomizeScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(8.dp))
-            SettingsSectionCard(
+            Spacer(Modifier.height(12.dp))
+
+            SettingsGroup(
                 title = "Layout",
-                subtitle = "Open the editor or change how beads are styled."
+                description = "Open the editor or change how beads are styled."
             ) {
-                MenuSectionItem(
+                SettingsMenuItem(
                     title = "Edit Tasbih Screen",
-                    detail = "Customize your counter layout and widget placement",
+                    subtitle = "Customize layout and widget placement",
                     onClick = onPreview
                 )
-                MenuSectionItem(
+                SettingsMenuItem(
                     title = "Design Tasbih Beads",
-                    detail = "Design the active bead material, shape, and finish",
-                    onClick = { showBeadSheet = true }
+                    subtitle = "Material, shape, and finish",
+                    onClick = { showBeadSheet = true },
+                    showDivider = false
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            SettingsSectionCard(
+            SettingsGroup(
                 title = "Behavior",
-                subtitle = "How the Tasbih screen reacts while you count."
+                description = "How the Tasbih screen reacts while you count."
             ) {
-                SettingsToggle(
+                SettingsToggleItem(
                     title = "Dynamic Colors",
-                    subtitle = "Use collection colors automatically in the list and counter.",
+                    subtitle = "Use collection colors automatically.",
                     checked = settings.tasbeehDynamicColors,
                     onCheckedChange = { viewModel.toggleTasbeehDynamicColors(it) }
                 )
-                SettingsToggle(
+                SettingsToggleItem(
                     title = "Stealth Mode",
-                    subtitle = "Allow hiding widgets for a cleaner private counting view.",
+                    subtitle = "Allow hiding widgets for a cleaner view.",
                     checked = settings.tasbeehStealthModeAllowed,
                     onCheckedChange = { viewModel.toggleTasbeehStealthModeAllowed(it) }
                 )
-                SettingsToggle(
+                SettingsToggleItem(
                     title = "Volume Buttons",
                     subtitle = "Use physical volume keys to count.",
                     checked = settings.tasbeehVolumeEnabled,
-                    onCheckedChange = { viewModel.toggleTasbeehVolumeEnabled(it) }
+                    onCheckedChange = { viewModel.toggleTasbeehVolumeEnabled(it) },
+                    showDivider = settings.tasbeehVolumeEnabled
                 )
                 if (settings.tasbeehVolumeEnabled) {
-                    SettingsToggle(
+                    SettingsToggleItem(
                         title = "Animate Volume Keys",
-                        subtitle = "Show bead movement when counting with the hardware buttons.",
+                        subtitle = "Show bead movement when counting.",
                         checked = settings.tasbeehVolumeAnimation,
-                        onCheckedChange = { viewModel.toggleTasbeehVolumeAnimation(it) }
+                        onCheckedChange = { viewModel.toggleTasbeehVolumeAnimation(it) },
+                        showDivider = false
                     )
                 }
             }
