@@ -1,0 +1,3 @@
+F-Droid packaging fix release with scanner-safe Gradle settings and aligned clean distribution metadata
+Home, prayer reminders, Study, Pray, and Tasbih polish from recent work remain included in this build
+Bundled-font F-Droid build path stays aligned with tagged upstream releases for clean third-party packaging
