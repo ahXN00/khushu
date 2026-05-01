@@ -7,8 +7,8 @@ IssueTracker: https://github.com/greykaizen/khushu/issues
 Changelog: https://github.com/greykaizen/khushu/releases
 RepoType: git
 Repo: https://github.com/greykaizen/khushu.git
-CurrentVersion: "0.24.5"
-CurrentVersionCode: 80
+CurrentVersion: "0.24.7"
+CurrentVersionCode: 81
 UpdateCheckMode: Tags
 
 MaintainerNotes: |-
@@ -21,8 +21,8 @@ MaintainerNotes: |-
   Use the Gradle property below so the fdroid build emits a single APK.
 
 Builds:
-  - versionName: "0.24.5"
-    versionCode: 80
+  - versionName: "0.24.7"
+    versionCode: 81
     commit: 4ed07d0f9c271d036959af98c5a5d767d0acc9df
     gradle:
       - fdroid

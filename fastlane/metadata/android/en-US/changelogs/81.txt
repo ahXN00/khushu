@@ -1,0 +1,3 @@
+Home polished with a smoother pull-to-refresh, better next-prayer hierarchy, and cleaner monthly Islamic events
+Prayer and pre-prayer notifications now have real settings, rotating companion-style copy, and optional extra timings
+Pray, Tasbih, Study, and Settings were refined for clearer navigation, calmer wording, and better customization structure
