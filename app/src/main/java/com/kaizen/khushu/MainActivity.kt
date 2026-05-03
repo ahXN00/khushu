@@ -58,6 +58,7 @@ import com.kaizen.khushu.data.local.TasbeehDatabase
 import com.kaizen.khushu.notifications.PrayerNotificationScheduler
 import com.kaizen.khushu.notifications.toPrayerNotificationScheduleConfig
 import com.kaizen.khushu.ui.components.PillNavBar
+import com.kaizen.khushu.ui.components.DeveloperWelcomeDialog
 import com.kaizen.khushu.ui.navigation.*
 import com.kaizen.khushu.ui.screens.onboarding.OnboardingScreen
 import com.kaizen.khushu.ui.screens.home.HomeScreen
@@ -290,6 +291,7 @@ private fun KhushuApp(
     val hazeState = remember { HazeState() }
     val showNavBar = AppDestinations.entries.any { it.route == currentRoute }
     val currentDestination = AppDestinations.fromRoute(currentRoute) ?: AppDestinations.SALAH
+    val showDeveloperWelcome = !settings.developerWelcomeDismissed && currentRoute != ONBOARDING_ROUTE
 
     val startRoute = remember {
         val saved = settingsViewModel.settings.value.startupTab
@@ -857,6 +859,16 @@ private fun KhushuApp(
                     navController.navigate(com.kaizen.khushu.ui.navigation.SETTINGS_ABOUT_ROUTE)
                 },
                 onDismiss = { showSettingsSheet = false }
+            )
+        }
+
+        if (showDeveloperWelcome) {
+            DeveloperWelcomeDialog(
+                onContinue = { settingsViewModel.setDeveloperWelcomeDismissed(true) },
+                onOpenSupport = {
+                    settingsViewModel.setDeveloperWelcomeDismissed(true)
+                    navController.navigate(SETTINGS_ABOUT_ROUTE)
+                }
             )
         }
     }

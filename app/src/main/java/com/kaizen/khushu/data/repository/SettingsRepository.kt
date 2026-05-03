@@ -74,6 +74,8 @@ class SettingsRepository(private val context: Context) {
         val TASBEEH_VOLUME_ENABLED = booleanPreferencesKey("tasbeeh_volume_enabled")
         val TASBEEH_VOLUME_ANIMATION = booleanPreferencesKey("tasbeeh_volume_animation")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val DEVELOPER_WELCOME_DISMISSED = booleanPreferencesKey("developer_welcome_dismissed")
+        val STUDY_NOTE_DISMISSED = booleanPreferencesKey("study_note_dismissed")
 
         // Prayer Times & Location
         val PRAYER_CALCULATION_METHOD = stringPreferencesKey("prayer_calculation_method")
@@ -185,6 +187,8 @@ class SettingsRepository(private val context: Context) {
                 tasbeehVolumeEnabled = preferences[PreferencesKeys.TASBEEH_VOLUME_ENABLED] ?: true,
                 tasbeehVolumeAnimation = preferences[PreferencesKeys.TASBEEH_VOLUME_ANIMATION] ?: true,
                 onboardingCompleted = preferences[PreferencesKeys.ONBOARDING_COMPLETED] ?: false,
+                developerWelcomeDismissed = preferences[PreferencesKeys.DEVELOPER_WELCOME_DISMISSED] ?: false,
+                studyNoteDismissed = preferences[PreferencesKeys.STUDY_NOTE_DISMISSED] ?: false,
                 prayerCalculationMethod = preferences[PreferencesKeys.PRAYER_CALCULATION_METHOD] ?: "MUSLIM_WORLD_LEAGUE",
                 prayerMadhab = preferences[PreferencesKeys.PRAYER_MADHAB] ?: "SHAFI",
                 locationLat = preferences[PreferencesKeys.LOCATION_LAT] ?: 21.4225f,
@@ -334,6 +338,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.ONBOARDING_COMPLETED] = completed }
+    }
+
+    suspend fun setDeveloperWelcomeDismissed(dismissed: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.DEVELOPER_WELCOME_DISMISSED] = dismissed }
+    }
+
+    suspend fun setStudyNoteDismissed(dismissed: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.STUDY_NOTE_DISMISSED] = dismissed }
     }
 
 
@@ -568,6 +580,8 @@ data class UserSettings(
     val tasbeehVolumeEnabled: Boolean = true,
     val tasbeehVolumeAnimation: Boolean = true,
     val onboardingCompleted: Boolean = false,
+    val developerWelcomeDismissed: Boolean = false,
+    val studyNoteDismissed: Boolean = false,
     val prayerCalculationMethod: String = "MUSLIM_WORLD_LEAGUE",
     val prayerMadhab: String = "SHAFI",
     val locationLat: Float = 21.4225f,

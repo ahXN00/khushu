@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kaizen.khushu.data.model.LearnSection
 import com.kaizen.khushu.data.model.LearnTopic
 import com.kaizen.khushu.ui.components.KhushuAppBar
+import com.kaizen.khushu.ui.components.StudyIntegrityNoticeDialog
 import com.kaizen.khushu.ui.navigation.AppDestinations
 import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import com.kaizen.khushu.ui.theme.BeVietnamPro
@@ -139,6 +140,12 @@ fun LearnScreen(
                     showBookmarks = false
                     onCardTap("$topicId?ayah=$ayahIndex")
                 }
+            )
+        }
+
+        if (!settings.studyNoteDismissed) {
+            StudyIntegrityNoticeDialog(
+                onDismiss = { settingsViewModel.setStudyNoteDismissed(true) }
             )
         }
     }

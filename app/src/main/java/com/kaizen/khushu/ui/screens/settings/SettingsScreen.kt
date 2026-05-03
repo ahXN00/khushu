@@ -6,8 +6,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -49,21 +49,8 @@ fun SettingsScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingsGroup(
-                title = "App behavior",
-                description = "Core behavior that applies across Khushu."
-            ) {
-                SettingsToggleItem(
-                    title = "Keep Screen Awake",
-                    subtitle = "Prevent device sleep during sessions.",
-                    checked = settings.keepScreenAwake,
-                    onCheckedChange = { viewModel.toggleKeepScreenAwake(it) },
-                    showDivider = false
-                )
-            }
-
-            SettingsGroup(
                 title = "Preferences",
-                description = "Timing, feedback, appearance, and app information."
+                description = "Prayer, appearance, interaction, and app information."
             ) {
                 SettingsMenuItem(
                     title = "Prayer Times",

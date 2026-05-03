@@ -158,6 +158,14 @@ class SettingsViewModel(
         viewModelScope.launch { repository.setOnboardingCompleted(completed) }
     }
 
+    fun setDeveloperWelcomeDismissed(dismissed: Boolean) {
+        viewModelScope.launch { repository.setDeveloperWelcomeDismissed(dismissed) }
+    }
+
+    fun setStudyNoteDismissed(dismissed: Boolean) {
+        viewModelScope.launch { repository.setStudyNoteDismissed(dismissed) }
+    }
+
 
     fun setStringElasticity(value: Float) {
         viewModelScope.launch { repository.updateStringElasticity(value) }

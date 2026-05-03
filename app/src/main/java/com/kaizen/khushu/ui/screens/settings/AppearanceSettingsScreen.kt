@@ -146,6 +146,13 @@ fun AppearanceSettingsScreen(
                     onCheckedChange = viewModel::toggleShowContinueReading
                 )
 
+                SettingsToggleItem(
+                    title = "Keep Screen Awake",
+                    subtitle = "Prevent the screen from sleeping while Khushu is open.",
+                    checked = settings.keepScreenAwake,
+                    onCheckedChange = viewModel::toggleKeepScreenAwake
+                )
+
                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                     Text(
                         text = "Startup screen",
