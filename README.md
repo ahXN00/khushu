@@ -4,7 +4,7 @@
 
 <div align="center">
   <p style="font-size: 24px; font-weight: bold;">• Khushu •</p>
-  <strong>Your prayer deserves your full heart.</strong>
+  <strong>Your deen deserves your full heart.</strong>
 </div>
 
 <br>
@@ -18,6 +18,7 @@
 
 <p align="center">
   <a href="https://github.com/greykaizen/khushu/releases/latest"><img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.svg" height="104" align="middle"></a>&nbsp;&nbsp;
+  <a href="https://android.izzysoft.de/repo/apk/com.kaizen.khushu"><img src="https://gitlab.com/izzyondroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="104" align="middle"></a>&nbsp;&nbsp;
   <a href="http://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/greykaizen/khushu"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="70" align="middle"></a>
 </p>
 
@@ -44,34 +45,24 @@ There are no ads, no trackers, no subscriptions, and no selling of your data. Yo
 
 ## ✨ A Space for Focus
 
-We stripped away everything unnecessary and embraced a "Pure Black" aesthetic. It's gentle on the eyes, deeply immersive, and designed to help you attain *Khushu* (deep concentration and humility) in your worship.
+We stripped away everything unnecessary and embraced a beautiful, distraction-free aesthetic. It's gentle on the eyes, deeply immersive, and designed to help you attain *Khushu* (deep concentration and humility) in your worship.
 
-### 🕋 Immersive Salah
-Experience a beautifully smooth Rakat picker and a minimalist full-screen counter that lets you focus entirely on your prayer. Just tap anywhere.
-
-<p align="center">
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-30-14-29-44-15_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-30-14-29-46-82_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-28-13-10-14-38_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
-</p>
-
-### 📿 Calming Tasbeeh
-Organize your Dhikr in calming, pastel-colored collections. Our massive, immersive counters let you engage in remembrance without constantly looking at your screen. Design beautiful tasbih's and let Allahs remembrance fill your heart.
+### 🕋 Comprehensive Yet Minimal
+Khushu is packed with everything you need—accurate prayer times with sunpath visuals, immersive Salah tracking, deeply customizable Tasbeeh collections, and a complete suite for reading and listening to the Quran, Tafsir, and Hadith. All wrapped in a premium, highly expressive Material 3 aesthetic designed to respect your focus.
 
 <p align="center">
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-28-13-00-09-84_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-30-14-37-33-79_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-28-13-10-24-23_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
+  <kbd><img src="docs/images/screenshots/poster_1.jpg" width="190"></kbd>&nbsp;
+  <kbd><img src="docs/images/screenshots/poster_2.jpg" width="190"></kbd>&nbsp;
+  <kbd><img src="docs/images/screenshots/poster_3.jpg" width="190"></kbd>&nbsp;
+  <kbd><img src="docs/images/screenshots/poster_4.jpg" width="190"></kbd>
 </p>
-
-### 📖 Learn & Reflect
-Authentic Hadith and Quranic verses presented in modern, clean typography, giving you the clarity to ponder over the words of Allah and His Messenger (ﷺ).
-
 <p align="center">
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-30-14-29-54-06_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-28-13-00-19-29_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
-  <kbd><img src="docs/images/screenshots/Screenshot_2026-04-28-13-00-29-44_12360300079e5e3aef057e94f5c45592.jpg" width="200"></kbd>
+  <kbd><img src="docs/images/screenshots/poster_5.jpg" width="190"></kbd>&nbsp;
+  <kbd><img src="docs/images/screenshots/poster_6.jpg" width="190"></kbd>&nbsp;
+  <kbd><img src="docs/images/screenshots/poster_7.jpg" width="190"></kbd>&nbsp;
+  <kbd><img src="docs/images/screenshots/poster_8.jpg" width="190"></kbd>
 </p>
+
 
 ---
 
@@ -83,11 +74,11 @@ If you love the app and want to see it grow—if you want to help us reach more 
 
 **Support via Crypto:**
 
-| Asset | Network | Address |
-| :--- | :--- | :--- |
-| <img src="https://img.shields.io/badge/Bitcoin-orange?style=flat-square&logo=bitcoin&logoColor=white" height="20"> | Bitcoin | `bc1q04zs40e9cakxuu2lw3r04jc2vmmv084rvz5kx9` |
-| <img src="https://img.shields.io/badge/Ethereum-3C3C3D?style=flat-square&logo=ethereum&logoColor=white" height="20"> | ERC20 / Base / Polygon | `0x139aB14D67B1E0dAaEDe1CF5e3234B1Cc3644BE0` |
-| <img src="https://img.shields.io/badge/USDT-26A17B?style=flat-square&logo=tether&logoColor=white" height="20"> | TRC20 (TRON) | `TDmZvrFGBKyP9opEL1FCzpvH9MXBmJ9r6q` |
+| Asset | Address |
+| :--- | :--- |
+| <img src="https://img.shields.io/badge/Bitcoin-F7931A?style=for-the-badge&logo=bitcoin&logoColor=white"> | `bc1q04zs40e9cakxuu2lw3r04jc2vmmv084rvz5kx9` |
+| <img src="https://img.shields.io/badge/Ethereum_/_Base-3C3C3D?style=for-the-badge&logo=ethereum&logoColor=white"> | `0x139aB14D67B1E0dAaEDe1CF5e3234B1Cc3644BE0` |
+| <img src="https://img.shields.io/badge/USDT_(TRON)-26A17B?style=for-the-badge&logo=tether&logoColor=white"> | `TDmZvrFGBKyP9opEL1FCzpvH9MXBmJ9r6q` |
 
 ---
 

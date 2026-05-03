@@ -33,7 +33,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          ./gradlew assembleFdroidRelease -Pkhushu.singleApk=true \
+          ./gradlew assembleFdroidRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/keystore.p12 \
             -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
             -Pandroid.injected.signing.key.alias=$ALIAS \
@@ -47,6 +47,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Rename universal APK to maintain F-Droid reproducible build compatibility
+          if [ -f app/build/outputs/apk/fdroid/release/app-fdroid-universal-release.apk ]; then
+            mv app/build/outputs/apk/fdroid/release/app-fdroid-universal-release.apk app/build/outputs/apk/fdroid/release/app-fdroid-release.apk
+          fi
+          if [ -f app/build/outputs/apk/fdroid/release/app-fdroid-universal-release-unsigned.apk ]; then
+            mv app/build/outputs/apk/fdroid/release/app-fdroid-universal-release-unsigned.apk app/build/outputs/apk/fdroid/release/app-fdroid-release-unsigned.apk
+          fi
+
           tag_name="${GITHUB_REF#refs/tags/}"
           gh release create "$tag_name" \
             --title "Khushu $tag_name" \
