@@ -146,8 +146,42 @@ fun ReadingSettingsSheet(
                         fontWeight = FontWeight.Normal
                     ),
                     modifier = Modifier.padding(horizontal = 28.dp)
-                        .padding(bottom = 24.dp)
+                        .padding(bottom = 16.dp)
                 )
+
+                // LIVE PREVIEW BOX
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 20.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl) {
+                            Text(
+                                text = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ",
+                                fontFamily = ScheherazadeNew,
+                                fontSize = settings.arabicSizeSp.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        if (settings.showTranslation) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "In the name of Allah, the Entirely Merciful, the Especially Merciful.",
+                                fontFamily = BeVietnamPro,
+                                fontSize = settings.translationSizeSp.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
 
                 SlidingSegmentedControl(
                     items = tabs,

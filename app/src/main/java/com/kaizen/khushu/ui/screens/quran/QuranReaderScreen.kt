@@ -408,18 +408,80 @@ fun QuranReaderScreen(
                             contentPadding = PaddingValues(bottom = 32.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            if (surahNumber != 9 && surahNumber != 1) {
-                                item {
-                                    Text(
-                                        text = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ",
-                                        textAlign = TextAlign.Center,
-                                        fontFamily = ScheherazadeNew,
-                                        fontSize = 28.sp,
-                                        color = fg,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 32.dp)
-                                    )
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    surah?.let {
+                                        Text(
+                                            text = it.nameArabic,
+                                            style = MaterialTheme.typography.displaySmall.copy(
+                                                fontFamily = ScheherazadeNew,
+                                                color = fg
+                                            ),
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Text(
+                                            text = it.nameSimple,
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            modifier = Modifier.padding(top = 8.dp)
+                                        )
+                                        
+                                        Row(
+                                            modifier = Modifier.padding(top = 12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = it.revelationPlace.uppercase(),
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = BeVietnamPro),
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                            Text(
+                                                text = "${it.versesCount} VERSES",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontFamily = BeVietnamPro),
+                                                color = fg.copy(alpha = 0.6f)
+                                            )
+                                        }
+                                        
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 24.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            HorizontalDivider(
+                                                modifier = Modifier.fillMaxWidth(0.5f),
+                                                color = fg.copy(alpha = 0.15f)
+                                            )
+                                        }
+                                    }
+                                    
+                                    // Show Bismillah for all surahs except At-Tawbah (9)
+                                    // and NOT for Al-Fatihah (1) since bismillah is its first verse
+                                    if (surahNumber != 9 && surahNumber != 1) {
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            text = "بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ",
+                                            textAlign = TextAlign.Center,
+                                            fontFamily = ScheherazadeNew,
+                                            fontSize = 26.sp,
+                                            color = fg.copy(alpha = 0.85f),
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
                                 }
                             }
 
@@ -437,9 +499,12 @@ fun QuranReaderScreen(
                                         SajdaIndicator(type = meta.sajda, contentColor = fg)
                                     }
 
+                                    val topicId = "quran_surah_$surahNumber"
+                                    val isBookmarked = settings.bookmarkedAyahs.contains("$topicId:$index")
                                     val translationMap = remember(translations) {
                                         translations.mapKeys { it.key.toString() }
                                     }
+                                    
                                     BlockRenderer(
                                         block = block,
                                         settings = settings,
@@ -449,7 +514,21 @@ fun QuranReaderScreen(
                                         scriptMap = scriptMap,
                                         isHighlighted = playingAyahIndex == index,
                                         onBlockClick = { activeBlock = it to index },
-                                        modifier = Modifier.padding(vertical = 4.dp)
+                                        onPlayClick = {
+                                            quranAudioViewModel.playAyah(surahNumber, index, blocks, settings.selectedReciterId, sequence = false)
+                                        },
+                                        onBookmarkClick = {
+                                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                            settingsViewModel.toggleBookmark(topicId, index)
+                                            val msg = if (isBookmarked) "Bookmark removed" else "Bookmark added"
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        },
+                                        onTafsirClick = {
+                                            // Fallback to opening Tafsir picker if no Tafsir is selected, or expanding Tafsir view
+                                            if (!settings.showTafsir) {
+                                                settingsViewModel.setShowTafsir(true)
+                                            }
+                                        },
                                     )
                                 }
                             }

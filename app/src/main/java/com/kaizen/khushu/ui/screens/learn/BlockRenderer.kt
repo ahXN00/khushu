@@ -1,28 +1,36 @@
 package com.kaizen.khushu.ui.screens.learn
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import com.kaizen.khushu.ui.components.AyahEndMarker
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -42,7 +52,6 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.appendInlineContent
 import com.kaizen.khushu.data.model.ArabicBlock
 import com.kaizen.khushu.data.model.AyahBlock
 import com.kaizen.khushu.data.model.CalloutBlock
@@ -52,6 +61,7 @@ import com.kaizen.khushu.data.model.HadithBlock
 import com.kaizen.khushu.data.model.HeadingBlock
 import com.kaizen.khushu.data.model.ParagraphBlock
 import com.kaizen.khushu.data.repository.UserSettings
+import com.kaizen.khushu.ui.components.AyahEndMarker
 import com.kaizen.khushu.ui.theme.BeVietnamPro
 import com.kaizen.khushu.ui.theme.ScheherazadeNew
 
@@ -72,15 +82,30 @@ fun BlockRenderer(
     scriptMap: Map<String, String> = emptyMap(),
     isHighlighted: Boolean = false,
     onBlockClick: (ContentBlock) -> Unit = {},
+    onPlayClick: ((ContentBlock) -> Unit)? = null,
+    onBookmarkClick: ((ContentBlock) -> Unit)? = null,
+    onTafsirClick: ((ContentBlock) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    // Standard horizontal padding for text-only blocks
     val textPadding = Modifier.padding(horizontal = 20.dp)
-    
+
     when (block) {
         is HeadingBlock   -> HeadingBlockView(block, fg, modifier.then(textPadding).clickable { onBlockClick(block) })
         is ParagraphBlock -> ParagraphBlockView(block, settings, fg, modifier.then(textPadding))
-        is AyahBlock      -> AyahBlockView(block, settings, fg, bg, translationMap, tajweedMap, scriptMap, isHighlighted, modifier.clickable { onBlockClick(block) })
+        is AyahBlock      -> AyahBlockView(
+            block = block,
+            settings = settings,
+            fg = fg,
+            bg = bg,
+            translationMap = translationMap,
+            tajweedMap = tajweedMap,
+            scriptMap = scriptMap,
+            isHighlighted = isHighlighted,
+            onPlayClick = { onPlayClick?.invoke(block) },
+            onBookmarkClick = { onBookmarkClick?.invoke(block) },
+            onTafsirClick = { onTafsirClick?.invoke(block) },
+            modifier = modifier.clickable { onBlockClick(block) }
+        )
         is HadithBlock    -> HadithBlockView(block, settings, fg, bg, modifier.clickable { onBlockClick(block) })
         is CalloutBlock   -> CalloutBlockView(block, fg, modifier.then(textPadding))
         is DividerBlock   -> DividerBlockView(fg, modifier.then(textPadding))
@@ -130,7 +155,7 @@ private fun ParagraphBlockView(
     )
 }
 
-// ── Ayah ───────────────────────────────────────────────────────────────────────
+// ── Ayah (Quran.com style) ─────────────────────────────────────────────────────
 
 @Composable
 private fun AyahBlockView(
@@ -142,19 +167,19 @@ private fun AyahBlockView(
     tajweedMap: Map<String, String>,
     scriptMap: Map<String, String>,
     isHighlighted: Boolean,
+    onPlayClick: () -> Unit,
+    onBookmarkClick: () -> Unit,
+    onTafsirClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val arabicBg = if (isHighlighted) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else when {
-        bg == Color(0xFFF5E6C8) -> Color(0xFFEDD9A3) // paper tint
-        bg == Color.White       -> Color(0xFFF0F0F0) // light tint
-        else                    -> MaterialTheme.colorScheme.surfaceContainer
-    }
-    
-    val contentColor = if (isHighlighted) MaterialTheme.colorScheme.onPrimaryContainer else fg
+    val highlightBg = if (isHighlighted)
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+    else Color.Transparent
 
-    // Inline content for the Ayah marker to keep it with the text
+    val contentColor = if (isHighlighted) MaterialTheme.colorScheme.onPrimaryContainer else fg
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    // Inline ayah-end marker
     val inlineContent = remember(block.ayah, contentColor) {
         mapOf(
             "marker" to androidx.compose.foundation.text.InlineTextContent(
@@ -169,145 +194,256 @@ private fun AyahBlockView(
         )
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp), // Zero corners for full-bleed
-        color = arabicBg,
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(highlightBg)
     ) {
-        Column(
+        // ── Action bar row ────────────────────────────────────────────────────
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Reference badge top-right
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                AyahRefBadge(display = block.display, fg = contentColor)
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // Arabic text Selection
-            val verseKey = "${block.surah}:${block.ayah}"
-            val tajweedMarkup = if (settings.selectedScript == "uthmani") {
-                tajweedMap[verseKey] ?: block.tajweedMarkup
-            } else null
-            
-            val plainArabicText = if (settings.selectedScript != "uthmani") {
-                scriptMap[verseKey] ?: block.textUthmani
-            } else {
-                block.textUthmani
-            }
-
-            // Arabic text rendering — prefer tajweed markup when enabled
-            val showTajweed = settings.showTajweed && tajweedMarkup != null
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                if (showTajweed) {
-                    TajweedText(
-                        markup = tajweedMarkup!!,
-                        fontSize = settings.arabicSizeSp.sp,
-                        lineHeight = (settings.arabicSizeSp * 1.75f).sp,
-                        color = contentColor,
-                        inlineContent = inlineContent,
-                        appendMarker = true,
-                        modifier = Modifier.fillMaxWidth()
+            // Verse number circle badge
+            Box(
+                modifier = Modifier.size(36.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawCircle(
+                        color = primaryColor.copy(alpha = 0.12f),
+                        radius = size.minDimension / 2f
                     )
-                } else if (plainArabicText != null) {
-                    val annotatedString = remember(plainArabicText, contentColor) {
-                        buildAnnotatedString {
-                            append(plainArabicText)
-                            appendInlineContent("marker", "[marker]")
-                        }
-                    }
-                    Text(
-                        text = annotatedString,
-                        fontFamily = ScheherazadeNew,
-                        fontSize = settings.arabicSizeSp.sp,
-                        lineHeight = (settings.arabicSizeSp * 1.75f).sp,
-                        textAlign = TextAlign.Center,
-                        color = contentColor,
-                        inlineContent = inlineContent,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            textDirection = TextDirection.Rtl,
-                            fontFamily = ScheherazadeNew,
-                            color = contentColor
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
+                    drawCircle(
+                        color = primaryColor.copy(alpha = 0.4f),
+                        radius = size.minDimension / 2f,
+                        style = Stroke(width = 1.5f)
                     )
                 }
+                Text(
+                    text = block.ayah.toString(),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = BeVietnamPro,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    ),
+                    color = primaryColor,
+                )
             }
 
-            // Dynamic translation lookup
-            val translationText = when {
-                !settings.showTranslation -> null
-                translationMap.isNotEmpty() -> com.kaizen.khushu.data.repository.TranslationRepository.getTranslation(translationMap, block.surah, block.ayah)
-                    ?: block.translationEn
-                else -> block.translationEn
-            }
-
-            // Determine if selected lang is RTL
-            val isTranslationRtl = com.kaizen.khushu.data.model.TranslationMeta.AVAILABLE_TRANSLATIONS
-                .find { it.id == settings.selectedTranslationLang }?.isRtl ?: false
-
-            if (translationText != null) {
-                Spacer(Modifier.height(16.dp))
-                CompositionLocalProvider(
-                    LocalLayoutDirection provides if (isTranslationRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
-                ) {
-                    Text(
-                        text = translationText,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Default,
-                            fontSize = settings.translationSizeSp.sp,
-                            lineHeight = (settings.translationSizeSp * 1.65f).sp,
-                            fontStyle = FontStyle.Italic,
-                            textAlign = if (isTranslationRtl) TextAlign.Right else TextAlign.Center,
-                        ),
-                        color = contentColor.copy(alpha = 0.75f),
-                        modifier = Modifier.fillMaxWidth(),
+            // Action icons
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onPlayClick, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = contentColor.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-            }
-
-            if (settings.showTafsir && block.tafsirText != null) {
-                Spacer(Modifier.height(24.dp))
-                HorizontalDivider(color = contentColor.copy(alpha = 0.1f))
-                Spacer(Modifier.height(16.dp))
-                val isSpa5k = settings.selectedTafsirSource == "SPA5K"
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    Text(
-                        text = block.tafsirText,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = if (isSpa5k) ScheherazadeNew else androidx.compose.ui.text.font.FontFamily.Default,
-                            fontSize = if (isSpa5k) (settings.translationSizeSp + 6f).sp else settings.translationSizeSp.sp,
-                            lineHeight = if (isSpa5k) ((settings.translationSizeSp + 6f) * 1.8f).sp else (settings.translationSizeSp * 1.6f).sp,
-                            textAlign = TextAlign.Right,
-                        ),
-                        color = contentColor.copy(alpha = 0.85f),
-                        modifier = Modifier.fillMaxWidth(),
+                IconButton(onClick = onBookmarkClick, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.Default.BookmarkBorder,
+                        contentDescription = "Bookmark",
+                        tint = contentColor.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                IconButton(onClick = {}, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "Share",
+                        tint = contentColor.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                IconButton(onClick = {}, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = "More",
+                        tint = contentColor.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
         }
+
+        // ── Arabic text ───────────────────────────────────────────────────────
+        val verseKey = "${block.surah}:${block.ayah}"
+        val tajweedMarkup = if (settings.selectedScript == "uthmani")
+            tajweedMap[verseKey] ?: block.tajweedMarkup
+        else null
+
+        val plainArabicText = if (settings.selectedScript != "uthmani")
+            scriptMap[verseKey] ?: block.textUthmani
+        else block.textUthmani
+
+        val showTajweed = settings.showTajweed && tajweedMarkup != null
+
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            if (showTajweed) {
+                TajweedText(
+                    markup = tajweedMarkup!!,
+                    fontSize = settings.arabicSizeSp.sp,
+                    lineHeight = (settings.arabicSizeSp * 1.8f).sp,
+                    color = contentColor,
+                    inlineContent = inlineContent,
+                    appendMarker = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 8.dp, bottom = 4.dp)
+                )
+            } else if (plainArabicText != null) {
+                val annotatedString = remember(plainArabicText, contentColor) {
+                    buildAnnotatedString {
+                        append(plainArabicText)
+                        appendInlineContent("marker", "[marker]")
+                    }
+                }
+                Text(
+                    text = annotatedString,
+                    fontFamily = ScheherazadeNew,
+                    fontSize = settings.arabicSizeSp.sp,
+                    lineHeight = (settings.arabicSizeSp * 1.8f).sp,
+                    textAlign = TextAlign.Start,
+                    color = contentColor,
+                    inlineContent = inlineContent,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        textDirection = TextDirection.Rtl,
+                        fontFamily = ScheherazadeNew,
+                        color = contentColor
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 8.dp, bottom = 4.dp),
+                )
+            }
+        }
+
+        // ── Translation ───────────────────────────────────────────────────────
+        val translationText = when {
+            !settings.showTranslation -> null
+            translationMap.isNotEmpty() -> com.kaizen.khushu.data.repository.TranslationRepository
+                .getTranslation(translationMap, block.surah, block.ayah) ?: block.translationEn
+            else -> block.translationEn
+        }
+        val isTranslationRtl = com.kaizen.khushu.data.model.TranslationMeta.AVAILABLE_TRANSLATIONS
+            .find { it.id == settings.selectedTranslationLang }?.isRtl ?: false
+
+        if (translationText != null) {
+            CompositionLocalProvider(
+                LocalLayoutDirection provides if (isTranslationRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+            ) {
+                Text(
+                    text = translationText,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = BeVietnamPro,
+                        fontSize = settings.translationSizeSp.sp,
+                        lineHeight = (settings.translationSizeSp * 1.7f).sp,
+                        textAlign = if (isTranslationRtl) TextAlign.Right else TextAlign.Left,
+                    ),
+                    color = contentColor.copy(alpha = 0.78f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 4.dp, bottom = 8.dp),
+                )
+            }
+        }
+
+        // ── Inline Tafsir ─────────────────────────────────────────────────────
+        if (settings.showTafsir && block.tafsirText != null) {
+            val isSpa5k = settings.selectedTafsirSource == "SPA5K"
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        "Tafsir",
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = BeVietnamPro),
+                        color = primaryColor,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                        Text(
+                            text = block.tafsirText,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = if (isSpa5k) ScheherazadeNew else BeVietnamPro,
+                                fontSize = if (isSpa5k) (settings.translationSizeSp + 5f).sp else settings.translationSizeSp.sp,
+                                lineHeight = if (isSpa5k) ((settings.translationSizeSp + 5f) * 1.8f).sp else (settings.translationSizeSp * 1.6f).sp,
+                                textAlign = TextAlign.Right,
+                            ),
+                            color = contentColor.copy(alpha = 0.85f),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Quran.com style content chips ─────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            VerseChip(Icons.AutoMirrored.Filled.MenuBook, "Tafsirs", contentColor, onTafsirClick)
+            VerseChip(Icons.Default.School, "Lessons", contentColor, {})
+            VerseChip(Icons.AutoMirrored.Filled.Chat, "Reflections", contentColor, {})
+        }
+
+        // ── Verse separator ───────────────────────────────────────────────────
+        HorizontalDivider(
+            color = contentColor.copy(alpha = 0.08f),
+            thickness = 1.dp,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
     }
 }
 
 @Composable
-private fun AyahRefBadge(display: String, fg: Color) {
+private fun VerseChip(
+    icon: ImageVector,
+    label: String,
+    contentColor: Color,
+    onClick: () -> Unit,
+) {
     Surface(
-        shape = RoundedCornerShape(50),
-        color = fg.copy(alpha = 0.08f),
+        onClick = onClick,
+        shape = RoundedCornerShape(6.dp),
+        color = contentColor.copy(alpha = 0.07f),
     ) {
-        Text(
-            text = display,
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontFamily = BeVietnamPro,
-                fontWeight = FontWeight.Medium,
-                fontSize = 12.sp,
-            ),
-            color = fg.copy(alpha = 0.5f),
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = contentColor.copy(alpha = 0.5f)
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = BeVietnamPro),
+                color = contentColor.copy(alpha = 0.6f)
+            )
+        }
     }
 }
 
@@ -329,7 +465,7 @@ private fun HadithBlockView(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp), // Full-bleed
+        shape = RoundedCornerShape(0.dp),
         color = hadithBg,
     ) {
         Column(
@@ -338,7 +474,6 @@ private fun HadithBlockView(
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Header: Grade and Reference
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -349,8 +484,6 @@ private fun HadithBlockView(
                 } else {
                     Spacer(Modifier.width(1.dp))
                 }
-
-                // Reference top-right
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = fg.copy(alpha = 0.06f),
@@ -367,9 +500,8 @@ private fun HadithBlockView(
                 }
             }
 
-            Spacer(Modifier.height(8.dp)) // Extra space under header row
+            Spacer(Modifier.height(8.dp))
 
-            // Arabic text
             if (block.textArabic != null) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Text(
@@ -388,7 +520,6 @@ private fun HadithBlockView(
                 }
             }
 
-            // English text
             val bodyText = block.textEn
             if (bodyText != null) {
                 Text(
@@ -404,7 +535,6 @@ private fun HadithBlockView(
                 )
             }
 
-            // Narrator (bottom-right)
             if (block.narrator != null) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     Text(
@@ -424,8 +554,8 @@ private fun HadithBlockView(
 @Composable
 private fun GradePill(grade: String, fg: Color) {
     val pillColor = when (grade.lowercase()) {
-        "sahih", "صحيح" -> Color(0xFF2E7D32) // Green for authentic
-        "hasan", "حسن"  -> Color(0xFF1565C0) // Blue for good
+        "sahih", "صحيح" -> Color(0xFF2E7D32)
+        "hasan", "حسن"  -> Color(0xFF1565C0)
         else             -> fg.copy(alpha = 0.6f)
     }
     Box(
@@ -446,7 +576,6 @@ private fun GradePill(grade: String, fg: Color) {
     }
 }
 
-
 // ── Callout ────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -458,7 +587,7 @@ private fun CalloutBlockView(
     val (accentColor, icon) = when (block.style) {
         "tip"     -> MaterialTheme.colorScheme.primary to Icons.Default.Lightbulb
         "warning" -> Color(0xFFF59E0B) to Icons.Default.Info
-        else      -> MaterialTheme.colorScheme.secondary to Icons.Default.Info // "note"
+        else      -> MaterialTheme.colorScheme.secondary to Icons.Default.Info
     }
 
     Box(
@@ -467,7 +596,6 @@ private fun CalloutBlockView(
             .clip(RoundedCornerShape(12.dp))
             .background(accentColor.copy(alpha = 0.1f))
     ) {
-        // Left accent bar
         Box(
             modifier = Modifier
                 .width(4.dp)
@@ -475,11 +603,10 @@ private fun CalloutBlockView(
                 .align(Alignment.CenterStart)
                 .background(accentColor)
         )
-        
         Row(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 14.dp)
-                .padding(start = 4.dp), // Space for accent bar
+                .padding(start = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top,
         ) {
@@ -517,7 +644,7 @@ private fun DividerBlockView(fg: Color, modifier: Modifier = Modifier) {
     )
 }
 
-// ── Arabic (standalone dua / phrase) ──────────────────────────────────────────
+// ── Arabic standalone ──────────────────────────────────────────────────────────
 
 @Composable
 private fun ArabicBlockView(
@@ -535,7 +662,7 @@ private fun ArabicBlockView(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp), // Full-bleed
+        shape = RoundedCornerShape(0.dp),
         color = arabicBg,
     ) {
         Column(
