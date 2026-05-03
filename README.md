@@ -4,7 +4,7 @@
 
 <div align="center">
   <p style="font-size: 24px; font-weight: bold;">• Khushu •</p>
-  <strong>Your deen deserves your full heart.</strong>
+  <strong>A calm space for your deen.</strong>
 </div>
 
 <br>
@@ -16,12 +16,13 @@
   <!-- <img src="https://img.shields.io/github/downloads/greykaizen/khushu/latest/total?label=Downloads&color=3DDC84" alt="Total Downloads"> -->
 </p>
 
+<p align="center"><i>Available on</i></p>
 <p align="center">
   <a href="https://github.com/greykaizen/khushu/releases/latest"><img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.svg" height="104" align="middle"></a>&nbsp;&nbsp;
   <a href="https://android.izzysoft.de/repo/apk/com.kaizen.khushu"><img src="https://gitlab.com/izzyondroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="104" align="middle"></a>&nbsp;&nbsp;
   <a href="http://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/greykaizen/khushu"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="70" align="middle"></a>
 </p>
-
+<p align="center"><i>Not on Play Store yet (empty pockets</i> 😁)</p>
 
 > [!NOTE]
 > **Khushu is in Early Development.**
@@ -29,7 +30,8 @@
 
 ---
 
-<p align="center">﷽</p>
+<div align="center">﷽</div>
+
 
 **Assalamu Alaikum wa Rahmatullahi wa Barakatuh,**
 
@@ -43,25 +45,24 @@ There are no ads, no trackers, no subscriptions, and no selling of your data. Yo
 
 ---
 
-## ✨ A Space for Focus
+## ✨ Everything You Need. Nothing You Don't.
 
-We stripped away everything unnecessary and embraced a beautiful, distraction-free aesthetic. It's gentle on the eyes, deeply immersive, and designed to help you attain *Khushu* (deep concentration and humility) in your worship.
+Khushu is packed with accurate prayer times, sunpath visuals, immersive Salah tracking, deeply customizable Tasbeeh collections, and a complete suite for reading and listening to the Quran, Tafsir, and Hadith—all wrapped in a deeply immersive aesthetic designed to help you attain *Khushu* (true focus and humility) in your worship.
 
-### 🕋 Comprehensive Yet Minimal
-Khushu is packed with everything you need—accurate prayer times with sunpath visuals, immersive Salah tracking, deeply customizable Tasbeeh collections, and a complete suite for reading and listening to the Quran, Tafsir, and Hadith. All wrapped in a premium, highly expressive Material 3 aesthetic designed to respect your focus.
-
-<p align="center">
-  <kbd><img src="docs/images/screenshots/poster_1.jpg" width="190"></kbd>&nbsp;
-  <kbd><img src="docs/images/screenshots/poster_2.jpg" width="190"></kbd>&nbsp;
-  <kbd><img src="docs/images/screenshots/poster_3.jpg" width="190"></kbd>&nbsp;
-  <kbd><img src="docs/images/screenshots/poster_4.jpg" width="190"></kbd>
-</p>
-<p align="center">
-  <kbd><img src="docs/images/screenshots/poster_5.jpg" width="190"></kbd>&nbsp;
-  <kbd><img src="docs/images/screenshots/poster_6.jpg" width="190"></kbd>&nbsp;
-  <kbd><img src="docs/images/screenshots/poster_7.jpg" width="190"></kbd>&nbsp;
-  <kbd><img src="docs/images/screenshots/poster_8.jpg" width="190"></kbd>
-</p>
+<table align="center">
+  <tr>
+    <td align="center"><kbd><img src="docs/images/screenshots/poster_1.jpg" width="180"></kbd></td>
+    <td align="center"><kbd><img src="docs/images/screenshots/poster_2.jpg" width="180"></kbd></td>
+    <td align="center"><kbd><img src="docs/images/screenshots/poster_3.jpg" width="180"></kbd></td>
+    <td align="center"><kbd><img src="docs/images/screenshots/poster_4.jpg" width="180"></kbd></td>
+  </tr>
+  <tr>
+    <td align="center"><kbd><img src="docs/images/screenshots/poster_5.jpg" width="180"></kbd></td>
+    <td align="center"><kbd><img src="docs/images/screenshots/poster_6.jpg" width="180"></kbd></td>
+    <td align="center"><kbd><img src="docs/images/screenshots/poster_7.jpg" width="180"></kbd></td>
+    <td align="center"><kbd><img src="docs/images/screenshots/poster_8.jpg" width="180"></kbd></td>
+  </tr>
+</table>
 
 
 ---
@@ -84,7 +85,7 @@ If you love the app and want to see it grow—if you want to help us reach more 
 
 ## 🛠️ Roadmap
 
-Khushu is already usable, but there is still a lot of thoughtful work planned ahead. The current roadmap includes:
+Khushu is growing fast. Here is what is coming next:
 
 *   **🕌 Muslim Mosque Registry:** A clean, community-helpful way to discover and keep track of mosques timings in local areas.
 *   **🧭 Qibla Direction:** A focused Qibla experience that feels calm and reliable instead of gimmicky.
