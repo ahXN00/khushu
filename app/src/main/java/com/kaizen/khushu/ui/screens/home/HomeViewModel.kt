@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.kaizen.khushu.ui.screens.home
 
 import androidx.compose.ui.graphics.Color
@@ -8,6 +10,7 @@ import com.kaizen.khushu.data.repository.extraPrayerTimingShortLabel
 import com.kaizen.khushu.data.repository.IslamicEventsRepository
 import com.kaizen.khushu.data.repository.PrayerTimeRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
+import com.kaizen.khushu.logic.PrayerManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 import java.text.SimpleDateFormat
 import java.time.chrono.HijrahDate
 import java.time.format.DateTimeFormatter
@@ -29,16 +33,13 @@ class HomeViewModel(
     private val settingsRepository: SettingsRepository,
     private val prayerTimeRepository: PrayerTimeRepository,
     private val islamicEventsRepository: IslamicEventsRepository,
+    val prayerManager: PrayerManager,
 ) : ViewModel() {
 
-    private val _currentTime = MutableStateFlow(Date())
     private val _previewTimeMillis = MutableStateFlow<Long?>(null)
     private val _isRefreshing = MutableStateFlow(false)
     private val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
     
-    // State for API prayer times to avoid re-fetching on every tick
-    private val _apiPrayerTimes = MutableStateFlow<Map<String, String>?>(null)
-    private var lastApiFetchKey: String? = null
     private var refreshStartedAtMillis = 0L
 
     private suspend fun completeRefreshWithMinimumDuration() {
@@ -49,61 +50,22 @@ class HomeViewModel(
         _isRefreshing.value = false
     }
 
-    // Fallback UI State
-    private val _uiState = MutableStateFlow(HomeUiState())
-
     val uiState: StateFlow<HomeUiState> = combine(
         settingsRepository.settingsFlow,
-        _currentTime,
+        prayerManager.prayerState,
         _previewTimeMillis,
-        _isRefreshing,
-        _apiPrayerTimes
-    ) { settings, currentTime, previewTimeMillis, isRefreshing, apiTimingsState ->
-        val effectiveCurrentTime = previewTimeMillis?.let(::Date) ?: currentTime
-        // 1. Calculate Prayer Times
-        val localMethodSupported = prayerTimeRepository.supportsLocalCalculationMethod(
-            settings.prayerCalculationMethod
-        )
-        val isApiSource = settings.prayerSourceType == "API" || !localMethodSupported
+        _isRefreshing
+    ) { settings, prayerState, previewTimeMillis, isRefreshing ->
+        val usingPreviewTime = previewTimeMillis != null
+        val previewTime = previewTimeMillis?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it) }
+        val effectiveDate = Date(previewTimeMillis ?: System.currentTimeMillis())
+        val isApiSource = prayerTimeRepository.usesApiSource(settings)
 
-        // Check if we need to fetch API times (once per day or on setting change)
-        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(effectiveCurrentTime)
-        val apiFetchKey = listOf(
-            todayStr,
-            settings.locationLat,
-            settings.locationLng,
-            settings.prayerCalculationMethod,
-            settings.prayerMadhab
-        ).joinToString("|")
-        if (isApiSource && (lastApiFetchKey != apiFetchKey)) {
-            viewModelScope.launch {
-                val timings = prayerTimeRepository.getFallbackPrayerTimes(
-                    effectiveCurrentTime,
-                    settings.locationLat.toDouble(),
-                    settings.locationLng.toDouble(),
-                    settings.prayerCalculationMethod,
-                    settings.prayerMadhab
-                )
-                _apiPrayerTimes.value = timings
-                lastApiFetchKey = apiFetchKey
-                settingsRepository.updateLastPrayerRefresh(System.currentTimeMillis())
-                completeRefreshWithMinimumDuration()
-            }
-        }
-
-        val prayerTimes = runCatching {
-            prayerTimeRepository.getLocalPrayerTimes(
-                date = effectiveCurrentTime,
-                lat = settings.locationLat.toDouble(),
-                lng = settings.locationLng.toDouble(),
-                methodStr = settings.prayerCalculationMethod,
-                madhabStr = settings.prayerMadhab
-            )
-        }.getOrElse {
+        if (prayerState == null) {
             return@combine HomeUiState(
-                currentTimeMillis = effectiveCurrentTime.time,
                 isRefreshing = isRefreshing,
-                usingPreviewTime = previewTimeMillis != null,
+                usingPreviewTime = usingPreviewTime,
+                previewTime = previewTime,
                 lastPrayerRefreshEpochMs = settings.lastPrayerRefreshEpochMs,
                 locationLat = settings.locationLat,
                 locationLng = settings.locationLng,
@@ -111,65 +73,23 @@ class HomeViewModel(
             )
         }
 
-        // API values helper
-        val apiTimings = if (isApiSource) _apiPrayerTimes.value else null
-        val extraPrayerTimes = runCatching {
-            prayerTimeRepository.getExtraPrayerDateTimes(
-                date = effectiveCurrentTime,
-                settings = settings
-            )
-        }.getOrDefault(emptyMap())
+        val effectivePrayerTimes = prayerTimeRepository.getEffectivePrayerDateTimes(
+            date = effectiveDate,
+            settings = settings
+        ).mapValues { (_, value) -> kotlinx.datetime.Instant.fromEpochMilliseconds(value.time) }
 
-        fun parseApiTime(key: String, fallback: Date): Date {
-            val timeStr = apiTimings?.get(key) ?: return fallback
-            return try {
-                val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-                val normalizedTime = timeStr.take(5)
-                val parsed = sdf.parse(normalizedTime) ?: return fallback
-                val cal = Calendar.getInstance().apply { time = effectiveCurrentTime }
-                val parsedCal = Calendar.getInstance().apply { time = parsed }
-                cal.set(Calendar.HOUR_OF_DAY, parsedCal.get(Calendar.HOUR_OF_DAY))
-                cal.set(Calendar.MINUTE, parsedCal.get(Calendar.MINUTE))
-                cal.set(Calendar.SECOND, 0)
-                cal.time
-            } catch (e: Exception) {
-                fallback
-            }
+        fun applyOffset(instant: kotlinx.datetime.Instant, minutes: Int): kotlinx.datetime.Instant {
+            return kotlinx.datetime.Instant.fromEpochMilliseconds(instant.toEpochMilliseconds() + minutes * 60_000L)
         }
 
-        val fajrDate = if (isApiSource) parseApiTime("Fajr", prayerTimes.fajr) else prayerTimes.fajr
-        val sunriseDate = if (isApiSource) parseApiTime("Sunrise", prayerTimes.sunrise) else prayerTimes.sunrise
-        val dhuhrDate = if (isApiSource) parseApiTime("Dhuhr", prayerTimes.dhuhr) else prayerTimes.dhuhr
-        val asrDate = if (isApiSource) parseApiTime("Asr", prayerTimes.asr) else prayerTimes.asr
-        val maghribDate = if (isApiSource) parseApiTime("Maghrib", prayerTimes.maghrib) else prayerTimes.maghrib
-        val ishaDate = if (isApiSource) parseApiTime("Isha", prayerTimes.isha) else prayerTimes.isha
+        val adjustedFajr = effectivePrayerTimes["Fajr"] ?: prayerState.allPrayers.fajr
+        val adjustedDhuhr = effectivePrayerTimes["Dhuhr"] ?: prayerState.allPrayers.dhuhr
+        val adjustedAsr = effectivePrayerTimes["Asr"] ?: prayerState.allPrayers.asr
+        val adjustedMaghrib = effectivePrayerTimes["Maghrib"] ?: prayerState.allPrayers.maghrib
+        val adjustedIsha = effectivePrayerTimes["Isha"] ?: prayerState.allPrayers.isha
 
-        fun applyOffset(date: Date, minutes: Int): Date {
-            return Date(date.time + minutes * 60_000L)
-        }
-
-        val adjustedFajrDate = applyOffset(fajrDate, settings.fajrOffsetMinutes)
-        val adjustedDhuhrDate = applyOffset(dhuhrDate, settings.dhuhrOffsetMinutes)
-        val adjustedAsrDate = applyOffset(asrDate, settings.asrOffsetMinutes)
-        val adjustedMaghribDate = applyOffset(maghribDate, settings.maghribOffsetMinutes)
-        val adjustedIshaDate = applyOffset(ishaDate, settings.ishaOffsetMinutes)
-
-        // 2. Map Time to Arc Bounds (Fajr -> Isha mapped to 0.08 -> 0.93)
-        val fajrMs = adjustedFajrDate.time
-        val ishaMs = adjustedIshaDate.time
-
-        // Helper to get raw timestamp of a prayer on a specific day
-        fun getPrayerTime(hour: Int, min: Int, daysOffset: Int = 0): Long {
-            val cal = Calendar.getInstance().apply {
-                time = effectiveCurrentTime
-                add(Calendar.DAY_OF_YEAR, daysOffset)
-                set(Calendar.HOUR_OF_DAY, hour)
-                set(Calendar.MINUTE, min)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            return cal.timeInMillis
-        }
+        val fajrMs = adjustedFajr.toEpochMilliseconds()
+        val ishaMs = adjustedIsha.toEpochMilliseconds()
 
         fun tToArc(ms: Long): Float {
             val total = (ishaMs - fajrMs).toFloat()
@@ -178,124 +98,139 @@ class HomeViewModel(
             return 0.08f + ratio * (0.93f - 0.08f)
         }
 
-        // 3. Current Sun Arc
-        val currentArcT = tToArc(effectiveCurrentTime.time).coerceIn(-0.1f, 1.1f)
+        fun formatInstant(instant: kotlinx.datetime.Instant): String {
+            return timeFormatter.format(Date(instant.toEpochMilliseconds()))
+        }
 
-        // 4. Build PrayerInfo List
-        val fajrCal = Calendar.getInstance().apply { time = adjustedFajrDate }
-        val dhuhrCal = Calendar.getInstance().apply { time = adjustedDhuhrDate }
-        val asrCal = Calendar.getInstance().apply { time = adjustedAsrDate }
-        val maghribCal = Calendar.getInstance().apply { time = adjustedMaghribDate }
-        val ishaCal = Calendar.getInstance().apply { time = adjustedIshaDate }
+        fun getHourMin(instant: kotlinx.datetime.Instant): Pair<Int, Int> {
+            val cal = Calendar.getInstance().apply { timeInMillis = instant.toEpochMilliseconds() }
+            return cal.get(Calendar.HOUR_OF_DAY) to cal.get(Calendar.MINUTE)
+        }
+
+        val (fajrHr, fajrMin) = getHourMin(adjustedFajr)
+        val (dhuhrHr, dhuhrMin) = getHourMin(adjustedDhuhr)
+        val (asrHr, asrMin) = getHourMin(adjustedAsr)
+        val (maghribHr, maghribMin) = getHourMin(adjustedMaghrib)
+        val (ishaHr, ishaMin) = getHourMin(adjustedIsha)
 
         val mappedPrayers = listOf(
             PrayerInfo(
                 name = "Fajr", ar = "الفجر",
-                time = timeFormatter.format(adjustedFajrDate),
-                hour = fajrCal.get(Calendar.HOUR_OF_DAY), minute = fajrCal.get(Calendar.MINUTE),
+                time = formatInstant(adjustedFajr),
+                hour = fajrHr, minute = fajrMin,
                 arcT = tToArc(fajrMs),
-                dotColorLight = Color(0xFF4a70b0), dotColorDark = Color(0xFF6890d8),
-                rawTime = getPrayerTime(fajrCal.get(Calendar.HOUR_OF_DAY), fajrCal.get(Calendar.MINUTE))
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFF4a70b0), dotColorDark = androidx.compose.ui.graphics.Color(0xFF6890d8),
+                rawTime = adjustedFajr
             ),
             PrayerInfo(
                 name = "Dhuhr", ar = "الظهر",
-                time = timeFormatter.format(adjustedDhuhrDate),
-                hour = dhuhrCal.get(Calendar.HOUR_OF_DAY), minute = dhuhrCal.get(Calendar.MINUTE),
-                arcT = tToArc(adjustedDhuhrDate.time),
-                dotColorLight = Color(0xFFa87010), dotColorDark = Color(0xFFd4a828),
-                rawTime = getPrayerTime(dhuhrCal.get(Calendar.HOUR_OF_DAY), dhuhrCal.get(Calendar.MINUTE))
+                time = formatInstant(adjustedDhuhr),
+                hour = dhuhrHr, minute = dhuhrMin,
+                arcT = tToArc(adjustedDhuhr.toEpochMilliseconds()),
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFFa87010), dotColorDark = androidx.compose.ui.graphics.Color(0xFFd4a828),
+                rawTime = adjustedDhuhr
             ),
             PrayerInfo(
                 name = "Asr", ar = "العصر",
-                time = timeFormatter.format(adjustedAsrDate),
-                hour = asrCal.get(Calendar.HOUR_OF_DAY), minute = asrCal.get(Calendar.MINUTE),
-                arcT = tToArc(adjustedAsrDate.time),
-                dotColorLight = Color(0xFFa06020), dotColorDark = Color(0xFFd08840),
-                rawTime = getPrayerTime(asrCal.get(Calendar.HOUR_OF_DAY), asrCal.get(Calendar.MINUTE))
+                time = formatInstant(adjustedAsr),
+                hour = asrHr, minute = asrMin,
+                arcT = tToArc(adjustedAsr.toEpochMilliseconds()),
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFFa06020), dotColorDark = androidx.compose.ui.graphics.Color(0xFFd08840),
+                rawTime = adjustedAsr
             ),
             PrayerInfo(
                 name = "Maghrib", ar = "المغرب",
-                time = timeFormatter.format(adjustedMaghribDate),
-                hour = maghribCal.get(Calendar.HOUR_OF_DAY), minute = maghribCal.get(Calendar.MINUTE),
-                arcT = tToArc(adjustedMaghribDate.time),
-                dotColorLight = Color(0xFF9a3828), dotColorDark = Color(0xFFe06050),
-                rawTime = getPrayerTime(maghribCal.get(Calendar.HOUR_OF_DAY), maghribCal.get(Calendar.MINUTE))
+                time = formatInstant(adjustedMaghrib),
+                hour = maghribHr, minute = maghribMin,
+                arcT = tToArc(adjustedMaghrib.toEpochMilliseconds()),
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFF9a3828), dotColorDark = androidx.compose.ui.graphics.Color(0xFFe06050),
+                rawTime = adjustedMaghrib
             ),
             PrayerInfo(
                 name = "Isha", ar = "العشاء",
-                time = timeFormatter.format(adjustedIshaDate),
-                hour = ishaCal.get(Calendar.HOUR_OF_DAY), minute = ishaCal.get(Calendar.MINUTE),
+                time = formatInstant(adjustedIsha),
+                hour = ishaHr, minute = ishaMin,
                 arcT = tToArc(ishaMs),
-                dotColorLight = Color(0xFF584898), dotColorDark = Color(0xFF9070d0),
-                rawTime = getPrayerTime(ishaCal.get(Calendar.HOUR_OF_DAY), ishaCal.get(Calendar.MINUTE))
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFF584898), dotColorDark = androidx.compose.ui.graphics.Color(0xFF9070d0),
+                rawTime = adjustedIsha
             )
         )
 
+        val extraPrayerTimes = runCatching {
+            prayerTimeRepository.getExtraPrayerDateTimes(
+                date = effectiveDate,
+                settings = settings
+            )
+        }.getOrDefault(emptyMap())
+        val sunriseInstant =
+            extraPrayerTimes["SUNRISE"]?.let { kotlinx.datetime.Instant.fromEpochMilliseconds(it.time) }
+                ?: prayerState.allPrayers.sunrise
+
         val selectedExtraTimings = settings.selectedExtraPrayerTimings
         val mappedExtraTimings = selectedExtraTimings.mapNotNull { id ->
-            val timing = extraPrayerTimes[id] ?: return@mapNotNull null
+            val timingDate = extraPrayerTimes[id] ?: return@mapNotNull null
+            val timing = kotlinx.datetime.Instant.fromEpochMilliseconds(timingDate.time)
+            val (hr, min) = getHourMin(timing)
             PrayerInfo(
                 name = extraPrayerTimingShortLabel(id),
                 ar = extraPrayerTimingArabicLabel(id),
-                time = timeFormatter.format(timing),
-                hour = Calendar.getInstance().apply { time = timing }.get(Calendar.HOUR_OF_DAY),
-                minute = Calendar.getInstance().apply { time = timing }.get(Calendar.MINUTE),
-                arcT = tToArc(timing.time),
+                time = formatInstant(timing),
+                hour = hr,
+                minute = min,
+                arcT = tToArc(timing.toEpochMilliseconds()),
                 dotColorLight = when (id) {
-                    "IMSAK" -> Color(0xFF5D739C)
-                    "SUNRISE" -> Color(0xFFCC8B33)
-                    "SUNSET" -> Color(0xFFAF5A3E)
-                    "FIRST_THIRD" -> Color(0xFF6F66AF)
-                    "MIDNIGHT" -> Color(0xFF534E9B)
-                    "LAST_THIRD" -> Color(0xFF4D79B2)
-                    else -> Color(0xFF8A8A8A)
+                    "IMSAK" -> androidx.compose.ui.graphics.Color(0xFF5D739C)
+                    "SUNRISE" -> androidx.compose.ui.graphics.Color(0xFFCC8B33)
+                    "SUNSET" -> androidx.compose.ui.graphics.Color(0xFFAF5A3E)
+                    "FIRST_THIRD" -> androidx.compose.ui.graphics.Color(0xFF6F66AF)
+                    "MIDNIGHT" -> androidx.compose.ui.graphics.Color(0xFF534E9B)
+                    "LAST_THIRD" -> androidx.compose.ui.graphics.Color(0xFF4D79B2)
+                    else -> androidx.compose.ui.graphics.Color(0xFF8A8A8A)
                 },
                 dotColorDark = when (id) {
-                    "IMSAK" -> Color(0xFF7E95C1)
-                    "SUNRISE" -> Color(0xFFE7B055)
-                    "SUNSET" -> Color(0xFFD37858)
-                    "FIRST_THIRD" -> Color(0xFF8B80D1)
-                    "MIDNIGHT" -> Color(0xFF7C74D4)
-                    "LAST_THIRD" -> Color(0xFF70A2E6)
-                    else -> Color(0xFFB0B0B0)
+                    "IMSAK" -> androidx.compose.ui.graphics.Color(0xFF7E95C1)
+                    "SUNRISE" -> androidx.compose.ui.graphics.Color(0xFFE7B055)
+                    "SUNSET" -> androidx.compose.ui.graphics.Color(0xFFD37858)
+                    "FIRST_THIRD" -> androidx.compose.ui.graphics.Color(0xFF8B80D1)
+                    "MIDNIGHT" -> androidx.compose.ui.graphics.Color(0xFF7C74D4)
+                    "LAST_THIRD" -> androidx.compose.ui.graphics.Color(0xFF70A2E6)
+                    else -> androidx.compose.ui.graphics.Color(0xFFB0B0B0)
                 },
-                rawTime = timing.time,
+                rawTime = timing,
                 isExtra = true
             )
         }.sortedBy { it.rawTime }
 
-        // 5. Build Makruh Zones
         val min20 = 20 * 60 * 1000L
         val min15 = 15 * 60 * 1000L
 
         val makruhSunrise = MakruhZone(
-            tStart = tToArc(sunriseDate.time),
-            tEnd = tToArc(sunriseDate.time + min20),
+            tStart = tToArc(sunriseInstant.toEpochMilliseconds()),
+            tEnd = tToArc(sunriseInstant.toEpochMilliseconds() + min20),
             label = "Sunrise",
             description = "Disliked to pray until the sun rises a spear’s height (~20 min after sunrise)"
         )
         val makruhZawal = MakruhZone(
-            tStart = tToArc(adjustedDhuhrDate.time - min15),
-            tEnd = tToArc(adjustedDhuhrDate.time),
+            tStart = tToArc(adjustedDhuhr.toEpochMilliseconds() - min15),
+            tEnd = tToArc(adjustedDhuhr.toEpochMilliseconds()),
             label = "Zawal",
             description = "Sun at exact zenith — forbidden to pray at this moment, just before Dhuhr begins"
         )
         val makruhSunset = MakruhZone(
-            tStart = tToArc(adjustedMaghribDate.time - min15),
-            tEnd = tToArc(adjustedMaghribDate.time),
+            tStart = tToArc(adjustedMaghrib.toEpochMilliseconds() - min15),
+            tEnd = tToArc(adjustedMaghrib.toEpochMilliseconds()),
             label = "Sunset",
             description = "Disliked to pray as the sun sets until it fully disappears below the horizon"
         )
 
-        // 6. Build Hijri Date & Events without letting ancillary failures break prayer UI
-        val todayHijri = runCatching { HijrahDate.now() }.getOrNull()
+        val todayHijri = runCatching { java.time.chrono.HijrahDate.now() }.getOrNull()
         val formattedHijri = runCatching {
-            val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy")
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy")
             todayHijri?.format(formatter).orEmpty()
         }.getOrDefault("")
-        val currentMonth = todayHijri?.get(ChronoField.MONTH_OF_YEAR) ?: 0
-        val currentDay = todayHijri?.get(ChronoField.DAY_OF_MONTH) ?: 0
-        val currentYear = todayHijri?.get(ChronoField.YEAR) ?: 0
+        val currentMonth = todayHijri?.get(java.time.temporal.ChronoField.MONTH_OF_YEAR) ?: 0
+        val currentDay = todayHijri?.get(java.time.temporal.ChronoField.DAY_OF_MONTH) ?: 0
+        val currentYear = todayHijri?.get(java.time.temporal.ChronoField.YEAR) ?: 0
 
         fun mapEvent(ev: com.kaizen.khushu.data.repository.IslamicCalendarEvent): IslamicEvent {
             val detailDate = if (ev.day == ev.endDay) {
@@ -320,15 +255,15 @@ class HomeViewModel(
 
                 val eventDate = try {
                     todayHijri
-                        ?.with(ChronoField.YEAR, eventYear.toLong())
-                        ?.with(ChronoField.MONTH_OF_YEAR, ev.month.toLong())
-                        ?.with(ChronoField.DAY_OF_MONTH, ev.day.toLong())
+                        ?.with(java.time.temporal.ChronoField.YEAR, eventYear.toLong())
+                        ?.with(java.time.temporal.ChronoField.MONTH_OF_YEAR, ev.month.toLong())
+                        ?.with(java.time.temporal.ChronoField.DAY_OF_MONTH, ev.day.toLong())
                 } catch (e: Exception) {
                     todayHijri
                 }
 
                 val daysBetween = if (todayHijri != null && eventDate != null) {
-                    ChronoUnit.DAYS.between(todayHijri, eventDate)
+                    java.time.temporal.ChronoUnit.DAYS.between(todayHijri, eventDate)
                 } else {
                     0L
                 }
@@ -355,12 +290,12 @@ class HomeViewModel(
             )
         }
 
-        val currentMonthName = islamicEventsRepository.getAllEvents()
+        val currentMonthName = islamicEventsRepository.getAllEvents(settings.islamicEventPerspective)
             .firstOrNull { it.month == currentMonth }
             ?.monthNameEnglish
             ?: getMonthName(currentMonth)
         val currentMonthEvents = runCatching {
-            islamicEventsRepository.getEventsForMonth(currentMonth)
+            islamicEventsRepository.getEventsForMonth(currentMonth, settings.islamicEventPerspective)
                 .map(::mapEvent)
                 .let { monthEvents ->
                     val activeIndex = monthEvents.indexOfFirst { currentDay in it.day..it.endDay }
@@ -375,7 +310,7 @@ class HomeViewModel(
                 }
         }.getOrDefault(emptyList())
         val calendarEvents = runCatching {
-            islamicEventsRepository.getAllEvents()
+            islamicEventsRepository.getAllEvents(settings.islamicEventPerspective)
                 .map(::mapEvent)
         }.getOrDefault(emptyList())
         val eventsHeader = if (currentYear > 0) {
@@ -392,10 +327,9 @@ class HomeViewModel(
             calendarEvents = calendarEvents,
             eventsHeader = eventsHeader,
             hijriDate = formattedHijri,
-            sunArcT = currentArcT,
-            currentTimeMillis = effectiveCurrentTime.time,
             isRefreshing = isRefreshing,
-            usingPreviewTime = previewTimeMillis != null,
+            usingPreviewTime = usingPreviewTime,
+            previewTime = previewTime,
             lastPrayerRefreshEpochMs = settings.lastPrayerRefreshEpochMs,
             locationLat = settings.locationLat,
             locationLng = settings.locationLng,
@@ -409,20 +343,11 @@ class HomeViewModel(
         initialValue = HomeUiState()
     )
 
-    init {
-        viewModelScope.launch {
-            while (true) {
-                _currentTime.value = Date()
-                delay(60000) // Update every minute
-            }
-        }
-    }
+
 
     fun refreshPrayerData() {
         refreshStartedAtMillis = System.currentTimeMillis()
         _isRefreshing.value = true
-        lastApiFetchKey = null
-        _currentTime.value = Date()
         viewModelScope.launch {
             settingsRepository.updateLastPrayerRefresh(System.currentTimeMillis())
             if (uiState.value.calculationSource == CalculationSource.LOCAL && _isRefreshing.value) {
@@ -461,11 +386,12 @@ class HomeViewModel(
             settingsRepository: SettingsRepository,
             prayerTimeRepository: PrayerTimeRepository,
             islamicEventsRepository: IslamicEventsRepository,
+            prayerManager: PrayerManager,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                    return HomeViewModel(settingsRepository, prayerTimeRepository, islamicEventsRepository) as T
+                    return HomeViewModel(settingsRepository, prayerTimeRepository, islamicEventsRepository, prayerManager) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel class")
             }

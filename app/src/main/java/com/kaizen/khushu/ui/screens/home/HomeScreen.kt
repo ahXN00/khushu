@@ -1,7 +1,15 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.kaizen.khushu.ui.screens.home
 
 import android.content.Context
+import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Geocoder
+import android.net.Uri
 import android.os.Build
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -12,6 +20,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,8 +35,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -46,10 +58,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -60,6 +75,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -74,6 +90,11 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -81,17 +102,17 @@ import kotlinx.coroutines.withContext
 private fun findNextPrayer(prayers: List<PrayerInfo>, now: Long): PrayerInfo? {
     if (prayers.isEmpty()) return null
 
-    prayers.firstOrNull { it.rawTime > now }?.let {
+    prayers.firstOrNull { it.rawTime.toEpochMilliseconds() > now }?.let {
         return it
     }
 
     val fajr = prayers.first()
-    return fajr.copy(rawTime = fajr.rawTime + TimeUnit.DAYS.toMillis(1))
+    return fajr.copy(rawTime = kotlinx.datetime.Instant.fromEpochMilliseconds(fajr.rawTime.toEpochMilliseconds() + 86400000L))
 }
 
 private fun findCurrentPrayer(prayers: List<PrayerInfo>, now: Long): PrayerInfo? {
     if (prayers.isEmpty()) return null
-    return prayers.lastOrNull { it.rawTime <= now } ?: prayers.last()
+    return prayers.lastOrNull { it.rawTime.toEpochMilliseconds() <= now } ?: prayers.last()
 }
 
 private fun homeDayStamp(epochMillis: Long): String {
@@ -105,6 +126,170 @@ private fun emptyPrayerDoneStates(prayers: List<PrayerInfo>): Map<String, Boolea
                 listOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
             }
     return names.associateWith { false }
+}
+
+private const val KAABA_LATITUDE = 21.4225
+private const val KAABA_LONGITUDE = 39.8262
+
+private fun qiblaBearingDegrees(latitude: Double, longitude: Double): Double {
+    val latRad = Math.toRadians(latitude)
+    val lngRad = Math.toRadians(longitude)
+    val kaabaLatRad = Math.toRadians(KAABA_LATITUDE)
+    val kaabaLngRad = Math.toRadians(KAABA_LONGITUDE)
+    val deltaLng = kaabaLngRad - lngRad
+    val y = sin(deltaLng)
+    val x = cos(latRad) * sin(kaabaLatRad) - sin(latRad) * cos(kaabaLatRad) * cos(deltaLng)
+    return (Math.toDegrees(atan2(y, x)) + 360.0) % 360.0
+}
+
+private fun compassPointLabel(bearing: Double): String {
+    val points = listOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+    val index = (((bearing + 11.25) % 360) / 22.5).toInt()
+    return points[index]
+}
+
+@Composable
+private fun rememberDeviceHeading(): Float? {
+    val context = LocalContext.current
+    val sensorManager = remember {
+        context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+    }
+    val headingState = remember { mutableStateOf<Float?>(null) }
+
+    DisposableEffect(sensorManager) {
+        val manager = sensorManager
+        val rotationSensor = manager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        if (manager == null || rotationSensor == null) {
+            onDispose { }
+        } else {
+            val rotationMatrix = FloatArray(9)
+            val orientation = FloatArray(3)
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                    SensorManager.getOrientation(rotationMatrix, orientation)
+                    val azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                    headingState.value = (azimuthDeg + 360f) % 360f
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            }
+            manager.registerListener(listener, rotationSensor, SensorManager.SENSOR_DELAY_UI)
+            onDispose { manager.unregisterListener(listener) }
+        }
+    }
+
+    return headingState.value
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QiblaCompassDialog(
+    bearingDegrees: Double,
+    locationLabel: String,
+    latitude: Float,
+    longitude: Float,
+    onDismiss: () -> Unit,
+) {
+    val heading = rememberDeviceHeading()
+    val relativeBearing = heading?.let { ((bearingDegrees - it + 360.0) % 360.0).toFloat() }
+    val ringColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+    val northTickColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+    val needleColor = MaterialTheme.colorScheme.primary
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Qibla Direction",
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = BeVietnamPro),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = locationLabel.ifBlank { "Current location" },
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = BeVietnamPro),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    Canvas(modifier = Modifier.size(220.dp)) {
+                        val stroke = 8.dp.toPx()
+                        val radius = min(size.width, size.height) / 2f - stroke
+                        drawCircle(
+                            color = ringColor,
+                            radius = radius,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
+                        )
+                        drawLine(
+                            color = northTickColor,
+                            start = center.copy(y = center.y - radius),
+                            end = center.copy(y = center.y - radius + 22.dp.toPx()),
+                            strokeWidth = 3.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                        drawLine(
+                            color = needleColor,
+                            start = center,
+                            end = androidx.compose.ui.geometry.Offset(
+                                x = center.x + sin(Math.toRadians((relativeBearing ?: 0f).toDouble())).toFloat() * radius * 0.78f,
+                                y = center.y - cos(Math.toRadians((relativeBearing ?: 0f).toDouble())).toFloat() * radius * 0.78f
+                            ),
+                            strokeWidth = 6.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                        drawCircle(
+                            color = needleColor,
+                            radius = 7.dp.toPx(),
+                            center = center
+                        )
+                    }
+                    Text(
+                        text = "N",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontFamily = BeVietnamPro,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "${bearingDegrees.roundToInt()}° ${compassPointLabel(bearingDegrees)} to Makkah",
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = BeVietnamPro),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = heading?.let { "Facing ${it.roundToInt()}° now" }
+                        ?: "Compass sensor unavailable on this device",
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = BeVietnamPro),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+                Text(
+                    text = "Coordinates: ${"%.4f".format(Locale.US, latitude)}, ${"%.4f".format(Locale.US, longitude)}",
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = BeVietnamPro),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(onClick = onDismiss) { Text("Close") }
+            }
+        }
+    }
 }
 
 private data class HomeHijriBadgeParts(
@@ -287,10 +472,20 @@ fun HomeScreen(
     val density = LocalDensity.current
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    
+    var currentInstant by remember { mutableStateOf(Instant.fromEpochMilliseconds(System.currentTimeMillis())) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentInstant = Instant.fromEpochMilliseconds(System.currentTimeMillis())
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+    
+    val currentTimeMillis = uiState.previewTime?.toEpochMilliseconds() ?: currentInstant.toEpochMilliseconds()
     val refreshThresholdPx = with(density) { 118.dp.toPx() }
     val refreshHoldPx = with(density) { 74.dp.toPx() }
     val maxPullPx = with(density) { 164.dp.toPx() }
-    val currentDayStamp = homeDayStamp(uiState.currentTimeMillis)
+    val currentDayStamp = homeDayStamp(currentTimeMillis)
     var cachedPrayers by remember { mutableStateOf<List<PrayerInfo>>(emptyList()) }
     var cachedExtraTimings by remember { mutableStateOf<List<PrayerInfo>>(emptyList()) }
     var cachedEvents by remember { mutableStateOf<List<IslamicEvent>>(emptyList()) }
@@ -352,15 +547,29 @@ fun HomeScreen(
     val displayHijriDate = uiState.hijriDate.ifBlank { cachedHijriDate }
     val displayEventsHeader = uiState.eventsHeader.ifBlank { cachedEventsHeader }
     val hijriBadge = remember(displayHijriDate) { splitHijriBadgeParts(displayHijriDate) }
+    val qiblaBearing = remember(uiState.locationLat, uiState.locationLng) {
+        qiblaBearingDegrees(uiState.locationLat.toDouble(), uiState.locationLng.toDouble())
+    }
 
-    val currentPrayer = findCurrentPrayer(displayPrayers, uiState.currentTimeMillis)
+    val currentPrayer = findCurrentPrayer(displayPrayers, currentTimeMillis)
     val homeVisibleTimings =
             if (uiState.showExtraPrayerTimingsOnHome) {
-                (displayPrayers + displayExtraTimings).sortedBy { it.rawTime }
+                (displayPrayers + displayExtraTimings).sortedBy { it.rawTime.toEpochMilliseconds() }
             } else {
                 displayPrayers
             }
-    val nextPrayer = findNextPrayer(homeVisibleTimings, uiState.currentTimeMillis)
+    val nextPrayer = findNextPrayer(homeVisibleTimings, currentTimeMillis)
+    
+    val sunArcT by derivedStateOf {
+        val fajrMs = displayPrayers.firstOrNull { it.name == "Fajr" }?.rawTime?.toEpochMilliseconds() ?: 0L
+        val ishaMs = displayPrayers.firstOrNull { it.name == "Isha" }?.rawTime?.toEpochMilliseconds() ?: 1L
+        val total = (ishaMs - fajrMs).toFloat()
+        if (total <= 0) 0.5f else {
+            val ratio = (currentTimeMillis - fajrMs).toFloat() / total
+            (0.08f + ratio * (0.93f - 0.08f)).coerceIn(-0.1f, 1.1f)
+        }
+    }
+    
     val doneCount = doneStates.values.count { it }
     val locationLabel by
             produceState(
@@ -498,43 +707,32 @@ fun HomeScreen(
                             }
             ) {
                 item {
-                    Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        NextPrayerCard(
-                                currentPrayer = currentPrayer,
-                                nextPrayer = nextPrayer,
-                                locationLabel = locationLabel,
-                                doneCount = doneCount,
-                                source = uiState.calculationSource,
-                                usingPreviewTime = uiState.usingPreviewTime,
-                                onTimeClick = {
-                                    showTimeOverrideDialog = true
-                                    previewHourText = ""
-                                    previewMinuteText = ""
-                                },
-                                modifier = Modifier.weight(1f)
+                    val sunriseTime = (displayPrayers + displayExtraTimings)
+                        .firstOrNull {
+                            it.name.contains("shuruq", ignoreCase = true) ||
+                            it.name.contains("sunrise", ignoreCase = true)
+                        }?.time ?: ""
+                    val sunsetTime = displayPrayers
+                        .firstOrNull { it.name.equals("Maghrib", ignoreCase = true) }
+                        ?.time ?: ""
+
+                    if (displayPrayers.isEmpty()) {
+                        PrayerSunMergedCardShimmer(
+                            modifier = Modifier.padding(horizontal = 14.dp)
                         )
-                        SunArcCard(
-                                sunT = uiState.sunArcT,
-                                nextT = nextPrayer?.arcT,
-                                nextName = nextPrayer?.name.orEmpty(),
-                                makruhZones = uiState.makruhZones,
-                                darkTheme = darkTheme,
-                                sunriseTime = (displayPrayers + displayExtraTimings)
-                                        .firstOrNull {
-                                            it.name.contains("shuruq", ignoreCase = true) ||
-                                            it.name.contains("sunrise", ignoreCase = true)
-                                        }?.time ?: "",
-                                sunsetTime = displayPrayers
-                                        .firstOrNull { it.name.equals("Maghrib", ignoreCase = true) }
-                                        ?.time ?: "",
-                                pastPrayerTs = displayPrayers
-                                        .filterNot { it.isExtra }
-                                        .filter { uiState.sunArcT > it.arcT }
-                                        .map { it.arcT },
-                                modifier = Modifier.weight(1f)
+                    } else {
+                        PrayerSunMergedCard(
+                            currentPrayer = currentPrayer,
+                            nextPrayer = nextPrayer,
+                            sunT = sunArcT,
+                            allPrayers = displayPrayers,
+                            makruhZones = uiState.makruhZones,
+                            darkTheme = darkTheme,
+                            sunriseTime = sunriseTime,
+                            sunsetTime = sunsetTime,
+                            locationLabel = locationLabel,
+                            source = uiState.calculationSource,
+                            modifier = Modifier.padding(horizontal = 14.dp)
                         )
                     }
                 }
@@ -614,6 +812,10 @@ fun HomeScreen(
                             },
                             onQuickActionTap = { action ->
                                 when (action) {
+                                    HomeQuickAction.QIBLA -> {
+                                        selectedQuickAction = action
+                                    }
+                                    HomeQuickAction.MOSQUES -> selectedQuickAction = action
                                     HomeQuickAction.EVENTS -> {
                                         if (uiState.showUpcomingEventsOnHome) {
                                             scope.launch { listState.animateScrollToItem(2) }
@@ -655,12 +857,22 @@ fun HomeScreen(
         KhushuAppBar(
                 title = "",
                 onSettingsClick = onSettingsClick,
-                startContent = { HomeHijriBadge(badge = hijriBadge) },
+                centerOverlayContent = { HomeHijriBadge(badge = hijriBadge) },
                 modifier = Modifier.align(Alignment.TopCenter)
         )
     }
 
     selectedQuickAction?.let { action ->
+        if (action == HomeQuickAction.QIBLA) {
+            QiblaCompassDialog(
+                bearingDegrees = qiblaBearing,
+                locationLabel = locationLabel,
+                latitude = uiState.locationLat,
+                longitude = uiState.locationLng,
+                onDismiss = { selectedQuickAction = null }
+            )
+            return@let
+        }
         val title =
                 when (action) {
                     HomeQuickAction.QIBLA -> "Qibla Direction"
@@ -670,16 +882,27 @@ fun HomeScreen(
         val message =
                 when (action) {
                     HomeQuickAction.QIBLA ->
-                            "A focused Qibla helper is planned for Khushu. For this release, the action is here so the utility row is no longer a dead tap."
+                            "Face ${qiblaBearing.toInt()}° ${compassPointLabel(qiblaBearing)} toward Makkah from ${locationLabel.ifBlank { "your current location" }}."
                     HomeQuickAction.MOSQUES ->
-                            "Mosque discovery will arrive in a later release. The Home utility row now keeps the affordance visible without pretending the directory already exists."
+                            "Mosque discovery is planned next. This action is intentionally marked as coming soon for now."
                     HomeQuickAction.EVENTS ->
                             "Upcoming events are hidden on Home right now. Re-enable them in Prayer settings to jump back here directly."
                 }
         AlertDialog(
                 onDismissRequest = { selectedQuickAction = null },
                 title = { Text(title) },
-                text = { Text(message) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(message)
+                        if (action == HomeQuickAction.QIBLA) {
+                            Text(
+                                text = "Coordinates: ${"%.4f".format(Locale.US, uiState.locationLat)}, ${"%.4f".format(Locale.US, uiState.locationLng)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 confirmButton = {
                     TextButton(onClick = { selectedQuickAction = null }) { Text("Close") }
                 }
