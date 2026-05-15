@@ -404,8 +404,12 @@ private fun KhushuApp(
                                 if (topicId == "quran_browser") {
                                     navController.navigate("quran")
                                 } else if (topicId.startsWith("quran_surah_")) {
-                                    val surahId = topicId.removePrefix("quran_surah_")
-                                    navController.navigate("quran/$surahId")
+                                    val surahPayload = topicId.removePrefix("quran_surah_")
+                                    val surahId = surahPayload.substringBefore("?")
+                                    val ayahIndex = surahPayload.substringAfter("?ayah=", "").toIntOrNull()
+                                    navController.navigate(
+                                        if (ayahIndex != null) "quran/$surahId?ayah=$ayahIndex" else "quran/$surahId"
+                                    )
                                 } else if (topicId.startsWith("hadith_book_")) {
                                     val bookId = topicId.removePrefix("hadith_book_")
                                     navController.navigate("hadith/$bookId")
@@ -434,16 +438,25 @@ private fun KhushuApp(
                     }
 
                     composable(
-                        route = "quran/{surahNumber}",
-                        arguments = listOf(navArgument("surahNumber") { type = NavType.IntType }),
+                        route = "quran/{surahNumber}?ayah={ayah}",
+                        arguments = listOf(
+                            navArgument("surahNumber") { type = NavType.IntType },
+                            navArgument("ayah") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        ),
                         enterTransition = { subScreenEnter() },
                         exitTransition = { subScreenExit() },
                         popEnterTransition = { subScreenPopEnter() },
                         popExitTransition = { subScreenPopExit() },
                     ) { backStackEntry ->
                         val surahNumber = backStackEntry.arguments?.getInt("surahNumber") ?: 1
+                        val initialAyahIndex = backStackEntry.arguments?.getString("ayah")?.toIntOrNull()
                         com.kaizen.khushu.ui.screens.quran.QuranReaderScreen(
                             surahNumber = surahNumber,
+                            initialAyahIndex = initialAyahIndex,
                             onBack = { navController.popBackStack() },
                             onNextSurah = { next ->
                                 navController.navigate("quran/$next") {
@@ -519,8 +532,12 @@ private fun KhushuApp(
                             onBack = { navController.popBackStack() },
                             onCardTap = { topicId ->
                                 if (topicId.startsWith("quran_surah_")) {
-                                    val surahId = topicId.removePrefix("quran_surah_")
-                                    navController.navigate("quran/$surahId")
+                                    val surahPayload = topicId.removePrefix("quran_surah_")
+                                    val surahId = surahPayload.substringBefore("?")
+                                    val ayahIndex = surahPayload.substringAfter("?ayah=", "").toIntOrNull()
+                                    navController.navigate(
+                                        if (ayahIndex != null) "quran/$surahId?ayah=$ayahIndex" else "quran/$surahId"
+                                    )
                                 } else if (topicId.startsWith("hadith_book_")) {
                                     val bookId = topicId.removePrefix("hadith_book_")
                                     navController.navigate("hadith/$bookId")

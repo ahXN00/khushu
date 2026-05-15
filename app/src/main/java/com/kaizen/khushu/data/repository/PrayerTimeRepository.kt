@@ -257,6 +257,7 @@ class PrayerTimeRepository(
 
     private fun getCalculationParameters(methodStr: String): CalculationParameters {
         return when (methodStr) {
+            "SHIA_ITHNA_ASHARI" -> CalculationParameters(16.0, 14.0).apply { method = CalculationMethod.OTHER }
             "MUSLIM_WORLD_LEAGUE" -> CalculationMethod.MUSLIM_WORLD_LEAGUE.parameters
             "EGYPTIAN" -> CalculationMethod.EGYPTIAN.parameters
             "KARACHI" -> CalculationMethod.KARACHI.parameters
@@ -274,26 +275,43 @@ class PrayerTimeRepository(
             "FRANCE_18" -> CalculationParameters(18.0, 17.0).apply { method = CalculationMethod.OTHER }
             "TEHRAN" -> CalculationMethod.OTHER.parameters
             "TURKEY" -> CalculationMethod.OTHER.parameters
+            "RUSSIA" -> CalculationParameters(16.0, 15.0).apply { method = CalculationMethod.OTHER }
+            "MALAYSIA" -> CalculationParameters(18.0, 18.0).apply { method = CalculationMethod.OTHER }
+            "INDONESIA" -> CalculationParameters(20.0, 18.0).apply { method = CalculationMethod.OTHER }
+            "MOROCCO" -> CalculationParameters(19.0, 17.0).apply { method = CalculationMethod.OTHER }
+            "JORDAN" -> CalculationParameters(18.0, 18.0).apply { method = CalculationMethod.OTHER }
+            "GULF_REGION" -> CalculationParameters(19.5, 90.0).apply { method = CalculationMethod.OTHER }
+            "PORTUGAL" -> CalculationParameters(18.0, 15.0).apply { method = CalculationMethod.OTHER }
             else -> CalculationMethod.MUSLIM_WORLD_LEAGUE.parameters
         }
     }
 
     private fun getApiMethodId(methodStr: String): Int {
         return when (methodStr) {
+            "SHIA_ITHNA_ASHARI" -> 0
             "KARACHI" -> 1
             "NORTH_AMERICA" -> 2
             "MUSLIM_WORLD_LEAGUE" -> 3
             "UMM_AL_QURA" -> 4
             "EGYPTIAN" -> 5
             "TEHRAN" -> 7
-            "DUBAI" -> 16
+            "GULF_REGION" -> 8
             "KUWAIT" -> 9
             "QATAR" -> 10
             "SINGAPORE" -> 11
+            "FRANCE_UOIF" -> 12
             "TURKEY" -> 13
+            "RUSSIA" -> 14
             "MOON_SIGHTING_COMMITTEE" -> 15
-            "ALGERIA", "TUNISIA", "FRANCE_UOIF", "FRANCE_15", "FRANCE_18" -> 99
-            else -> 3
+            "DUBAI" -> 16
+            "MALAYSIA" -> 17
+            "TUNISIA" -> 18
+            "ALGERIA" -> 19
+            "INDONESIA" -> 20
+            "MOROCCO" -> 21
+            "PORTUGAL" -> 22
+            "JORDAN" -> 23
+            else -> 99 // Fallback to custom for others or default
         }
     }
 }

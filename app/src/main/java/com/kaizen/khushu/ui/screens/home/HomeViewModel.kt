@@ -56,8 +56,9 @@ class HomeViewModel(
         settingsRepository.settingsFlow,
         _currentTime,
         _previewTimeMillis,
-        _isRefreshing
-    ) { settings, currentTime, previewTimeMillis, isRefreshing ->
+        _isRefreshing,
+        _apiPrayerTimes
+    ) { settings, currentTime, previewTimeMillis, isRefreshing, apiTimingsState ->
         val effectiveCurrentTime = previewTimeMillis?.let(::Date) ?: currentTime
         // 1. Calculate Prayer Times
         val localMethodSupported = prayerTimeRepository.supportsLocalCalculationMethod(
@@ -374,7 +375,8 @@ class HomeViewModel(
                 }
         }.getOrDefault(emptyList())
         val calendarEvents = runCatching {
-            islamicEventsRepository.getAllEvents().map(::mapEvent)
+            islamicEventsRepository.getAllEvents()
+                .map(::mapEvent)
         }.getOrDefault(emptyList())
         val eventsHeader = if (currentYear > 0) {
             "UPCOMING · ${currentMonthName.uppercase(Locale.getDefault())} $currentYear"

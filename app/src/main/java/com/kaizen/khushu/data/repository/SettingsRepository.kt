@@ -73,6 +73,8 @@ class SettingsRepository(private val context: Context) {
         val TASBEEH_STEALTH_MODE_ALLOWED = booleanPreferencesKey("tasbeeh_stealth_mode_allowed")
         val TASBEEH_VOLUME_ENABLED = booleanPreferencesKey("tasbeeh_volume_enabled")
         val TASBEEH_VOLUME_ANIMATION = booleanPreferencesKey("tasbeeh_volume_animation")
+        val TASBIH_SOUND_ENABLED = booleanPreferencesKey("tasbih_sound_enabled")
+        val TASBIH_SOUND_ID = stringPreferencesKey("tasbih_sound_id")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val DEVELOPER_WELCOME_DISMISSED = booleanPreferencesKey("developer_welcome_dismissed")
         val STUDY_NOTE_DISMISSED = booleanPreferencesKey("study_note_dismissed")
@@ -106,6 +108,7 @@ class SettingsRepository(private val context: Context) {
         val PRE_PRAYER_MINUTES_MAGHRIB = intPreferencesKey("pre_prayer_minutes_maghrib")
         val PRE_PRAYER_MINUTES_ISHA = intPreferencesKey("pre_prayer_minutes_isha")
         val PRAYER_NOTIFICATION_ALERT_STYLE = stringPreferencesKey("prayer_notification_alert_style")
+        val PRAYER_NOTIFICATION_CUSTOM_SOUND_URI = stringPreferencesKey("prayer_notification_custom_sound_uri")
         val LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID = stringPreferencesKey("last_delivered_prayer_notification_event_id")
         val SELECTED_EXTRA_PRAYER_TIMINGS = stringSetPreferencesKey("selected_extra_prayer_timings")
         val EXTRA_PRAYER_NOTIFICATIONS = stringSetPreferencesKey("extra_prayer_notifications")
@@ -186,6 +189,8 @@ class SettingsRepository(private val context: Context) {
                 tasbeehStealthModeAllowed = preferences[PreferencesKeys.TASBEEH_STEALTH_MODE_ALLOWED] ?: false,
                 tasbeehVolumeEnabled = preferences[PreferencesKeys.TASBEEH_VOLUME_ENABLED] ?: true,
                 tasbeehVolumeAnimation = preferences[PreferencesKeys.TASBEEH_VOLUME_ANIMATION] ?: true,
+                tasbihSoundEnabled = preferences[PreferencesKeys.TASBIH_SOUND_ENABLED] ?: true,
+                tasbihSoundId = preferences[PreferencesKeys.TASBIH_SOUND_ID] ?: "1",
                 onboardingCompleted = preferences[PreferencesKeys.ONBOARDING_COMPLETED] ?: false,
                 developerWelcomeDismissed = preferences[PreferencesKeys.DEVELOPER_WELCOME_DISMISSED] ?: false,
                 studyNoteDismissed = preferences[PreferencesKeys.STUDY_NOTE_DISMISSED] ?: false,
@@ -217,6 +222,7 @@ class SettingsRepository(private val context: Context) {
                 maghribPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_MAGHRIB] ?: 10,
                 ishaPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_ISHA] ?: 10,
                 prayerNotificationAlertStyle = preferences[PreferencesKeys.PRAYER_NOTIFICATION_ALERT_STYLE] ?: "SYSTEM_SOUND",
+                prayerNotificationCustomSoundUri = preferences[PreferencesKeys.PRAYER_NOTIFICATION_CUSTOM_SOUND_URI].orEmpty(),
                 lastDeliveredPrayerNotificationEventId = preferences[PreferencesKeys.LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID].orEmpty(),
                 selectedExtraPrayerTimings = preferences[PreferencesKeys.SELECTED_EXTRA_PRAYER_TIMINGS] ?: emptySet(),
                 extraPrayerNotifications = preferences[PreferencesKeys.EXTRA_PRAYER_NOTIFICATIONS] ?: emptySet(),
@@ -308,6 +314,10 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[PreferencesKeys.PRAYER_NOTIFICATION_ALERT_STYLE] = style }
     }
 
+    suspend fun updatePrayerNotificationCustomSoundUri(uri: String) {
+        context.dataStore.edit { it[PreferencesKeys.PRAYER_NOTIFICATION_CUSTOM_SOUND_URI] = uri }
+    }
+
     suspend fun updateLastDeliveredPrayerNotificationEventId(eventId: String) {
         context.dataStore.edit { it[PreferencesKeys.LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID] = eventId }
     }
@@ -334,6 +344,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTasbeehVolumeAnimation(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.TASBEEH_VOLUME_ANIMATION] = enabled }
+    }
+
+    suspend fun setTasbihSoundEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.TASBIH_SOUND_ENABLED] = enabled }
+    }
+
+    suspend fun setTasbihSoundId(id: String) {
+        context.dataStore.edit { it[PreferencesKeys.TASBIH_SOUND_ID] = id }
     }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
@@ -579,6 +597,8 @@ data class UserSettings(
     val tasbeehStealthModeAllowed: Boolean = false,
     val tasbeehVolumeEnabled: Boolean = true,
     val tasbeehVolumeAnimation: Boolean = true,
+    val tasbihSoundEnabled: Boolean = true,
+    val tasbihSoundId: String = "1",
     val onboardingCompleted: Boolean = false,
     val developerWelcomeDismissed: Boolean = false,
     val studyNoteDismissed: Boolean = false,
@@ -610,6 +630,7 @@ data class UserSettings(
     val maghribPrePrayerMinutes: Int = 10,
     val ishaPrePrayerMinutes: Int = 10,
     val prayerNotificationAlertStyle: String = "SYSTEM_SOUND",
+    val prayerNotificationCustomSoundUri: String = "",
     val lastDeliveredPrayerNotificationEventId: String = "",
     val selectedExtraPrayerTimings: Set<String> = emptySet(),
     val extraPrayerNotifications: Set<String> = emptySet(),

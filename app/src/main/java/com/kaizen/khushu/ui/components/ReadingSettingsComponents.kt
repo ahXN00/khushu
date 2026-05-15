@@ -39,6 +39,7 @@ import com.kaizen.khushu.data.repository.CatalogRepository
 import com.kaizen.khushu.data.model.TranslationMeta
 import com.kaizen.khushu.data.model.AVAILABLE_RECITERS
 import com.kaizen.khushu.data.repository.TranslationRepository
+import com.kaizen.khushu.data.repository.QuranScriptFontRepository
 import com.kaizen.khushu.data.repository.UserSettings
 import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.BeVietnamPro
@@ -109,6 +110,7 @@ fun ReadingSettingsSheet(
     reciterDownloadStates: Map<String, Pair<Float, Int>?> = emptyMap(),
     isReciterDownloaded: (String) -> Boolean = { false },
     supportsTafsirSelection: Boolean = false,
+    isQuranContext: Boolean = true,
     onDismiss: () -> Unit,
     onThemeChange: (String) -> Unit,
     onArabicSizeChange: (Float) -> Unit,
@@ -123,13 +125,25 @@ fun ReadingSettingsSheet(
     onOpenTafsirPicker: () -> Unit,
     onReciterChange: (String) -> Unit,
     onScriptChange: (String) -> Unit,
+    availableQuranScripts: Set<String> = QuranScriptFontRepository.bundledScripts(),
+    downloadingQuranScript: String? = null,
+    quranScriptDownloadProgress: Float = 0f,
+    onDownloadQuranScript: (String) -> Unit = {},
     onOpenTranslationPicker: () -> Unit,
     onDownloadAudio: (String) -> Unit,
     onAudioSourceChange: (String) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Display", "Text", "Audio")
+    val tabs = if (isQuranContext) {
+        listOf("Display", "Text", "Audio")
+    } else {
+        listOf("Display")
+    }
+
+    LaunchedEffect(isQuranContext) {
+        if (!isQuranContext) selectedTab = 0
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -233,6 +247,9 @@ fun ReadingSettingsSheet(
                             }
                         }
                         1 -> { // Text & Translation
+                            if (!isQuranContext) {
+                                item { Spacer(Modifier.height(1.dp)) }
+                            } else {
                             item {
                                 val context = LocalContext.current
                                 val currentMeta = remember(settings.selectedTranslationLang, settings.selectedTranslationSource) {
@@ -318,13 +335,23 @@ fun ReadingSettingsSheet(
                                         Triple("uthmani", "Uthmani", "ٱلصَّلَوٰةِ"),
                                         Triple("indopak", "IndoPak", "الصلوة"),
                                         Triple("uthmani_simple", "Simple", "الصلوة"),
-                                        Triple("imlaei", "Imlaei", "الصلاة")
+                                        Triple("imlaei", "Imlaei", "الصلاة"),
+                                        Triple(QuranScriptFontRepository.UTHMANIC_HAFS, "Uthmanic Hafs", "ٱلصَّلَوٰةِ")
                                     ).forEach { (value, label, sample) ->
+                                        val isDownloaded = availableQuranScripts.contains(value)
+                                        val isDownloading = downloadingQuranScript == value
                                         ScriptPreviewCard(
                                             label = label,
                                             sample = sample,
                                             selected = settings.selectedScript == value,
-                                            onClick = { onScriptChange(value) },
+                                            isDownloaded = isDownloaded,
+                                            isDownloading = isDownloading,
+                                            downloadProgress = if (isDownloading) quranScriptDownloadProgress else 0f,
+                                            onClick = {
+                                                if (isDownloaded) onScriptChange(value)
+                                                else onDownloadQuranScript(value)
+                                            },
+                                            onDownloadClick = { onDownloadQuranScript(value) },
                                             modifier = Modifier.weight(1f)
                                         )
                                     }
@@ -363,9 +390,10 @@ fun ReadingSettingsSheet(
                                     SettingToggle(label = "Show Word-by-Word", checked = settings.showWordByWord, onCheckedChange = onShowWordByWordChange)
                                 }
                             }
+                            }
                         }
                         2 -> { // Audio
-                            item {
+                            if (isQuranContext) item {
                                 val audioSources = remember { ContentSource.entries.filter { it.supportsAudio } }
                                 val selectedAudioSource = remember(settings.selectedAudioSource) { try { ContentSource.valueOf(settings.selectedAudioSource) } catch (_: Exception) { ContentSource.MP3QURAN } }
                                 val context = LocalContext.current
@@ -556,12 +584,21 @@ fun ScriptPreviewCard(
     label: String,
     sample: String,
     selected: Boolean,
+    isDownloaded: Boolean = true,
+    isDownloading: Boolean = false,
+    downloadProgress: Float = 0f,
     onClick: () -> Unit,
+    onDownloadClick: () -> Unit = onClick,
     modifier: Modifier = Modifier
 ) {
     val borderColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
     val containerBg = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceContainerHigh
     val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val labelColor = when {
+        selected -> MaterialTheme.colorScheme.primary
+        !isDownloaded -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     
     Column(
         modifier = modifier
@@ -593,12 +630,35 @@ fun ScriptPreviewCard(
         }
         
         Text(
-            text = label,
+            text = when {
+                isDownloading -> "$label ${"%.0f".format(downloadProgress * 100)}%"
+                !isDownloaded -> "$label ↓"
+                else -> label
+            },
             style = MaterialTheme.typography.labelMedium,
             fontFamily = BeVietnamPro,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = labelColor,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
         )
+        if (!isDownloaded && !isDownloading) {
+            IconButton(
+                onClick = onDownloadClick,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    Icons.Default.Download,
+                    contentDescription = "Download $label",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        if (isDownloading) {
+            LinearProgressIndicator(
+                progress = { downloadProgress },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 

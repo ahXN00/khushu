@@ -5,6 +5,12 @@ import androidx.compose.ui.graphics.Color
 // ── Placeholder data — to be replaced by HomeViewModel + real prayer times ──
 enum class CalculationSource { LOCAL, API }
 
+enum class HomeQuickAction {
+    QIBLA,
+    MOSQUES,
+    EVENTS,
+}
+
 data class PrayerInfo(
     val name: String,
     val ar: String,

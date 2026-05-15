@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.FormatQuote
@@ -43,6 +44,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,6 +56,7 @@ import com.kaizen.khushu.data.model.ArabicBlock
 import com.kaizen.khushu.data.model.AyahBlock
 import com.kaizen.khushu.data.model.CalloutBlock
 import com.kaizen.khushu.data.model.ContentBlock
+import com.kaizen.khushu.data.model.ContentSource
 import com.kaizen.khushu.data.model.DividerBlock
 import com.kaizen.khushu.data.model.HadithBlock
 import com.kaizen.khushu.data.model.HeadingBlock
@@ -78,11 +81,14 @@ fun BlockRenderer(
     translationMap: Map<String, String> = emptyMap(),
     tajweedMap: Map<String, String> = emptyMap(),
     scriptMap: Map<String, String> = emptyMap(),
+    arabicFontFamily: FontFamily = ScheherazadeNew,
     isHighlighted: Boolean = false,
     onBlockClick: (ContentBlock) -> Unit = {},
     onPlayClick: ((ContentBlock) -> Unit)? = null,
     onBookmarkClick: ((ContentBlock) -> Unit)? = null,
     onTafsirClick: ((ContentBlock) -> Unit)? = null,
+    onReflectionsClick: ((ContentBlock) -> Unit)? = null,
+    source: ContentSource = ContentSource.QF,
     readingMode: String = "verse_by_verse",
     modifier: Modifier = Modifier,
 ) {
@@ -99,17 +105,20 @@ fun BlockRenderer(
             translationMap = translationMap,
             tajweedMap = tajweedMap,
             scriptMap = scriptMap,
+            arabicFontFamily = arabicFontFamily,
             isHighlighted = isHighlighted,
             readingMode = readingMode,
+            source = source,
             onPlayClick = { onPlayClick?.invoke(block) },
             onBookmarkClick = { onBookmarkClick?.invoke(block) },
             onTafsirClick = { onTafsirClick?.invoke(block) },
+            onReflectionsClick = { onReflectionsClick?.invoke(block) },
             modifier = modifier.clickable { onBlockClick(block) }
         )
         is HadithBlock    -> HadithBlockView(block, settings, fg, bg, modifier.clickable { onBlockClick(block) })
         is CalloutBlock   -> CalloutBlockView(block, fg, modifier.then(textPadding))
         is DividerBlock   -> DividerBlockView(fg, modifier.then(textPadding))
-        is ArabicBlock    -> ArabicBlockView(block, settings, fg, bg, modifier.clickable { onBlockClick(block) })
+        is ArabicBlock    -> ArabicBlockView(block, settings, fg, bg, arabicFontFamily, modifier.clickable { onBlockClick(block) })
     }
 }
 
@@ -166,11 +175,14 @@ private fun AyahBlockView(
     translationMap: Map<String, String>,
     tajweedMap: Map<String, String>,
     scriptMap: Map<String, String>,
+    arabicFontFamily: FontFamily,
     isHighlighted: Boolean,
     readingMode: String,
+    source: ContentSource = ContentSource.QF,
     onPlayClick: () -> Unit,
     onBookmarkClick: () -> Unit,
     onTafsirClick: () -> Unit,
+    onReflectionsClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isReadingMode = readingMode == "reading"
@@ -183,7 +195,7 @@ private fun AyahBlockView(
 
     // Reading mode: seamless Arabic flow, no chrome
     if (isReadingMode) {
-        ReadingModeAyah(block, settings, contentColor, fg, tajweedMap, scriptMap, inlineContent = remember(block.ayah, contentColor) {
+        ReadingModeAyah(block, settings, contentColor, fg, tajweedMap, scriptMap, arabicFontFamily, inlineContent = remember(block.ayah, contentColor) {
             mapOf(
                 "marker" to androidx.compose.foundation.text.InlineTextContent(
                     androidx.compose.ui.text.Placeholder(
@@ -285,7 +297,7 @@ private fun AyahBlockView(
                 }
                 Text(
                     text = annotatedString,
-                    fontFamily = ScheherazadeNew,
+                    fontFamily = arabicFontFamily,
                     fontSize = settings.arabicSizeSp.sp,
                     lineHeight = (settings.arabicSizeSp * 1.8f).sp,
                     textAlign = TextAlign.Start,
@@ -293,7 +305,7 @@ private fun AyahBlockView(
                     inlineContent = inlineContent,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         textDirection = TextDirection.Rtl,
-                        fontFamily = ScheherazadeNew,
+                        fontFamily = arabicFontFamily,
                         color = contentColor
                     ),
                     modifier = Modifier
@@ -370,7 +382,7 @@ private fun AyahBlockView(
             }
         }
 
-        // ── Bottom row: Tafsir chip (left) + action icons (right) ─────────────
+        // ── Bottom row: chips (left) + action icons (right) ──────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -379,22 +391,42 @@ private fun AyahBlockView(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Tafsir chip — only shown when tafsir is not already expanded inline
-            if (!settings.showTafsir || block.tafsirText == null) {
-                VerseChip(Icons.AutoMirrored.Filled.MenuBook, "Tafsir", contentColor, onTafsirClick)
-            } else {
-                Spacer(Modifier.width(1.dp))
+            // Left: content chips
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Tafsir chip — hide when inline tafsir already expanded
+                if (source.supportsTafsir && (!settings.showTafsir || block.tafsirText == null)) {
+                    VerseChip(
+                        icon = Icons.AutoMirrored.Filled.MenuBook,
+                        label = "Tafsir",
+                        contentColor = contentColor,
+                        onClick = onTafsirClick
+                    )
+                }
+                // Reflections chip — only visible if source supports it
+                if (source.supportsReflections) {
+                    VerseChip(
+                        icon = Icons.AutoMirrored.Filled.Chat,
+                        label = "Reflections",
+                        contentColor = contentColor,
+                        onClick = onReflectionsClick
+                    )
+                }
             }
 
-            // Action icons on the right
+            // Right: action icons
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onPlayClick, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = contentColor.copy(alpha = 0.45f),
-                        modifier = Modifier.size(17.dp)
-                    )
+                if (source.supportsAudio) {
+                    IconButton(onClick = onPlayClick, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            tint = contentColor.copy(alpha = 0.45f),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
                 }
                 IconButton(onClick = onBookmarkClick, modifier = Modifier.size(32.dp)) {
                     Icon(
@@ -445,6 +477,7 @@ private fun ReadingModeAyah(
     fg: Color,
     tajweedMap: Map<String, String>,
     scriptMap: Map<String, String>,
+    arabicFontFamily: FontFamily,
     inlineContent: Map<String, androidx.compose.foundation.text.InlineTextContent>,
     modifier: Modifier = Modifier,
 ) {
@@ -479,7 +512,7 @@ private fun ReadingModeAyah(
             }
             Text(
                 text = annotatedString,
-                fontFamily = ScheherazadeNew,
+                fontFamily = arabicFontFamily,
                 fontSize = settings.arabicSizeSp.sp,
                 lineHeight = (settings.arabicSizeSp * 2.0f).sp,
                 // No inter-verse gap — seamless reading flow
@@ -487,7 +520,7 @@ private fun ReadingModeAyah(
                 inlineContent = inlineContent,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     textDirection = TextDirection.Rtl,
-                    fontFamily = ScheherazadeNew,
+                    fontFamily = arabicFontFamily,
                     textAlign = TextAlign.Justify,
                     color = contentColor
                 ),
@@ -736,6 +769,7 @@ private fun ArabicBlockView(
     settings: UserSettings,
     fg: Color,
     bg: Color,
+    arabicFontFamily: FontFamily,
     modifier: Modifier = Modifier,
 ) {
     val arabicBg = when {
@@ -768,13 +802,13 @@ private fun ArabicBlockView(
                 } else {
                     Text(
                         text = block.text,
-                        fontFamily = ScheherazadeNew,
+                        fontFamily = arabicFontFamily,
                         fontSize = settings.arabicSizeSp.sp,
                         lineHeight = (settings.arabicSizeSp * 1.75f).sp,
                         color = fg,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             textDirection = TextDirection.Rtl,
-                            fontFamily = ScheherazadeNew,
+                            fontFamily = arabicFontFamily,
                             textAlign = TextAlign.Center,
                         ),
                         modifier = Modifier.fillMaxWidth(),

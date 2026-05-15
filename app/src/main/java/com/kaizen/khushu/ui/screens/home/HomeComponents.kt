@@ -2,6 +2,8 @@ package com.kaizen.khushu.ui.screens.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +26,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,13 +49,16 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kaizen.khushu.ui.theme.BeVietnamPro
 import java.util.Calendar
 import kotlinx.coroutines.delay
 import kotlin.math.max
@@ -86,6 +95,18 @@ private fun insetArcMarkerT(t: Float): Float {
     return (0.06f + t.coerceIn(0f, 1f) * 0.88f).coerceIn(0f, 1f)
 }
 
+enum class PrayerToggleResult {
+    COMPLETED,
+    REWOUND,
+    REJECTED_TOO_EARLY,
+    REJECTED_OUT_OF_ORDER,
+}
+
+data class PrayerToggleOutcome(
+    val result: PrayerToggleResult,
+    val guidedPrayerName: String? = null,
+)
+
 @Composable
 fun SunArcCard(
         sunT: Float,
@@ -93,7 +114,9 @@ fun SunArcCard(
         nextName: String,
         makruhZones: List<MakruhZone>,
         darkTheme: Boolean,
-        hijriDate: String,
+        sunriseTime: String = "",
+        sunsetTime: String = "",
+        pastPrayerTs: List<Float> = emptyList(),
         modifier: Modifier = Modifier
 ) {
     var activeMk: Int? by remember { mutableStateOf(null) }
@@ -198,7 +221,7 @@ fun SunArcCard(
                     modifier =
                             Modifier.fillMaxSize().pointerInput(makruhZones, sunT, effectiveNextT) {
                                 detectTapGestures { offset ->
-                                    val pad = 9f.dp.toPx()
+                                    val pad = 13f.dp.toPx()
                                     val svgW = size.width.toFloat() - 26f.dp.toPx()
                                     val svgH = size.height.toFloat() - 58f.dp.toPx()
 
@@ -227,7 +250,7 @@ fun SunArcCard(
                                     fun mapPt(p: Offset) =
                                             Offset(ox + (p.x - x0) * s, oy + (p.y - y0) * s)
 
-                                    val hitX = offset.x - 13f.dp.toPx()
+                                    val hitX = offset.x
                                     val hitY = offset.y - 26f.dp.toPx()
                                     val tapPt = Offset(hitX, hitY)
                                     val hitRadius =
@@ -258,7 +281,7 @@ fun SunArcCard(
                                 }
                             }
             ) {
-                val pad = 9f.dp.toPx()
+                val pad = 13f.dp.toPx()
                 val svgW = size.width - 26f.dp.toPx()
                 val svgH = size.height - 58f.dp.toPx()
 
@@ -283,7 +306,7 @@ fun SunArcCard(
 
                 fun mapPt(p: Offset) = Offset(ox + (p.x - x0) * s, oy + (p.y - y0) * s)
 
-                translate(left = 13f.dp.toPx(), top = 26f.dp.toPx()) {
+                translate(left = 0f, top = 26f.dp.toPx()) {
 
                     // Draw stars if dark theme
                     if (darkTheme) {
@@ -376,7 +399,18 @@ fun SunArcCard(
                         }
                     }
 
-                    // Next prayer dot
+                    // Past prayer dots — same size as next prayer filled dot, higher opacity
+                    pastPrayerTs.forEach { pastT ->
+                        val pastM = mapPt(bpt(insetArcMarkerT(pastT)))
+                        drawCircle(
+                            color = arcNextColor,
+                            radius = 3.8f.dp.toPx(),
+                            center = pastM,
+                            alpha = 0.55f
+                        )
+                    }
+
+                    // Next prayer dot (ring + filled)
                     drawCircle(
                             color = arcNextColor,
                             radius = 8.5f.dp.toPx(),
@@ -435,19 +469,56 @@ fun SunArcCard(
                 }
             }
 
-            // Date text
-            Text(
-                    text = hijriDate.ifBlank { "Loading date..." },
-                    style =
-                            MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                            ),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    modifier =
-                            Modifier.align(Alignment.BottomStart)
-                                    .padding(start = 13.dp, bottom = 10.dp)
-            )
+            // Sunrise / Sunset corner labels with optional times
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 13.dp, bottom = 10.dp)
+            ) {
+                Text(
+                    text = "Sunrise",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 7.5.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                )
+                if (sunriseTime.isNotBlank()) {
+                    Text(
+                        text = sunriseTime,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 7.5.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 13.dp, bottom = 10.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = "Sunset",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 7.5.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                )
+                if (sunsetTime.isNotBlank()) {
+                    Text(
+                        text = sunsetTime,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 7.5.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    )
+                }
+            }
 
             // Makruh overlay
             AnimatedVisibility(
@@ -607,7 +678,7 @@ fun NextPrayerCard(
                         verticalAlignment = Alignment.CenterVertically  // Center vertically
                     ) {
                         Text(
-                                text = currentPrayer?.name ?: "Loading",
+                                text = currentPrayer?.name ?: "Prayer",
                                 style =
                                         MaterialTheme.typography.displaySmall.copy(
                                                 fontSize = 26.sp
@@ -664,7 +735,7 @@ fun NextPrayerCard(
                         verticalAlignment = Alignment.CenterVertically  // Center vertically
                     ) {
                     Text(
-                            text = nextPrayer?.name ?: "Calculating",
+                            text = nextPrayer?.name ?: "Next prayer",
                             style =
                                     MaterialTheme.typography.titleLarge.copy(
                                             fontSize = 20.sp,
@@ -674,7 +745,7 @@ fun NextPrayerCard(
                             modifier = Modifier.padding(top = 2.dp)
                     )
                     Text(
-                            text = nextPrayer?.time ?: "Prayer time unavailable",
+                            text = nextPrayer?.time ?: "--:--",
                             style =
                                     MaterialTheme.typography.titleLarge.copy(
                                             fontSize = 16.sp,
@@ -770,17 +841,17 @@ fun EventsStrip(
             }
 
     Column(modifier = modifier) {
-        Text(
-                text = header,
-                style =
-                        MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                letterSpacing = 0.09.sp,
-                                fontWeight = FontWeight.SemiBold
-                        ),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                modifier = Modifier.padding(start = 14.dp, bottom = 8.dp)
-        )
+//        Text(
+//                text = header,
+//                style =
+//                        MaterialTheme.typography.labelSmall.copy(
+//                                fontSize = 10.sp,
+//                                letterSpacing = 0.09.sp,
+//                                fontWeight = FontWeight.SemiBold
+//                        ),
+//                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+//                modifier = Modifier.padding(start = 14.dp, bottom = 8.dp)
+//        )
 
         LazyRow(
                 state = rowState,
@@ -914,7 +985,7 @@ fun EventsStrip(
             ) {
                 Text(
                         text = "Hijri Calendar",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
@@ -1252,15 +1323,24 @@ fun PrayerSlab(
         activePrayerName: String?,
         doneStates: Map<String, Boolean>,
         onPrayClick: () -> Unit,
-        onToggleDone: (String) -> Unit,
+        onToggleDoneAttempt: (String) -> PrayerToggleOutcome,
+        onQuickActionTap: (HomeQuickAction) -> Unit,
         //    ayahText: String,
         ayahRef: String,
         darkTheme: Boolean,
+        showQuickActions: Boolean = false,
         bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
         modifier: Modifier = Modifier
 ) {
     val doneCount = doneStates.values.count { it }
-    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val shakeTriggers = remember { mutableStateMapOf<String, Int>() }
+    val guideTriggers = remember { mutableStateMapOf<String, Int>() }
+    prayers.forEach { prayer ->
+        shakeTriggers.putIfAbsent(prayer.name, 0)
+        guideTriggers.putIfAbsent(prayer.name, 0)
+    }
 
     Surface(
             modifier = modifier.fillMaxWidth(),
@@ -1335,15 +1415,69 @@ fun PrayerSlab(
                                     prayers.find { !(doneStates[it.name] ?: false) }?.name == p.name
                     val isActivePrayer = activePrayerName == p.name
                     val dotColor = if (darkTheme) p.dotColorDark else p.dotColorLight
+                    val shakeOffset = remember(p.name) { Animatable(0f) }
+                    val guideAlpha = remember(p.name) { Animatable(0f) }
+                    val shakeTrigger = shakeTriggers[p.name] ?: 0
+                    val guideTrigger = guideTriggers[p.name] ?: 0
+
+                    LaunchedEffect(shakeTrigger) {
+                        if (shakeTrigger == 0) return@LaunchedEffect
+                        shakeOffset.snapTo(0f)
+                        shakeOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = keyframes {
+                                durationMillis = 360
+                                0f at 0
+                                -10f at 50
+                                9f at 100
+                                -7f at 160
+                                5f at 230
+                                -3f at 300
+                                0f at 360
+                            }
+                        )
+                    }
+
+                    LaunchedEffect(guideTrigger) {
+                        if (guideTrigger == 0) return@LaunchedEffect
+                        guideAlpha.snapTo(0f)
+                        guideAlpha.animateTo(0.22f, tween(durationMillis = 150))
+                        guideAlpha.animateTo(0f, tween(durationMillis = 420))
+                    }
 
                     Row(
                             modifier =
                                     Modifier.fillMaxWidth()
+                                            .graphicsLayer {
+                                                translationX = shakeOffset.value
+                                            }
+                                            .clip(RoundedCornerShape(18.dp))
+                                            .background(
+                                                MaterialTheme.colorScheme.primary.copy(
+                                                    alpha = guideAlpha.value
+                                                )
+                                            )
                                             .clickable(
                                                     indication = null,
                                                     interactionSource =
                                                             remember { MutableInteractionSource() }
-                                            ) { onToggleDone(p.name) }
+                                            ) {
+                                                val outcome = onToggleDoneAttempt(p.name)
+                                                when (outcome.result) {
+                                                    PrayerToggleResult.COMPLETED,
+                                                    PrayerToggleResult.REWOUND -> {
+                                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    }
+                                                    PrayerToggleResult.REJECTED_TOO_EARLY,
+                                                    PrayerToggleResult.REJECTED_OUT_OF_ORDER -> {
+                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        shakeTriggers[p.name] = shakeTrigger + 1
+                                                        outcome.guidedPrayerName?.let { guided ->
+                                                            guideTriggers[guided] = (guideTriggers[guided] ?: 0) + 1
+                                                        }
+                                                    }
+                                                }
+                                            }
                                             .padding(vertical = 8.5.dp),
                             verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1588,7 +1722,108 @@ fun PrayerSlab(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                AnimatedVisibility(
+                    visible = showQuickActions,
+                    enter = fadeIn(animationSpec = tween(320)) +
+                            slideInVertically(animationSpec = tween(320, easing = FastOutSlowInEasing)) { it / 3 },
+                    exit = fadeOut(animationSpec = tween(200)) +
+                            slideOutVertically(animationSpec = tween(200)) { it / 3 },
+                ) {
+                    QuickDirectoryRow(
+                        onActionClick = onQuickActionTap
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun QuickDirectoryRow(
+    onActionClick: (HomeQuickAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "EXPLORE",
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 9.sp,
+                letterSpacing = 0.09.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            QuickDirectoryAction(
+                icon = Icons.Default.MyLocation,
+                label = "Qibla",
+                supportLabel = "Coming soon",
+                onClick = { onActionClick(HomeQuickAction.QIBLA) }
+            )
+            QuickDirectoryAction(
+                icon = Icons.Default.LocationOn,
+                label = "Mosques",
+                supportLabel = "Coming soon",
+                onClick = { onActionClick(HomeQuickAction.MOSQUES) }
+            )
+            QuickDirectoryAction(
+                icon = Icons.Default.Event,
+                label = "Events",
+                supportLabel = null,
+                onClick = { onActionClick(HomeQuickAction.EVENTS) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickDirectoryAction(
+    icon: ImageVector,
+    label: String,
+    supportLabel: String?,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .widthIn(min = 82.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(26.dp)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontFamily = BeVietnamPro,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = supportLabel ?: "Open",
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = BeVietnamPro,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
+            textAlign = TextAlign.Center
+        )
     }
 }

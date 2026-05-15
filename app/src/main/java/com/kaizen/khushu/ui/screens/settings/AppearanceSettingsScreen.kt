@@ -103,7 +103,7 @@ fun AppearanceSettingsScreen(
 
             SettingsGroup(
                 title = "Theme",
-                description = "Control the overall look and startup behavior of Khushu."
+//                description = "Control the overall look and startup behavior of Khushu."
             ) {
                 Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
                     SingleChoiceSegmentedButtonRow(
@@ -191,7 +191,7 @@ fun AppearanceSettingsScreen(
 
             SettingsGroup(
                 title = "Color",
-                description = "Use wallpaper-aware colors or choose a manual accent."
+//                description = "Use wallpaper-aware colors or choose a manual accent."
             ) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     SettingsToggleItem(

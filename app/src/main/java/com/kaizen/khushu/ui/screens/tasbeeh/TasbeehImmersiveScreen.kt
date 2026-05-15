@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -74,6 +75,7 @@ fun TasbeehImmersiveScreen(
     val haptics = LocalHapticFeedback.current
     val focusRequester = remember { FocusRequester() }
     val layout by canvasViewModel.layout.collectAsStateWithLifecycle()
+    val soundPlayer = remember { TasbihSoundPlayer(context) }
 
     BackHandler(onBack = onExit)
 
@@ -81,7 +83,10 @@ fun TasbeehImmersiveScreen(
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         controller?.hide(WindowInsetsCompat.Type.systemBars())
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+        onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+            soundPlayer.release()
+        }
     }
 
     var currentItemIndex by remember { mutableIntStateOf(0) }
@@ -112,9 +117,18 @@ fun TasbeehImmersiveScreen(
     var resetArmed by remember { mutableStateOf(false) }
     var showResetOverlay by remember { mutableStateOf(false) }
 
-    fun registerIncrement() {
+    fun playTasbihCollisionSound() {
+        if (settings.tasbihSoundEnabled) {
+            soundPlayer.play(settings.tasbihSoundId)
+        }
+    }
+
+    fun registerIncrement(playSound: Boolean = true) {
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         currentCount++
+        if (playSound) {
+            playTasbihCollisionSound()
+        }
         if (currentCount >= currentTarget) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             if (currentItemIndex < items.lastIndex) {
@@ -169,6 +183,7 @@ fun TasbeehImmersiveScreen(
                                 scaleX = widget.scale
                                 scaleY = widget.scale
                                 transformOrigin = TransformOrigin.Center
+                                clip = false
                             }
                         ) {
                             TasbihWidgetRenderer(
@@ -331,7 +346,23 @@ fun TasbeehImmersiveScreen(
                                         bottomBoundaryY - 2f * beadR - beadGap
                                     scope.launch {
                                         val moveJob = launch {
-                                            transitYAnim.animateTo(destY, spring(stiffness = 500f, dampingRatio = 0.85f))
+                                            if (transitFromBottom) {
+                                                val impactY = destY - (beadR * 0.22f)
+                                                transitYAnim.animateTo(
+                                                    impactY,
+                                                    tween(
+                                                        durationMillis = 135,
+                                                        easing = FastOutSlowInEasing
+                                                    )
+                                                )
+                                                playTasbihCollisionSound()
+                                                transitYAnim.animateTo(
+                                                    destY,
+                                                    tween(durationMillis = 70)
+                                                )
+                                            } else {
+                                                transitYAnim.animateTo(destY, spring(stiffness = 500f, dampingRatio = 0.85f))
+                                            }
                                         }
                                         val liftJob = launch {
                                             transitLiftAnim.animateTo(0f, tween(180))
@@ -342,7 +373,7 @@ fun TasbeehImmersiveScreen(
                                         val beadStep = beadR * 2.4f  // 2r + 0.4r gap in canvas pixels
                                         val slideDir = if (transitFromBottom) beadStep else -beadStep
                                         scrollOffsetAnim.snapTo(slideDir)
-                                        if (transitFromBottom) registerIncrement() else registerDecrement()
+                                        if (transitFromBottom) registerIncrement(playSound = false) else registerDecrement()
                                         isInTransit = false
                                         scrollOffsetAnim.animateTo(0f, spring(stiffness = 220f, dampingRatio = 0.88f))
                                     }
