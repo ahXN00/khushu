@@ -78,6 +78,7 @@ class SettingsRepository(private val context: Context) {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val DEVELOPER_WELCOME_DISMISSED = booleanPreferencesKey("developer_welcome_dismissed")
         val STUDY_NOTE_DISMISSED = booleanPreferencesKey("study_note_dismissed")
+        val LAST_SEEN_APP_VERSION_CODE = intPreferencesKey("last_seen_app_version_code")
 
         // Prayer Times & Location
         val PRAYER_CALCULATION_METHOD = stringPreferencesKey("prayer_calculation_method")
@@ -195,6 +196,7 @@ class SettingsRepository(private val context: Context) {
                 onboardingCompleted = preferences[PreferencesKeys.ONBOARDING_COMPLETED] ?: false,
                 developerWelcomeDismissed = preferences[PreferencesKeys.DEVELOPER_WELCOME_DISMISSED] ?: false,
                 studyNoteDismissed = preferences[PreferencesKeys.STUDY_NOTE_DISMISSED] ?: false,
+                lastSeenAppVersionCode = preferences[PreferencesKeys.LAST_SEEN_APP_VERSION_CODE] ?: 0,
                 prayerCalculationMethod = preferences[PreferencesKeys.PRAYER_CALCULATION_METHOD] ?: "MUSLIM_WORLD_LEAGUE",
                 prayerMadhab = preferences[PreferencesKeys.PRAYER_MADHAB] ?: "SHAFI",
                 locationLat = preferences[PreferencesKeys.LOCATION_LAT] ?: 21.4225f,
@@ -370,6 +372,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setStudyNoteDismissed(dismissed: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.STUDY_NOTE_DISMISSED] = dismissed }
+    }
+
+    suspend fun updateLastSeenAppVersionCode(versionCode: Int) {
+        context.dataStore.edit { it[PreferencesKeys.LAST_SEEN_APP_VERSION_CODE] = versionCode }
     }
 
 
@@ -608,6 +614,7 @@ data class UserSettings(
     val onboardingCompleted: Boolean = false,
     val developerWelcomeDismissed: Boolean = false,
     val studyNoteDismissed: Boolean = false,
+    val lastSeenAppVersionCode: Int = 0,
     val prayerCalculationMethod: String = "MUSLIM_WORLD_LEAGUE",
     val prayerMadhab: String = "SHAFI",
     val locationLat: Float = 21.4225f,

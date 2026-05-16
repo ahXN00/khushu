@@ -60,6 +60,7 @@ class SettingsViewModel(
             activeBeadStyleId = DEFAULT_CUSTOM_BEAD_STYLE_ID,
             tasbihSoundEnabled = true,
             tasbihSoundId = "1",
+            lastSeenAppVersionCode = 0,
         )
     )
 
@@ -203,6 +204,10 @@ class SettingsViewModel(
 
     fun setStudyNoteDismissed(dismissed: Boolean) {
         viewModelScope.launch { repository.setStudyNoteDismissed(dismissed) }
+    }
+
+    fun markReleaseNotesSeen(versionCode: Int) {
+        viewModelScope.launch { repository.updateLastSeenAppVersionCode(versionCode) }
     }
 
 

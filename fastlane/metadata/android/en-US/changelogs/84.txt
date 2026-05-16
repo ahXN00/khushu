@@ -1,0 +1,4 @@
+- Prayer completion now follows the real sequence.
+- Added bundled Tasbih sounds and fixed custom prayer alarm sound selection.
+- Fixed Arabic and RTL immersive layout issues for Salah, Tasbih, and the bottom nav indicator.
+- Polished the merged prayer card, sun path, and Home source/status surfaces.

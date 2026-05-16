@@ -51,6 +51,7 @@ import com.kaizen.khushu.data.local.CanvasDatabase
 import com.kaizen.khushu.data.model.CanvasPreset
 import com.kaizen.khushu.data.repository.AudioRepository
 import com.kaizen.khushu.data.repository.IslamicEventsRepository
+import com.kaizen.khushu.data.repository.ReleaseNotesRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.model.TasbeehCollection
 import com.kaizen.khushu.data.model.DhikrItem
@@ -59,6 +60,7 @@ import com.kaizen.khushu.notifications.PrayerNotificationScheduler
 import com.kaizen.khushu.notifications.toPrayerNotificationScheduleConfig
 import com.kaizen.khushu.ui.components.PillNavBar
 import com.kaizen.khushu.ui.components.DeveloperWelcomeDialog
+import com.kaizen.khushu.ui.components.ReleaseNotesDialog
 import com.kaizen.khushu.ui.navigation.*
 import com.kaizen.khushu.ui.screens.onboarding.OnboardingScreen
 import com.kaizen.khushu.ui.screens.home.HomeScreen
@@ -293,8 +295,11 @@ private fun KhushuApp(
     var showSettingsSheet by remember { mutableStateOf(false) }
     val navController = rememberNavController()
     val settings by settingsViewModel.settings.collectAsState()
+    val appContext = LocalContext.current.applicationContext
+    val releaseNotesRepository = remember(appContext) { ReleaseNotesRepository(appContext) }
     val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
     val screenContentPadding = systemBarsPadding.add(top = 64.dp, bottom = 86.dp)
+    var pendingReleaseNotes by remember { mutableStateOf<com.kaizen.khushu.data.model.ReleaseNote?>(null) }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -308,7 +313,31 @@ private fun KhushuApp(
         activity?.isOnTasbeehImmersive = currentRoute?.startsWith("tasbeeh/immersive") == true
     }
     val currentDestination = AppDestinations.fromRoute(currentRoute) ?: AppDestinations.SALAH
-    val showDeveloperWelcome = !settings.developerWelcomeDismissed && currentRoute != ONBOARDING_ROUTE
+    val showDeveloperWelcome =
+        !settings.developerWelcomeDismissed &&
+            currentRoute != ONBOARDING_ROUTE &&
+            pendingReleaseNotes == null
+
+    LaunchedEffect(currentRoute, settings.lastSeenAppVersionCode) {
+        if (currentRoute == ONBOARDING_ROUTE) return@LaunchedEffect
+
+        val currentVersionCode = BuildConfig.VERSION_CODE
+        when {
+            settings.lastSeenAppVersionCode == 0 -> {
+                settingsViewModel.markReleaseNotesSeen(currentVersionCode)
+                pendingReleaseNotes = null
+            }
+
+            settings.lastSeenAppVersionCode < currentVersionCode -> {
+                pendingReleaseNotes = releaseNotesRepository.noteForVersion(currentVersionCode)
+                if (pendingReleaseNotes == null) {
+                    settingsViewModel.markReleaseNotesSeen(currentVersionCode)
+                }
+            }
+
+            else -> pendingReleaseNotes = null
+        }
+    }
 
     val startRoute = remember {
         val saved = settingsViewModel.settings.value.startupTab
@@ -904,6 +933,16 @@ private fun KhushuApp(
                 onOpenSupport = {
                     settingsViewModel.setDeveloperWelcomeDismissed(true)
                     navController.navigate(SETTINGS_ABOUT_ROUTE)
+                }
+            )
+        }
+
+        pendingReleaseNotes?.let { note ->
+            ReleaseNotesDialog(
+                note = note,
+                onDismiss = {
+                    settingsViewModel.markReleaseNotesSeen(BuildConfig.VERSION_CODE)
+                    pendingReleaseNotes = null
                 }
             )
         }
