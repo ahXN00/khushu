@@ -396,10 +396,12 @@ private fun KhushuApp(
                         TasbeehScreen(
                             viewModel = tasbeehViewModel,
                             settingsViewModel = settingsViewModel,
+                            canvasViewModel = tasbeehCanvasViewModel,
                             onCollectionTap = { collection ->
                                 navController.navigate("tasbeeh/immersive/${collection.id}")
                             },
                             onEditCollection = { showCreateSheet = true },
+                            onCustomizeCanvas = { navController.navigate("tasbeeh/canvas") },
                             onSettingsClick = { showSettingsSheet = true },
                             hazeState = hazeState,
                             contentPadding = screenContentPadding
