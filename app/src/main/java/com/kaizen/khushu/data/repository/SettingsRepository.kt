@@ -116,6 +116,12 @@ class SettingsRepository(private val context: Context) {
         val SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME = booleanPreferencesKey("show_extra_prayer_timings_on_home")
         val SHOW_UPCOMING_EVENTS_ON_HOME = booleanPreferencesKey("show_upcoming_events_on_home")
         val ISLAMIC_EVENT_PERSPECTIVE = stringPreferencesKey("islamic_event_perspective")
+        val LOCATION_LABEL = stringPreferencesKey("location_label")
+        val WIDGET_BACKGROUND_COLOR = stringPreferencesKey("widget_background_color")
+        val WIDGET_BACKGROUND_OPACITY = floatPreferencesKey("widget_background_opacity")
+        val WIDGET_PANEL_COLOR = stringPreferencesKey("widget_panel_color")
+        val WIDGET_PANEL_OPACITY = floatPreferencesKey("widget_panel_opacity")
+        val WIDGET_FONT_COLOR = stringPreferencesKey("widget_font_color")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -231,9 +237,37 @@ class SettingsRepository(private val context: Context) {
                 extraPrayerNotifications = preferences[PreferencesKeys.EXTRA_PRAYER_NOTIFICATIONS] ?: emptySet(),
                 showExtraPrayerTimingsOnHome = preferences[PreferencesKeys.SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME] ?: false,
                 showUpcomingEventsOnHome = preferences[PreferencesKeys.SHOW_UPCOMING_EVENTS_ON_HOME] ?: true,
-                islamicEventPerspective = preferences[PreferencesKeys.ISLAMIC_EVENT_PERSPECTIVE] ?: "UNIVERSAL"
+                islamicEventPerspective = preferences[PreferencesKeys.ISLAMIC_EVENT_PERSPECTIVE] ?: "UNIVERSAL",
+                locationLabel = preferences[PreferencesKeys.LOCATION_LABEL] ?: "",
+                widgetBackgroundColor = preferences[PreferencesKeys.WIDGET_BACKGROUND_COLOR] ?: "#0D1D0F",
+                widgetBackgroundOpacity = preferences[PreferencesKeys.WIDGET_BACKGROUND_OPACITY] ?: 0.8f,
+                widgetPanelColor = preferences[PreferencesKeys.WIDGET_PANEL_COLOR] ?: "#000000",
+                widgetPanelOpacity = preferences[PreferencesKeys.WIDGET_PANEL_OPACITY] ?: 0.3f,
+                widgetFontColor = preferences[PreferencesKeys.WIDGET_FONT_COLOR] ?: "#FFFFFF"
             )
         }
+
+    suspend fun updateWidgetFontColor(color: String) {
+        context.dataStore.edit { it[PreferencesKeys.WIDGET_FONT_COLOR] = color }
+    }
+
+    suspend fun updateWidgetCustomization(
+        backgroundColor: String,
+        backgroundOpacity: Float,
+        panelColor: String,
+        panelOpacity: Float
+    ) {
+        context.dataStore.edit {
+            it[PreferencesKeys.WIDGET_BACKGROUND_COLOR] = backgroundColor
+            it[PreferencesKeys.WIDGET_BACKGROUND_OPACITY] = backgroundOpacity
+            it[PreferencesKeys.WIDGET_PANEL_COLOR] = panelColor
+            it[PreferencesKeys.WIDGET_PANEL_OPACITY] = panelOpacity
+        }
+    }
+
+    suspend fun updateLocationLabel(label: String) {
+        context.dataStore.edit { it[PreferencesKeys.LOCATION_LABEL] = label }
+    }
 
     suspend fun updateTasbeehStealthModeAllowed(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.TASBEEH_STEALTH_MODE_ALLOWED] = enabled }
@@ -649,5 +683,11 @@ data class UserSettings(
     val extraPrayerNotifications: Set<String> = emptySet(),
     val showExtraPrayerTimingsOnHome: Boolean = false,
     val showUpcomingEventsOnHome: Boolean = true,
-    val islamicEventPerspective: String = "UNIVERSAL"
+    val islamicEventPerspective: String = "UNIVERSAL",
+    val locationLabel: String = "",
+    val widgetBackgroundColor: String = "#0D1D0F",
+    val widgetBackgroundOpacity: Float = 0.8f,
+    val widgetPanelColor: String = "#000000",
+    val widgetPanelOpacity: Float = 0.3f,
+    val widgetFontColor: String = "#FFFFFF"
 )

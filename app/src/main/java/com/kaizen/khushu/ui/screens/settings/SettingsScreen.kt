@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateCounter: () -> Unit,
     onNavigateAppearance: () -> Unit,
+    onNavigateWidget: () -> Unit,
     onNavigatePrayer: () -> Unit,
     onNavigateAbout: () -> Unit,
     onBack: () -> Unit
@@ -64,6 +66,13 @@ fun SettingsScreen(
                     subtitle = "Theme, colors, and startup screen",
                     imageVector = Icons.Default.ColorLens,
                     onClick = onNavigateAppearance
+                )
+
+                SettingsMenuItem(
+                    title = "Widget",
+                    subtitle = "Custom backgrounds and transparency",
+                    imageVector = Icons.Default.Layers,
+                    onClick = onNavigateWidget
                 )
 
                 SettingsMenuItem(

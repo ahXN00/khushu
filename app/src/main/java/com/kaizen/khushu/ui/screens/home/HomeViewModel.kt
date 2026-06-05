@@ -341,6 +341,7 @@ class HomeViewModel(
             lastPrayerRefreshEpochMs = settings.lastPrayerRefreshEpochMs,
             locationLat = settings.locationLat,
             locationLng = settings.locationLng,
+            locationLabel = settings.locationLabel,
             calculationSource = if (isApiSource) CalculationSource.API else CalculationSource.LOCAL,
             showExtraPrayerTimingsOnHome = settings.showExtraPrayerTimingsOnHome,
             showUpcomingEventsOnHome = settings.showUpcomingEventsOnHome

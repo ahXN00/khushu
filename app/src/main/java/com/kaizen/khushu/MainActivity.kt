@@ -643,6 +643,9 @@ private fun KhushuApp(
                             onNavigateAppearance = {
                                 navController.navigate(SETTINGS_APPEARANCE_ROUTE)
                             },
+                            onNavigateWidget = {
+                                navController.navigate(SETTINGS_WIDGET_ROUTE)
+                            },
                             onNavigatePrayer = {
                                 navController.navigate(com.kaizen.khushu.ui.navigation.SETTINGS_PRAYER_ROUTE)
                             },
@@ -689,6 +692,19 @@ private fun KhushuApp(
                         popExitTransition = { subScreenPopExit() },
                     ) {
                         PrayerSettingsScreen(
+                            viewModel = settingsViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = SETTINGS_WIDGET_ROUTE,
+                        enterTransition = { subScreenEnter() },
+                        exitTransition = { subScreenExit() },
+                        popEnterTransition = { subScreenPopEnter() },
+                        popExitTransition = { subScreenPopExit() },
+                    ) {
+                        WidgetSettingsScreen(
                             viewModel = settingsViewModel,
                             onBack = { navController.popBackStack() }
                         )

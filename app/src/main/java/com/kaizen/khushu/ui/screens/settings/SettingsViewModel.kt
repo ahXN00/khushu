@@ -3,8 +3,10 @@ package com.kaizen.khushu.ui.screens.settings
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -17,13 +19,19 @@ import com.kaizen.khushu.data.repository.QuranScriptFontRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.repository.UserSettings
 import com.kaizen.khushu.util.AppIconManager
+import com.kaizen.khushu.widget.PrayerWidgetProvider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
+import java.util.concurrent.CountDownLatch
 
 class SettingsViewModel(
     private val repository: SettingsRepository,
@@ -83,6 +91,44 @@ class SettingsViewModel(
                     hasAttemptedGpsRefresh = false
                 }
             }
+        }
+
+        viewModelScope.launch {
+            settings.map { it.locationLat to it.locationLng }
+                .distinctUntilChanged()
+                .collect { (lat, lng) ->
+                    resolveAndSaveLocationLabel(lat, lng)
+                }
+        }
+    }
+
+    private fun resolveAndSaveLocationLabel(lat: Float, lng: Float) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val label = runCatching {
+                val geocoder = Geocoder(appContext, Locale.getDefault())
+                val addresses = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val results = mutableListOf<android.location.Address>()
+                    val latch = CountDownLatch(1)
+                    geocoder.getFromLocation(lat.toDouble(), lng.toDouble(), 1) { found ->
+                        results += found
+                        latch.countDown()
+                    }
+                    latch.await()
+                    results
+                } else {
+                    @Suppress("DEPRECATION")
+                    geocoder.getFromLocation(lat.toDouble(), lng.toDouble(), 1).orEmpty()
+                }
+
+                val best = addresses.firstOrNull()
+                listOfNotNull(
+                    best?.locality?.takeIf { it.isNotBlank() },
+                    best?.subAdminArea?.takeIf { it.isNotBlank() },
+                    best?.adminArea?.takeIf { it.isNotBlank() }
+                ).firstOrNull()
+            }.getOrNull() ?: "Your area"
+
+            repository.updateLocationLabel(label)
         }
     }
 
@@ -430,6 +476,25 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateIslamicEventPerspective(perspective) }
     }
 
+    fun updateWidgetCustomization(
+        backgroundColor: String,
+        backgroundOpacity: Float,
+        panelColor: String,
+        panelOpacity: Float,
+        fontColor: String? = null
+    ) {
+        viewModelScope.launch {
+            repository.updateWidgetCustomization(
+                backgroundColor,
+                backgroundOpacity,
+                panelColor,
+                panelOpacity
+            )
+            fontColor?.let { repository.updateWidgetFontColor(it) }
+            PrayerWidgetProvider.forceWidgetRefresh(appContext)
+        }
+    }
+
     fun refreshLocation() {
         val hasFineLocation =
             ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -450,34 +515,36 @@ class SettingsViewModel(
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 add(LocationManager.GPS_PROVIDER)
             }
-            if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
-                add(LocationManager.PASSIVE_PROVIDER)
-            }
         }
-        if (enabledProviders.isEmpty()) return
+        if (enabledProviders.isEmpty()) {
+            Toast.makeText(appContext, "No location providers enabled. Please check your system settings.", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         try {
-            enabledProviders
-                .asSequence()
-                .mapNotNull { provider -> locationManager.getLastKnownLocation(provider) }
-                .maxByOrNull(Location::getTime)
-                ?.let { lastKnown ->
-                    setLocation(lastKnown.latitude.toFloat(), lastKnown.longitude.toFloat())
-                    return
-                }
-
+            // Try to get a fresh location first
             val provider = when {
                 locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
                 locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
                 else -> enabledProviders.first()
             }
+
             locationManager.getCurrentLocation(provider, null, appContext.mainExecutor) { currentLocation ->
-                currentLocation?.let {
-                    setLocation(it.latitude.toFloat(), it.longitude.toFloat())
+                if (currentLocation != null) {
+                    setLocation(currentLocation.latitude.toFloat(), currentLocation.longitude.toFloat())
+                } else {
+                    // Fallback to last known if current fails
+                    enabledProviders
+                        .asSequence()
+                        .mapNotNull { p -> locationManager.getLastKnownLocation(p) }
+                        .maxByOrNull(Location::getTime)
+                        ?.let { lastKnown ->
+                            setLocation(lastKnown.latitude.toFloat(), lastKnown.longitude.toFloat())
+                        }
                 }
             }
         } catch (e: SecurityException) {
-            // Permission checks happen above; ignore if the platform still denies.
+            // Permission checks happen above
         }
     }
 

@@ -353,39 +353,6 @@ private fun HomeHijriBadge(
     }
 }
 
-private suspend fun resolveLocationLabel(context: Context, lat: Float, lng: Float): String {
-    return withContext(Dispatchers.IO) {
-        runCatching {
-                    val geocoder = Geocoder(context, Locale.getDefault())
-                    val addresses =
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                val results = mutableListOf<android.location.Address>()
-                                val latch = CountDownLatch(1)
-                                geocoder.getFromLocation(lat.toDouble(), lng.toDouble(), 1) { found
-                                    ->
-                                    results += found
-                                    latch.countDown()
-                                }
-                                latch.await()
-                                results
-                            } else {
-                                geocoder.getFromLocation(lat.toDouble(), lng.toDouble(), 1)
-                                        .orEmpty()
-                            }
-
-                    val best = addresses.firstOrNull()
-                    listOfNotNull(
-                                    best?.locality?.takeIf { it.isNotBlank() },
-                                    best?.subAdminArea?.takeIf { it.isNotBlank() },
-                                    best?.adminArea?.takeIf { it.isNotBlank() }
-                            )
-                            .firstOrNull()
-                }
-                .getOrNull()
-                ?: "Your area"
-    }
-}
-
 @Composable
 private fun KhushuPullRefreshIndicator(
         progress: Float,
@@ -464,7 +431,6 @@ fun HomeScreen(
         modifier: Modifier = Modifier,
 ) {
     val darkTheme = isSystemInDarkTheme()
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -569,25 +535,7 @@ fun HomeScreen(
     }
 
     val doneCount = doneStates.values.count { it }
-    val locationLabel by
-            produceState(
-                    initialValue = uiState.locationLabel.ifBlank { "Your area" },
-                    context,
-                    uiState.locationLat,
-                    uiState.locationLng,
-                    uiState.locationLabel
-            ) {
-                value =
-                        when {
-                            uiState.locationLabel.isNotBlank() -> uiState.locationLabel
-                            else ->
-                                    resolveLocationLabel(
-                                            context.applicationContext,
-                                            uiState.locationLat,
-                                            uiState.locationLng
-                                    )
-                        }
-            }
+    val locationLabel = uiState.locationLabel.ifBlank { "Your area" }
     val pullProgress = (pullOffsetPx / refreshThresholdPx).coerceIn(0f, 1f)
 
     // Detect how much of the PrayerSlab (always the last LazyColumn item) is visible.

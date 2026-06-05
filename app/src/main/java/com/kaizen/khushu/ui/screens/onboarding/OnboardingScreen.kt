@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,7 +49,7 @@ fun OnboardingScreen(
     settingsViewModel: SettingsViewModel,
     onComplete: () -> Unit
 ) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
     val settings by settingsViewModel.settings.collectAsState()
 
@@ -93,7 +94,8 @@ fun OnboardingScreen(
             when (page) {
                 0 -> PageIdentity(pageOffset)
                 1 -> PageEcosystem(pageOffset)
-                2 -> PageCommandCenter(settingsViewModel, pageOffset)
+                2 -> PageLocation(settingsViewModel, pageOffset)
+                3 -> PageCommandCenter(settingsViewModel, pageOffset)
             }
         }
 
@@ -124,10 +126,9 @@ fun OnboardingScreen(
             }
 
             // Morphing Next/Begin Button
-            // Morphing Next/Begin Button
             FloatingActionButton(
                 onClick = {
-                    if (pagerState.currentPage < 2) {
+                    if (pagerState.currentPage < 3) {
                         coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                     } else {
                         isRevealing = true
@@ -145,7 +146,7 @@ fun OnboardingScreen(
                         )
                     }
             ) {
-                if (pagerState.currentPage == 2) {
+                if (pagerState.currentPage == 3) {
                     Text("Begin", modifier = Modifier.padding(horizontal = 24.dp), fontFamily = BeVietnamPro, fontWeight = FontWeight.Bold)
                 } else {
                     Icon(Icons.Default.ArrowForward, contentDescription = "Next")
@@ -242,6 +243,86 @@ private fun PageEcosystem(offset: Float) {
             title = "Tasbeeh Engine",
             subtitle = "Haptic precision & OLED stealth",
             modifier = Modifier.fillMaxWidth().height(140.dp).graphicsLayer { translationX = offset * 600f }
+        )
+    }
+}
+
+@Composable
+private fun PageLocation(viewModel: SettingsViewModel, offset: Float) {
+    val settings by viewModel.settings.collectAsState()
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        ) {
+            viewModel.toggleUseGpsLocation(true)
+            viewModel.refreshLocation()
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp).padding(top = 48.dp).graphicsLayer { translationX = offset * 250f }
+    ) {
+        Text("Your Presence", fontFamily = Antonio, fontSize = 42.sp, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Accurate prayer times require your coordinates. Khushu can find them automatically or you can set them later.",
+            fontFamily = BeVietnamPro,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Surface(
+            onClick = {
+                permissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            },
+            shape = RoundedCornerShape(24.dp),
+            color = if (settings.useGpsLocation) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(modifier = Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.MyLocation, 
+                    contentDescription = null, 
+                    tint = if (settings.useGpsLocation) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        "Locate Me", 
+                        fontFamily = BeVietnamPro, 
+                        fontWeight = FontWeight.Bold,
+                        color = if (settings.useGpsLocation) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                    )
+                    if (settings.useGpsLocation) {
+                        Text(
+                            "Coordinates locked.",
+                            fontFamily = BeVietnamPro,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            "Privacy Note: Your location never leaves this device. It is used strictly for offline astronomical calculations.",
+            fontFamily = BeVietnamPro,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
