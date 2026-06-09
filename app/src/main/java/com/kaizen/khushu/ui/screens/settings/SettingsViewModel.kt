@@ -113,7 +113,7 @@ class SettingsViewModel(
                         results += found
                         latch.countDown()
                     }
-                    latch.await()
+                    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
                     results
                 } else {
                     @Suppress("DEPRECATION")

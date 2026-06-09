@@ -17,7 +17,10 @@ import com.kaizen.khushu.R
 import com.kaizen.khushu.data.repository.PrayerTimeRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.repository.UserSettings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.text.SimpleDateFormat
 import java.util.*
@@ -26,15 +29,23 @@ import java.util.concurrent.CountDownLatch
 class PrayerWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        for (appWidgetId in appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId)
+        val pendingResult = goAsync()
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            try {
+                for (appWidgetId in appWidgetIds) {
+                    updateAppWidget(context, appWidgetManager, appWidgetId)
+                }
+            } finally {
+                pendingResult.finish()
+            }
         }
     }
 
     companion object {
         private const val TAG = "PrayerWidgetProvider"
 
-        fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+        suspend fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_prayer_times)
 
             // 0. OPEN APP ON CLICK
@@ -48,8 +59,7 @@ class PrayerWidgetProvider : AppWidgetProvider() {
             val settingsRepository = SettingsRepository(context)
             val prayerTimeRepository = PrayerTimeRepository(settingsRepository)
 
-            runBlocking {
-                try {
+            try {
                     val settings = settingsRepository.settingsFlow.first()
                     val nowMs = System.currentTimeMillis()
                     val nowDate = Date(nowMs)
@@ -74,7 +84,7 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                     // 3. PRAYER TIMES
                     val effectiveTimes = prayerTimeRepository.getEffectivePrayerDateTimes(nowDate, settings)
                     val extraTimes = prayerTimeRepository.getExtraPrayerDateTimes(nowDate, settings)
-                    val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+                    val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
 
                     val prayers = listOf("Fajr", "Shuruq", "Dhuhr", "Asr", "Maghrib", "Isha")
                     val prayerIds = mapOf(
@@ -97,8 +107,9 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                     }
 
                     // 4. ACTIVE PRAYER & TICKING COUNTDOWN
-                    val orderedTimes = prayers.map { 
-                        it to (if (it == "Shuruq") extraTimes["SUNRISE"]?.time ?: 0L else effectiveTimes[it]?.time ?: 0L)
+                    val orderedTimes = prayers.mapNotNull { name ->
+                        val time = if (name == "Shuruq") extraTimes["SUNRISE"] else effectiveTimes[name]
+                        time?.let { name to it.time }
                     }
                     
                     val currentPrayer = orderedTimes.lastOrNull { it.second <= nowMs }?.first ?: "Isha"
@@ -118,9 +129,13 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                     }
 
                     // Setup Chronometer for ticking countdown
-                    val base = SystemClock.elapsedRealtime() + (nextPrayerTimeMs - nowMs)
-                    views.setChronometer(R.id.text_countdown, base, "$nextPrayerName: %s", true)
-                    views.setChronometerCountDown(R.id.text_countdown, true)
+                    if (nextPrayerTimeMs > nowMs) {
+                        val base = SystemClock.elapsedRealtime() + (nextPrayerTimeMs - nowMs)
+                        views.setChronometer(R.id.text_countdown, base, "$nextPrayerName in %s", true)
+                        views.setChronometerCountDown(R.id.text_countdown, true)
+                    } else {
+                        views.setChronometer(R.id.text_countdown, 0L, "$nextPrayerName in --:--", false)
+                    }
 
                     // 5. CUSTOMIZATION (Colors & Transparency)
                     applyCustomization(views, settings)
@@ -132,7 +147,6 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error updating app widget", e)
                 }
-            }
         }
 
         private fun applyCustomization(views: RemoteViews, settings: UserSettings) {
@@ -150,7 +164,6 @@ class PrayerWidgetProvider : AppWidgetProvider() {
             val fontColor = Color.parseColor(settings.widgetFontColor)
             val subFontColor = (0x99 shl 24) or (fontColor and 0x00FFFFFF)
             
-            views.setTextViewText(R.id.text_gregorian_date, SimpleDateFormat("EEE, d MMMM", Locale.getDefault()).format(Date()))
             views.setTextColor(R.id.text_gregorian_date, fontColor)
             views.setTextColor(R.id.text_hijri_date, fontColor)
             views.setTextColor(R.id.text_location, subFontColor)
@@ -220,7 +233,7 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                         results += found
                         latch.countDown()
                     }
-                    latch.await()
+                    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
                     results
                 } else {
                     @Suppress("DEPRECATION")
