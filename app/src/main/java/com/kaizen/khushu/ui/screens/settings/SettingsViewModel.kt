@@ -113,7 +113,7 @@ class SettingsViewModel(
                         results += found
                         latch.countDown()
                     }
-                    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+                    latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
                     results
                 } else {
                     @Suppress("DEPRECATION")
@@ -126,9 +126,12 @@ class SettingsViewModel(
                     best?.subAdminArea?.takeIf { it.isNotBlank() },
                     best?.adminArea?.takeIf { it.isNotBlank() }
                 ).firstOrNull()
-            }.getOrNull() ?: "Your area"
+            }.getOrNull()
 
-            repository.updateLocationLabel(label)
+            if (label != null) {
+                repository.updateLocationLabel(label)
+                PrayerWidgetProvider.forceWidgetRefresh(appContext)
+            }
         }
     }
 
@@ -415,11 +418,20 @@ class SettingsViewModel(
     }
 
     fun setLocation(lat: Float, lng: Float) {
-        viewModelScope.launch { repository.updateLocation(lat, lng) }
+        viewModelScope.launch {
+            repository.updateLocation(lat, lng)
+            PrayerWidgetProvider.forceWidgetRefresh(appContext)
+        }
     }
 
     fun toggleUseGpsLocation(enabled: Boolean) {
-        viewModelScope.launch { repository.updateUseGpsLocation(enabled) }
+        viewModelScope.launch {
+            repository.updateUseGpsLocation(enabled)
+            if (enabled) {
+                refreshLocation()
+            }
+            PrayerWidgetProvider.forceWidgetRefresh(appContext)
+        }
     }
 
     fun setPrayerSourceType(source: String) {
