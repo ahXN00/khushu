@@ -8,11 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.location.Address
-import android.location.Geocoder
-import android.location.Location
 import android.location.LocationManager
-import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import android.widget.RemoteViews
@@ -22,13 +18,13 @@ import com.kaizen.khushu.R
 import com.kaizen.khushu.data.repository.PrayerTimeRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.repository.UserSettings
+import com.kaizen.khushu.util.LocationUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.concurrent.CountDownLatch
 
 class PrayerWidgetProvider : AppWidgetProvider() {
 
@@ -65,7 +61,11 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                     }
                 }
 
-                val locationLabel = settings.locationLabel.ifBlank { resolveLocationLabel(context, settings) }
+                val locationLabel = if (LocationUtil.isGenericLabel(settings.locationLabel)) {
+                    LocationUtil.resolveLocationName(context, settings.locationLat.toDouble(), settings.locationLng.toDouble()) ?: "Your Area"
+                } else {
+                    settings.locationLabel
+                }
 
                 for (appWidgetId in appWidgetIds) {
                     updateAppWidget(context, appWidgetManager, appWidgetId, settings, locationLabel)
@@ -251,43 +251,6 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                 views.setInt(timeId, "setBackgroundResource", R.drawable.widget_active_pill)
                 views.setTextColor(timeId, Color.BLACK)
             }
-        }
-
-        @Suppress("DEPRECATION")
-        private fun resolveLocationLabel(context: Context, settings: UserSettings): String {
-            if (settings.locationLat == 0f && settings.locationLng == 0f) return "Your Area"
-
-            return runCatching {
-                val geocoder = Geocoder(context, Locale.getDefault())
-                val addresses = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val results = mutableListOf<Address>()
-                    val latch = CountDownLatch(1)
-                    geocoder.getFromLocation(
-                        settings.locationLat.toDouble(),
-                        settings.locationLng.toDouble(),
-                        1
-                    ) { found ->
-                        results += found
-                        latch.countDown()
-                    }
-                    latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
-                    results
-                } else {
-                    @Suppress("DEPRECATION")
-                    geocoder.getFromLocation(
-                        settings.locationLat.toDouble(),
-                        settings.locationLng.toDouble(),
-                        1
-                    ).orEmpty()
-                }
-
-                val best = addresses.firstOrNull()
-                listOfNotNull(
-                    best?.locality?.takeIf { it.isNotBlank() },
-                    best?.subAdminArea?.takeIf { it.isNotBlank() },
-                    best?.adminArea?.takeIf { it.isNotBlank() }
-                ).firstOrNull()
-            }.getOrNull() ?: "Your Area"
         }
 
         fun forceWidgetRefresh(context: Context) {
